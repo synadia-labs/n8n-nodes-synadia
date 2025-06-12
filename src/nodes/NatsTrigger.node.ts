@@ -15,10 +15,11 @@ export class NatsTrigger implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'NATS Trigger',
 		name: 'natsTrigger',
-		icon: 'file:nats.svg',
+		icon: 'file:../icons/nats.svg',
 		group: ['trigger'],
 		version: 1,
 		description: 'Trigger workflows on NATS messages',
+		subtitle: '={{$parameter["subject"]}}',
 		defaults: {
 			name: 'NATS Trigger',
 		},

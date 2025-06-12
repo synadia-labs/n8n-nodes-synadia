@@ -1,6 +1,6 @@
-# n8n-nodes-nats
+# n8n-nodes-synadia
 
-This package provides [NATS](https://nats.io) nodes for [n8n](https://n8n.io), enabling workflow automation with NATS messaging system. It supports both Core NATS and JetStream functionality.
+Official [Synadia](https://synadia.com) nodes for [n8n](https://n8n.io), providing seamless integration with [NATS](https://nats.io) messaging system. Built and maintained by the creators of NATS, these nodes support both Core NATS and JetStream functionality for reliable workflow automation.
 
 ## Features
 
@@ -17,7 +17,7 @@ This package provides [NATS](https://nats.io) nodes for [n8n](https://n8n.io), e
 ### In n8n
 
 1. Go to **Settings** > **Community Nodes**
-2. Search for `n8n-nodes-nats`
+2. Search for `n8n-nodes-synadia`
 3. Click **Install**
 
 ### Manual Installation
@@ -27,10 +27,10 @@ This package provides [NATS](https://nats.io) nodes for [n8n](https://n8n.io), e
 cd ~/.n8n/custom
 
 # Clone or download this repository
-git clone https://github.com/synadia/n8n-nats-nodes.git
+git clone https://github.com/synadia/n8n-nodes-synadia.git
 
 # Install dependencies
-cd n8n-nats-nodes
+cd n8n-nodes-synadia
 npm install
 
 # Build the nodes
@@ -41,8 +41,8 @@ npm run build
 
 ```bash
 # Clone the repository
-git clone https://github.com/synadia/n8n-nats-nodes.git
-cd n8n-nats-nodes
+git clone https://github.com/synadia/n8n-nodes-synadia.git
+cd n8n-nodes-synadia
 
 # Install dependencies
 npm install
@@ -52,7 +52,7 @@ npm run build
 npm link
 
 # In your n8n installation
-npm link n8n-nodes-nats
+npm link n8n-nodes-synadia
 ```
 
 ## Nodes
@@ -117,7 +117,7 @@ The NATS credential supports multiple authentication methods:
   "nodes": [
     {
       "name": "NATS Publisher",
-      "type": "n8n-nodes-nats.natsPublisher",
+      "type": "n8n-nodes-synadia.natsPublisher",
       "parameters": {
         "subject": "orders.new",
         "message": "={{ JSON.stringify($json) }}"
@@ -134,7 +134,7 @@ The NATS credential supports multiple authentication methods:
   "nodes": [
     {
       "name": "NATS Trigger",
-      "type": "n8n-nodes-nats.natsTrigger",
+      "type": "n8n-nodes-synadia.natsTrigger",
       "parameters": {
         "subscriptionType": "jetstream",
         "subject": "events.>",
@@ -157,7 +157,7 @@ The NATS credential supports multiple authentication methods:
   "nodes": [
     {
       "name": "NATS Worker",
-      "type": "n8n-nodes-nats.natsTrigger",
+      "type": "n8n-nodes-synadia.natsTrigger",
       "parameters": {
         "subject": "work.items",
         "queueGroup": "workers"
@@ -297,6 +297,6 @@ Contributions are welcome! Please:
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/synadia/n8n-nats-nodes/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/synadia/n8n-nats-nodes/discussions)
+- **Issues**: [GitHub Issues](https://github.com/synadia/n8n-nodes-synadia/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/synadia/n8n-nodes-synadia/discussions)
 - **NATS Support**: [Synadia Support](https://synadia.com/support)

@@ -14,10 +14,11 @@ export class NatsPublisher implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'NATS Publisher',
 		name: 'natsPublisher',
-		icon: 'file:nats.svg',
+		icon: 'file:../icons/nats.svg',
 		group: ['output'],
 		version: 1,
 		description: 'Publish messages to NATS',
+		subtitle: '={{$parameter["subject"]}}',
 		defaults: {
 			name: 'NATS Publisher',
 		},

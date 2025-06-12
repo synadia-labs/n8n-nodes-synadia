@@ -1,10 +1,19 @@
 {
-  "name": "n8n-nodes-nats",
+  "name": "n8n-nodes-synadia",
   "version": "0.1.0",
-  "description": "NATS nodes for n8n workflow automation",
+  "description": "Synadia NATS nodes for n8n workflow automation",
   "main": "dist/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/synadia/n8n-nodes-synadia.git"
+  },
+  "bugs": {
+    "url": "https://github.com/synadia/n8n-nodes-synadia/issues"
+  },
+  "homepage": "https://github.com/synadia/n8n-nodes-synadia#readme",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run copy:icons",
+    "copy:icons": "cp -r src/icons dist/",
     "dev": "tsc --watch",
     "lint": "eslint src --ext .ts",
     "lint:n8n": "eslint 'src/**/*.ts' --ignore-pattern '**/*.test.ts' --ignore-pattern '**/*.spec.ts'",
@@ -23,6 +32,9 @@
   "author": "Synadia",
   "license": "ISC",
   "type": "commonjs",
+  "files": [
+    "dist/**/*"
+  ],
   "n8n": {
     "n8nNodesApiVersion": 1,
     "credentials": [

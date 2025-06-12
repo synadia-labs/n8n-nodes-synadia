@@ -1,4 +1,4 @@
-# N8N NATS Nodes Linting Configuration
+# N8N Synadia Nodes Linting Configuration
 
 This project uses ESLint with the official N8N nodes linting plugin (`eslint-plugin-n8n-nodes-base`) to ensure code quality and N8N compatibility.
 
