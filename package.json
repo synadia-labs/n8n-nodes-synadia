@@ -1,0 +1,38 @@
+{
+  "name": "n8n-nodes-nats",
+  "version": "0.1.0",
+  "description": "NATS nodes for n8n workflow automation",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint src --ext .ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["n8n", "nats", "jetstream", "messaging", "workflow", "automation"],
+  "author": "Synadia",
+  "license": "ISC",
+  "type": "commonjs",
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/Nats.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/NatsTrigger.node.js",
+      "dist/nodes/NatsPublisher.node.js"
+    ]
+  },
+  "dependencies": {
+    "n8n-core": "^1.14.1",
+    "n8n-workflow": "^1.82.0",
+    "nats": "^2.29.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.1",
+    "@typescript-eslint/eslint-plugin": "^8.34.0",
+    "@typescript-eslint/parser": "^8.34.0",
+    "eslint": "^9.28.0",
+    "typescript": "^5.8.3"
+  }
+}
