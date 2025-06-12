@@ -5,9 +5,9 @@ import {
 	INodeProperties,
 } from 'n8n-workflow';
 
-export class Nats implements ICredentialType {
-	name = 'nats';
-	displayName = 'NATS';
+export class NatsApi implements ICredentialType {
+	name = 'natsApi';
+	displayName = 'NATS API';
 	documentationUrl = 'https://docs.nats.io';
 	properties: INodeProperties[] = [
 		{
@@ -16,19 +16,14 @@ export class Nats implements ICredentialType {
 			type: 'options',
 			options: [
 				{
-					name: 'URL',
-					value: 'url',
-					description: 'Connect using NATS URL(s)',
-				},
-				{
 					name: 'Credentials',
 					value: 'credentials',
 					description: 'Connect using username/password',
 				},
 				{
-					name: 'Token',
-					value: 'token',
-					description: 'Connect using auth token',
+					name: 'JWT',
+					value: 'jwt',
+					description: 'Connect using JWT authentication',
 				},
 				{
 					name: 'NKey',
@@ -36,9 +31,14 @@ export class Nats implements ICredentialType {
 					description: 'Connect using NKey authentication',
 				},
 				{
-					name: 'JWT',
-					value: 'jwt',
-					description: 'Connect using JWT authentication',
+					name: 'Token',
+					value: 'token',
+					description: 'Connect using auth token',
+				},
+				{
+					name: 'URL',
+					value: 'url',
+					description: 'Connect using NATS URL(s)',
 				},
 			],
 			default: 'url',
@@ -211,21 +211,21 @@ export class Nats implements ICredentialType {
 					description: 'Maximum number of reconnect attempts (-1 for infinite)',
 				},
 				{
-					displayName: 'Reconnect Time Wait (ms)',
+					displayName: 'Reconnect Time Wait (Ms)',
 					name: 'reconnectTimeWait',
 					type: 'number',
 					default: 2000,
 					description: 'Time to wait between reconnect attempts',
 				},
 				{
-					displayName: 'Connection Timeout (ms)',
+					displayName: 'Connection Timeout (Ms)',
 					name: 'timeout',
 					type: 'number',
 					default: 20000,
 					description: 'Connection timeout in milliseconds',
 				},
 				{
-					displayName: 'Ping Interval (ms)',
+					displayName: 'Ping Interval (Ms)',
 					name: 'pingInterval',
 					type: 'number',
 					default: 120000,

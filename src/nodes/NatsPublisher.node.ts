@@ -6,7 +6,7 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection, JetStreamClient } from 'nats';
+import { NatsConnection } from 'nats';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { encodeMessage, createNatsHeaders, validateSubject } from '../utils/NatsHelpers';
 
@@ -25,7 +25,7 @@ export class NatsPublisher implements INodeType {
 		outputs: [NodeConnectionType.Main],
 		credentials: [
 			{
-				name: 'nats',
+				name: 'natsApi',
 				required: true,
 			},
 		],
@@ -127,7 +127,7 @@ export class NatsPublisher implements INodeType {
 						description: 'Optional reply-to subject',
 					},
 					{
-						displayName: 'Timeout (ms)',
+						displayName: 'Timeout (Ms)',
 						name: 'timeout',
 						type: 'number',
 						default: 5000,
@@ -189,7 +189,7 @@ export class NatsPublisher implements INodeType {
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
-		const credentials = await this.getCredentials('nats');
+		const credentials = await this.getCredentials('natsApi');
 		
 		let nc: NatsConnection;
 		
@@ -211,7 +211,7 @@ export class NatsPublisher implements INodeType {
 					if (options.encoding === 'json') {
 						try {
 							messageData = typeof message === 'string' ? JSON.parse(message) : message;
-						} catch (e: any) {
+						} catch {
 							messageData = message;
 						}
 					} else {

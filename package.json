@@ -7,16 +7,26 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "lint": "eslint src --ext .ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "lint:n8n": "eslint 'src/**/*.ts' --ignore-pattern '**/*.test.ts' --ignore-pattern '**/*.spec.ts'",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
-  "keywords": ["n8n", "nats", "jetstream", "messaging", "workflow", "automation"],
+  "keywords": [
+    "n8n",
+    "nats",
+    "jetstream",
+    "messaging",
+    "workflow",
+    "automation"
+  ],
   "author": "Synadia",
   "license": "ISC",
   "type": "commonjs",
   "n8n": {
     "n8nNodesApiVersion": 1,
     "credentials": [
-      "dist/credentials/Nats.credentials.js"
+      "dist/credentials/NatsApi.credentials.js"
     ],
     "nodes": [
       "dist/nodes/NatsTrigger.node.js",
@@ -29,10 +39,16 @@
     "nats": "^2.29.3"
   },
   "devDependencies": {
+    "@eslint/js": "^9.28.0",
+    "@types/jest": "^29.5.14",
     "@types/node": "^24.0.1",
     "@typescript-eslint/eslint-plugin": "^8.34.0",
     "@typescript-eslint/parser": "^8.34.0",
     "eslint": "^9.28.0",
+    "eslint-plugin-n8n-nodes-base": "^1.16.3",
+    "jest": "^30.0.0",
+    "n8n-node-dev": "^0.100.0",
+    "ts-jest": "^29.4.0",
     "typescript": "^5.8.3"
   }
 }

@@ -1,5 +1,5 @@
 import { ICredentialDataDecryptedObject, IExecuteFunctions, ILoadOptionsFunctions, ITriggerFunctions } from 'n8n-workflow';
-import { connect, NatsConnection, ConnectionOptions, credsAuthenticator, jwtAuthenticator, nkeyAuthenticator } from 'nats';
+import { connect, NatsConnection, ConnectionOptions, jwtAuthenticator, nkeyAuthenticator } from 'nats';
 
 export type NatsCredentials = {
 	connectionType: 'url' | 'credentials' | 'token' | 'nkey' | 'jwt';
@@ -25,7 +25,7 @@ export type NatsCredentials = {
 
 export async function createNatsConnection(
 	credentials: ICredentialDataDecryptedObject,
-	context?: IExecuteFunctions | ITriggerFunctions | ILoadOptionsFunctions,
+	_context?: IExecuteFunctions | ITriggerFunctions | ILoadOptionsFunctions,
 ): Promise<NatsConnection> {
 	const creds = credentials as unknown as NatsCredentials;
 	const servers = creds.servers.split(',').map(s => s.trim());

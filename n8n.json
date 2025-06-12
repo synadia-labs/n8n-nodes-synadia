@@ -4,6 +4,6 @@
     "dist/nodes/NatsPublisher.node.js"
   ],
   "credentials": [
-    "dist/credentials/Nats.credentials.js"
+    "dist/credentials/NatsApi.credentials.js"
   ]
 }

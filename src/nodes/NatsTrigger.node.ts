@@ -4,9 +4,10 @@ import {
 	INodeTypeDescription,
 	ITriggerResponse,
 	IDataObject,
+	ApplicationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection, Subscription, JetStreamClient, JetStreamManager, ConsumerConfig, consumerOpts } from 'nats';
+import { NatsConnection, Subscription, consumerOpts } from 'nats';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { parseNatsMessage, validateSubject } from '../utils/NatsHelpers';
 
@@ -25,7 +26,7 @@ export class NatsTrigger implements INodeType {
 		outputs: [NodeConnectionType.Main],
 		credentials: [
 			{
-				name: 'nats',
+				name: 'natsApi',
 				required: true,
 			},
 		],
@@ -55,7 +56,7 @@ export class NatsTrigger implements INodeType {
 				default: '',
 				required: true,
 				placeholder: 'orders.>',
-				description: 'The subject to subscribe to. Supports wildcards (* and >)',
+				description: 'The subject to subscribe to. Supports wildcards (* and >).',
 			},
 			{
 				displayName: 'Queue Group',
@@ -143,16 +144,6 @@ export class NatsTrigger implements INodeType {
 								description: 'Deliver all messages',
 							},
 							{
-								name: 'Last',
-								value: 'last',
-								description: 'Start with last message',
-							},
-							{
-								name: 'New',
-								value: 'new',
-								description: 'Only new messages',
-							},
-							{
 								name: 'By Start Sequence',
 								value: 'startSequence',
 								description: 'Start at specific sequence',
@@ -161,6 +152,16 @@ export class NatsTrigger implements INodeType {
 								name: 'By Start Time',
 								value: 'startTime',
 								description: 'Start at specific time',
+							},
+							{
+								name: 'Last',
+								value: 'last',
+								description: 'Start with last message',
+							},
+							{
+								name: 'New',
+								value: 'new',
+								description: 'Only new messages',
 							},
 						],
 						default: 'new',
@@ -192,7 +193,7 @@ export class NatsTrigger implements INodeType {
 						description: 'Time to start from',
 					},
 					{
-						displayName: 'Ack Wait (ms)',
+						displayName: 'Ack Wait (Ms)',
 						name: 'ackWait',
 						type: 'number',
 						displayOptions: {
@@ -233,7 +234,7 @@ export class NatsTrigger implements INodeType {
 	};
 
 	async trigger(this: ITriggerFunctions): Promise<ITriggerResponse> {
-		const credentials = await this.getCredentials('nats');
+		const credentials = await this.getCredentials('natsApi');
 		const subscriptionType = this.getNodeParameter('subscriptionType') as string;
 		const subject = this.getNodeParameter('subject') as string;
 
@@ -286,7 +287,6 @@ export class NatsTrigger implements INodeType {
 			} else {
 				// JetStream subscription
 				const js = nc.jetstream();
-				const jsm = await nc.jetstreamManager();
 				const streamName = this.getNodeParameter('streamName') as string;
 				const consumerType = this.getNodeParameter('consumerType') as string;
 				const options = this.getNodeParameter('options', {}) as IDataObject;
@@ -362,7 +362,7 @@ export class NatsTrigger implements INodeType {
 			};
 
 		} catch (error: any) {
-			throw new Error(`Failed to setup NATS trigger: ${error.message}`);
+			throw new ApplicationError(`Failed to setup NATS trigger: ${error.message}`);
 		}
 	}
 }
