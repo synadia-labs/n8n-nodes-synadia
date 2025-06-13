@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-synadia",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Synadia NATS nodes for n8n workflow automation",
   "main": "dist/index.js",
   "repository": {
@@ -42,7 +42,13 @@
     ],
     "nodes": [
       "dist/nodes/NatsTrigger.node.js",
-      "dist/nodes/NatsPublisher.node.js"
+      "dist/nodes/NatsPublisher.node.js",
+      "dist/nodes/NatsKv.node.js",
+      "dist/nodes/NatsKvTrigger.node.js",
+      "dist/nodes/NatsObjectStore.node.js",
+      "dist/nodes/NatsObjectStoreTrigger.node.js",
+      "dist/nodes/NatsRequestReply.node.js",
+      "dist/nodes/NatsServiceReply.node.js"
     ]
   },
   "dependencies": {

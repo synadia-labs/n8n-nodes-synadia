@@ -98,3 +98,29 @@ export function validateSubject(subject: string): void {
 		throw new Error('Subject contains invalid characters. Valid characters are: a-z, A-Z, 0-9, ., *, >, _, -');
 	}
 }
+
+export function parseMessage(data: Uint8Array, encoding: 'auto' | 'json' | 'string' | 'binary' = 'auto'): any {
+	const stringData = new TextDecoder().decode(data);
+	
+	if (encoding === 'binary') {
+		return Buffer.from(data).toString('base64');
+	}
+	
+	if (encoding === 'string') {
+		return stringData;
+	}
+	
+	if (encoding === 'json' || encoding === 'auto') {
+		try {
+			return JSON.parse(stringData);
+		} catch {
+			if (encoding === 'json') {
+				throw new Error('Failed to parse JSON');
+			}
+			// Auto mode: fallback to string
+			return stringData;
+		}
+	}
+	
+	return stringData;
+}

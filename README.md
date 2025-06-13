@@ -91,6 +91,111 @@ Publishes messages to NATS subjects.
 - Store events in JetStream
 - Distribute work items
 
+### NATS KV Store
+
+Interact with NATS JetStream Key-Value Store for persistent key-value operations.
+
+**Features:**
+- Create and delete KV buckets
+- Get, put, update, and delete operations
+- Atomic updates with revision checks
+- Key listing and history tracking
+- TTL support for automatic expiration
+- Configurable replication and storage
+
+**Use Cases:**
+- Configuration management
+- Session storage
+- Distributed caching
+- State management
+
+### NATS KV Trigger
+
+Triggers workflows when changes occur in a NATS KV bucket.
+
+**Features:**
+- Watch all keys or specific patterns
+- Filter by operation type (put/delete)
+- Include historical values on startup
+- Metadata-only mode for efficiency
+- Real-time change notifications
+
+**Use Cases:**
+- Configuration change detection
+- Cache invalidation workflows
+- Audit logging
+- State synchronization
+
+### NATS Object Store
+
+Interact with NATS JetStream Object Store for storing large objects and files.
+
+**Features:**
+- Create and delete object store buckets
+- Put and get objects with streaming
+- Object metadata and info retrieval
+- Link objects between buckets
+- List objects with filtering
+- Configurable chunk size and storage
+
+**Use Cases:**
+- File storage and retrieval
+- Binary data management
+- Document storage
+- Media file handling
+
+### NATS Object Store Trigger
+
+Triggers workflows when changes occur in a NATS Object Store bucket.
+
+**Features:**
+- Watch for object additions/deletions
+- Filter by object name patterns
+- Include historical objects on startup
+- Metadata change detection
+
+**Use Cases:**
+- File processing pipelines
+- Media transcoding workflows
+- Backup and archival processes
+- Content management systems
+
+### NATS Request/Reply
+
+Send requests and wait for replies from NATS services.
+
+**Features:**
+- Synchronous request/reply pattern
+- Scatter-gather (multiple replies)
+- Configurable timeouts
+- Custom headers support
+- Fire-and-forget mode
+- Support for all message encodings
+
+**Use Cases:**
+- Microservice communication
+- API gateway integration
+- Service discovery
+- Load balanced requests
+
+### NATS Service Reply
+
+Respond to NATS request/reply messages as a service endpoint.
+
+**Features:**
+- Act as a NATS service
+- Queue group support for load balancing
+- Automatic reply handling
+- Custom reply field mapping
+- Include request in reply option
+- Process workflow results as replies
+
+**Use Cases:**
+- Build microservices with n8n
+- API endpoint implementation
+- Service worker pools
+- Request processing pipelines
+
 ## Authentication
 
 The NATS credential supports multiple authentication methods:
@@ -161,6 +266,117 @@ The NATS credential supports multiple authentication methods:
       "parameters": {
         "subject": "work.items",
         "queueGroup": "workers"
+      }
+    }
+  ]
+}
+```
+
+### KV Store Operations
+
+```json
+{
+  "nodes": [
+    {
+      "name": "Store Config",
+      "type": "n8n-nodes-synadia.natsKv",
+      "parameters": {
+        "operation": "put",
+        "bucket": "config",
+        "key": "app.settings",
+        "value": "={{ JSON.stringify($json) }}"
+      }
+    }
+  ]
+}
+```
+
+### KV Change Detection
+
+```json
+{
+  "nodes": [
+    {
+      "name": "Config Watcher",
+      "type": "n8n-nodes-synadia.natsKvTrigger",
+      "parameters": {
+        "bucket": "config",
+        "watchType": "pattern",
+        "pattern": "app.*",
+        "options": {
+          "includeDeletes": true
+        }
+      }
+    }
+  ]
+}
+```
+
+### Object Store File Upload
+
+```json
+{
+  "nodes": [
+    {
+      "name": "Store Document",
+      "type": "n8n-nodes-synadia.natsObjectStore",
+      "parameters": {
+        "operation": "put",
+        "bucket": "documents",
+        "name": "report-{{ $now.toISOString() }}.pdf",
+        "data": "={{ $binary.data }}",
+        "options": {
+          "dataType": "binary"
+        }
+      }
+    }
+  ]
+}
+```
+
+### Request/Reply Pattern
+
+```json
+{
+  "nodes": [
+    {
+      "name": "Call Service",
+      "type": "n8n-nodes-synadia.natsRequestReply",
+      "parameters": {
+        "subject": "api.users.get",
+        "requestData": "={{ JSON.stringify({ userId: $json.id }) }}",
+        "options": {
+          "timeout": 3000,
+          "requestEncoding": "json"
+        }
+      }
+    }
+  ]
+}
+```
+
+### Service Implementation
+
+```json
+{
+  "nodes": [
+    {
+      "name": "User Service",
+      "type": "n8n-nodes-synadia.natsServiceReply",
+      "parameters": {
+        "subject": "api.users.get",
+        "queueGroup": "user-service",
+        "options": {
+          "replyField": "userData",
+          "includeRequest": true
+        }
+      }
+    },
+    {
+      "name": "Get User Data",
+      "type": "n8n-nodes-base.code",
+      "parameters": {
+        "code": "return { userData: { id: $json.request.userId, name: 'John Doe' } };"
       }
     }
   ]
