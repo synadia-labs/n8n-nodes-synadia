@@ -229,8 +229,35 @@ export class NatsKvTrigger implements INodeType {
 			}
 		}
 		
+		// Manual trigger function for testing
+		const manualTriggerFunction = async () => {
+			// Provide sample data based on watch type
+			const sampleData = {
+				bucket,
+				key: watchType === 'key' 
+					? this.getNodeParameter('key') as string
+					: watchType === 'pattern'
+					? 'user.preferences.theme'
+					: 'config.app.version',
+				value: {
+					theme: 'dark',
+					language: 'en',
+					notifications: true,
+					lastUpdated: new Date().toISOString()
+				},
+				revision: 5,
+				created: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+				operation: 'PUT',
+				delta: 2,
+				timestamp: new Date().toISOString(),
+			};
+			
+			this.emit([this.helpers.returnJsonArray([sampleData])]);
+		};
+		
 		return {
 			closeFunction,
+			manualTriggerFunction,
 		};
 	}
 }

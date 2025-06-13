@@ -187,8 +187,29 @@ export class NatsObjectStoreTrigger implements INodeType {
 			}
 		}
 		
+		// Manual trigger function for testing
+		const manualTriggerFunction = async () => {
+			// Provide sample data for object store changes
+			const sampleData = {
+				bucket,
+				operation: 'put',
+				object: {
+					name: 'reports/2024/sales-report.pdf',
+					size: 2457600, // ~2.4MB
+					chunks: 20,
+					digest: 'SHA-256=47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=',
+					mtime: new Date().toISOString(),
+					deleted: false,
+				},
+				timestamp: new Date().toISOString(),
+			};
+			
+			this.emit([this.helpers.returnJsonArray([sampleData])]);
+		};
+		
 		return {
 			closeFunction,
+			manualTriggerFunction,
 		};
 	}
 }

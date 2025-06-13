@@ -234,6 +234,31 @@ export class NatsServiceReply implements INodeType {
 		
 		// Manual trigger function to send replies
 		const manualTriggerFunction = async () => {
+			// If no pending messages, emit sample data for testing
+			if (pendingMessages.size === 0) {
+				const sampleData = {
+					subject,
+					request: {
+						method: 'getUser',
+						params: {
+							userId: '12345',
+							includeDetails: true
+						},
+						timestamp: Date.now()
+					},
+					headers: {
+						'X-Request-ID': 'sample-req-123',
+						'X-Client-Version': '1.0.0'
+					},
+					replyTo: '_INBOX.sample.reply',
+					requestId: 'sample-request-id',
+					timestamp: new Date().toISOString(),
+				};
+				
+				this.emit([this.helpers.returnJsonArray([sampleData])]);
+				return;
+			}
+			
 			// Get the output items that should be available in the context
 			const items = (this as any).getInputData() as INodeExecutionData[];
 			

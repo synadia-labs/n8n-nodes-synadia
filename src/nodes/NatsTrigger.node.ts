@@ -255,14 +255,42 @@ export class NatsTrigger implements INodeType {
 		};
 
 		const manualTriggerFunction = async () => {
-			this.emit([[parseNatsMessage({
-				subject,
-				data: new TextEncoder().encode('{"test": true}'),
-				reply: '',
-				headers: undefined,
-				sid: 0,
-				seq: 0,
-			} as any)]]);
+			// Provide sample data for testing
+			const streamName = subscriptionType === 'jetstream' 
+				? (this.getNodeParameter('streamName', '') as string) || 'SAMPLE_STREAM'
+				: '';
+			
+			const sampleData = subscriptionType === 'jetstream' 
+				? {
+					subject,
+					data: { 
+						orderId: 'ORD-12345',
+						customerName: 'John Doe',
+						amount: 99.99,
+						status: 'confirmed'
+					},
+					headers: {
+						'Nats-Msg-Id': 'sample-msg-123',
+						'Nats-Stream': streamName,
+						'Nats-Sequence': '42'
+					},
+					seq: 42,
+					timestamp: new Date().toISOString(),
+				}
+				: {
+					subject,
+					data: {
+						message: 'Sample NATS message',
+						timestamp: Date.now(),
+						source: 'manual-trigger'
+					},
+					headers: {
+						'X-Sample-Header': 'sample-value'
+					},
+					timestamp: new Date().toISOString(),
+				};
+			
+			this.emit([this.helpers.returnJsonArray([sampleData])]);
 		};
 
 		try {

@@ -460,6 +460,19 @@ src/
     └── NatsHelpers.ts           # Message parsing and encoding
 ```
 
+## Testing Workflows
+
+All trigger nodes include sample data output for easy testing:
+
+1. **Manual Execution**: Click "Execute Node" on any trigger to see sample data
+2. **Sample Data Format**: Each trigger provides realistic sample data matching actual message structure
+3. **No Connection Required**: Test your workflows without setting up NATS connections
+
+This helps you:
+- Understand the data structure before implementing
+- Build and test transformations without live data
+- Debug workflows more efficiently
+
 ## Troubleshooting
 
 ### Connection Issues
