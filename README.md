@@ -57,6 +57,19 @@ npm link n8n-nodes-synadia
 
 ## Nodes
 
+### Quick Reference
+
+| Node | Type | Description | Sample Data |
+|------|------|-------------|-------------|
+| NATS Trigger | Trigger | Subscribe to NATS subjects | ✅ Yes |
+| NATS Publisher | Action | Publish messages to NATS | N/A |
+| NATS KV Store | Action | Key-Value operations | N/A |
+| NATS KV Trigger | Trigger | Watch KV changes | ✅ Yes |
+| NATS Object Store | Action | File/object storage | N/A |
+| NATS Object Store Trigger | Trigger | Watch object changes | ✅ Yes |
+| NATS Request/Reply | Action | Send requests and wait for replies | N/A |
+| NATS Service Reply | Trigger | Respond to requests as a service | ✅ Yes |
+
 ### NATS Trigger
 
 Triggers workflows when messages are received on NATS subjects.
@@ -460,18 +473,128 @@ src/
     └── NatsHelpers.ts           # Message parsing and encoding
 ```
 
-## Testing Workflows
+## Testing Workflows with Sample Data
 
-All trigger nodes include sample data output for easy testing:
+All trigger nodes include built-in sample data for easy testing and development. This feature allows you to build and test workflows without needing an active NATS connection.
 
-1. **Manual Execution**: Click "Execute Node" on any trigger to see sample data
-2. **Sample Data Format**: Each trigger provides realistic sample data matching actual message structure
-3. **No Connection Required**: Test your workflows without setting up NATS connections
+### How to Use Sample Data
 
-This helps you:
-- Understand the data structure before implementing
-- Build and test transformations without live data
-- Debug workflows more efficiently
+1. **Add a trigger node** to your workflow
+2. **Configure the node** with your desired settings (subject, bucket name, etc.)
+3. **Click "Execute Node"** to see sample data instantly
+4. **Use the sample output** to build your workflow logic
+
+### Sample Data Examples
+
+#### NATS Trigger (Core NATS)
+```json
+{
+  "subject": "orders.new",
+  "data": {
+    "message": "Sample NATS message",
+    "timestamp": 1703001234567,
+    "source": "manual-trigger"
+  },
+  "headers": {
+    "X-Sample-Header": "sample-value"
+  },
+  "timestamp": "2023-12-19T10:20:30.000Z"
+}
+```
+
+#### NATS Trigger (JetStream)
+```json
+{
+  "subject": "orders.confirmed",
+  "data": {
+    "orderId": "ORD-12345",
+    "customerName": "John Doe",
+    "amount": 99.99,
+    "status": "confirmed"
+  },
+  "headers": {
+    "Nats-Msg-Id": "sample-msg-123",
+    "Nats-Stream": "ORDERS",
+    "Nats-Sequence": "42"
+  },
+  "seq": 42,
+  "timestamp": "2023-12-19T10:20:30.000Z"
+}
+```
+
+#### NATS KV Trigger
+```json
+{
+  "bucket": "config",
+  "key": "user.preferences.theme",
+  "value": {
+    "theme": "dark",
+    "language": "en",
+    "notifications": true,
+    "lastUpdated": "2023-12-19T10:20:30.000Z"
+  },
+  "revision": 5,
+  "created": "2023-12-18T10:20:30.000Z",
+  "operation": "PUT",
+  "delta": 2,
+  "timestamp": "2023-12-19T10:20:30.000Z"
+}
+```
+
+#### NATS Object Store Trigger
+```json
+{
+  "bucket": "documents",
+  "operation": "put",
+  "object": {
+    "name": "reports/2024/sales-report.pdf",
+    "size": 2457600,
+    "chunks": 20,
+    "digest": "SHA-256=47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+    "mtime": "2023-12-19T10:20:30.000Z",
+    "deleted": false
+  },
+  "timestamp": "2023-12-19T10:20:30.000Z"
+}
+```
+
+#### NATS Service Reply
+```json
+{
+  "subject": "api.users.get",
+  "request": {
+    "method": "getUser",
+    "params": {
+      "userId": "12345",
+      "includeDetails": true
+    },
+    "timestamp": 1703001234567
+  },
+  "headers": {
+    "X-Request-ID": "sample-req-123",
+    "X-Client-Version": "1.0.0"
+  },
+  "replyTo": "_INBOX.sample.reply",
+  "requestId": "sample-request-id",
+  "timestamp": "2023-12-19T10:20:30.000Z"
+}
+```
+
+### Benefits of Sample Data
+
+- **Immediate Feedback**: See data structure without connecting to NATS
+- **Faster Development**: Build transformations using realistic data
+- **Better Understanding**: Learn field names and data types quickly
+- **Offline Development**: Work on workflows without infrastructure
+- **Testing Made Easy**: Validate logic before deploying
+
+### Tips for Using Sample Data
+
+1. **Field Mapping**: Use sample data to identify available fields for mapping
+2. **Data Types**: Check sample values to understand data types (string, number, object)
+3. **Conditional Logic**: Test IF nodes and switches with sample data
+4. **Transformations**: Build and test data transformations offline
+5. **Error Handling**: Plan for edge cases by examining the structure
 
 ## Troubleshooting
 

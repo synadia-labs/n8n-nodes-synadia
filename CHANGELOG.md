@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1] - 2024-12-06
+
+### Added
+- Sample data output for all trigger nodes
+- Comprehensive documentation for testing workflows
+- Quick reference table for all nodes
+
+### Improved
+- README with detailed sample data examples
+- Testing workflow documentation
+- Icon display in n8n visual editor
+
 ## [0.2.0] - 2024-12-06
 
 ### Added
