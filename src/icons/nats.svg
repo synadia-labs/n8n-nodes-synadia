@@ -1,11 +1,9 @@
-<svg width="60" height="60" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60">
-  <g fill="none" fill-rule="evenodd">
-    <!-- NATS Logo Grid -->
-    <rect x="5" y="10" width="25" height="20" fill="#27AAE1"/>
-    <rect x="30" y="10" width="25" height="20" fill="#34A574"/>
-    <rect x="5" y="30" width="25" height="20" fill="#375C93"/>
-    <rect x="30" y="30" width="25" height="20" fill="#8DC63F"/>
-    <!-- N Letter -->
-    <path d="M16 40 L16 20 L20 20 L20 32 L35 20 L40 20 L40 40 L36 40 L36 28 L21 40 L16 40 Z" fill="#FFFFFF"/>
-  </g>
+<svg width="60" height="60" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 288 288">
+  <rect x="142.8" y="5.3" width="134.7" height="109.2" fill="#34a574"/>
+  <rect x="8.1" y="5.3" width="134.7" height="109.2" fill="#27aae1"/>
+  <rect x="142.8" y="114.6" width="134.7" height="109.2" fill="#8dc63f"/>
+  <rect x="8.1" y="114.6" width="134.7" height="109.2" fill="#375c93"/>
+  <path d="M123 223.2l65.9 61v-61z" fill="#8dc63f"/>
+  <path d="M142.8 223.2l.7 19.2-21.1-19.7z" fill="#375c93"/>
+  <path d="M198.6 146.5V56.1h32.2V173H182L83.5 81v92.1H51.2v-117h50.5l96.9 90.4z" fill="#ffffff"/>
 </svg>
