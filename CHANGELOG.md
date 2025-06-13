@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.2] - 2025-01-06
+
+### Added
+- Synadia Cloud .creds file support for easy connection
+- Credentials File authentication method
+- Automatic JWT and NKey extraction from .creds files
+- Enhanced server URL hints for Synadia Cloud
+
+### Improved
+- Connection documentation with Synadia Cloud instructions
+- Credential validation for .creds file format
+
 ## [0.2.1] - 2024-12-06
 
 ### Added

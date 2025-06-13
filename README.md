@@ -218,6 +218,16 @@ The NATS credential supports multiple authentication methods:
 3. **Token** - Token-based authentication
 4. **NKey** - Ed25519 based authentication
 5. **JWT** - JWT with NKey signing
+6. **Credentials File** - Synadia Cloud .creds file support
+
+### Synadia Cloud Connection
+
+To connect to Synadia Cloud:
+
+1. Select **Credentials File** as the connection type
+2. Set Server URLs to: `tls://connect.ngs.global`
+3. Paste your entire `.creds` file content into the Credentials File field
+4. The node will automatically extract the JWT and NKey for authentication
 
 ### Connection Options
 

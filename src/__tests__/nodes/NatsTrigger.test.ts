@@ -47,6 +47,9 @@ describe('NatsTrigger', () => {
       getNodeParameter: mockGetNodeParameter,
       getNode: jest.fn().mockReturnValue({}),
       emit: mockEmit,
+      helpers: {
+        returnJsonArray: jest.fn((data) => data),
+      },
     } as unknown as ITriggerFunctions;
 
     // Mock createNatsConnection
@@ -276,14 +279,18 @@ describe('NatsTrigger', () => {
       // Call manual trigger function
       await response.manualTriggerFunction!();
 
-      expect(mockEmit).toHaveBeenCalledWith([[
+      expect(mockTriggerFunctions.helpers.returnJsonArray).toHaveBeenCalledWith([
         expect.objectContaining({
-          json: expect.objectContaining({
-            subject: 'test.subject',
-            data: { test: true },
+          subject: 'test.subject',
+          data: expect.objectContaining({
+            message: 'Sample NATS message',
           }),
         }),
-      ]]);
+      ]);
+      
+      expect(mockEmit).toHaveBeenCalledWith([
+        expect.any(Array)
+      ]);
     });
   });
 

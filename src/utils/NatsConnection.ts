@@ -2,7 +2,7 @@ import { ICredentialDataDecryptedObject, IExecuteFunctions, ILoadOptionsFunction
 import { connect, NatsConnection, ConnectionOptions, jwtAuthenticator, nkeyAuthenticator } from 'nats';
 
 export type NatsCredentials = {
-	connectionType: 'url' | 'credentials' | 'token' | 'nkey' | 'jwt';
+	connectionType: 'url' | 'credentials' | 'token' | 'nkey' | 'jwt' | 'credsFile';
 	servers: string;
 	username?: string;
 	password?: string;
@@ -10,6 +10,7 @@ export type NatsCredentials = {
 	nkeySeed?: string;
 	jwt?: string;
 	jwtNkey?: string;
+	credsFile?: string;
 	options?: {
 		name?: string;
 		tls?: boolean;
@@ -63,6 +64,25 @@ export async function createNatsConnection(
 					creds.jwt,
 					new TextEncoder().encode(creds.jwtNkey)
 				);
+			}
+			break;
+		case 'credsFile':
+			if (creds.credsFile) {
+				// Parse the credentials file content
+				const credsContent = creds.credsFile;
+				const jwtMatch = credsContent.match(/-----BEGIN NATS USER JWT-----\n([\s\S]*?)\n------END NATS USER JWT------/);
+				const seedMatch = credsContent.match(/-----BEGIN USER NKEY SEED-----\n([\s\S]*?)\n------END USER NKEY SEED------/);
+				
+				if (jwtMatch && seedMatch) {
+					const jwt = jwtMatch[1].trim();
+					const seed = seedMatch[1].trim();
+					connectionOptions.authenticator = jwtAuthenticator(
+						jwt,
+						new TextEncoder().encode(seed)
+					);
+				} else {
+					throw new Error('Invalid credentials file format. Please paste the entire .creds file content.');
+				}
 			}
 			break;
 	}

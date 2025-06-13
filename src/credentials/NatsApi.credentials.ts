@@ -25,6 +25,11 @@ export class NatsApi implements ICredentialType {
 					description: 'Connect using JWT authentication',
 				},
 				{
+					name: 'Credentials File',
+					value: 'credsFile',
+					description: 'Connect using Synadia Cloud .creds file',
+				},
+				{
 					name: 'NKey',
 					value: 'nkey',
 					description: 'Connect using NKey authentication',
@@ -48,7 +53,8 @@ export class NatsApi implements ICredentialType {
 			type: 'string',
 			default: 'nats://localhost:4222',
 			placeholder: 'nats://localhost:4222,nats://localhost:4223',
-			description: 'Comma-separated list of NATS server URLs',
+			description: 'Comma-separated list of NATS server URLs. For Synadia Cloud, use: tls://connect.ngs.global',
+			hint: 'For Synadia Cloud with .creds file, use: tls://connect.ngs.global',
 		},
 		{
 			displayName: 'Username',
@@ -134,6 +140,33 @@ export class NatsApi implements ICredentialType {
 			},
 			default: '',
 			description: 'NKey seed to sign the JWT',
+		},
+		{
+			displayName: 'Credentials File Content',
+			name: 'credsFile',
+			type: 'string',
+			typeOptions: {
+				password: true,
+				rows: 10,
+			},
+			displayOptions: {
+				show: {
+					connectionType: ['credsFile'],
+				},
+			},
+			default: '',
+			placeholder: `-----BEGIN NATS USER JWT-----
+eyJ0eXAiOiJKV1QiLCJhbGciOiJlZDI1NTE5LW5rZXkifQ...
+------END NATS USER JWT------
+
+************************* IMPORTANT *************************
+NKEY Seed printed below can be used to sign and prove identity.
+NKEYs are sensitive and should be treated as secrets.
+
+-----BEGIN USER NKEY SEED-----
+SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
+------END USER NKEY SEED------`,
+			description: 'Paste the entire contents of your .creds file here',
 		},
 		{
 			displayName: 'Options',
