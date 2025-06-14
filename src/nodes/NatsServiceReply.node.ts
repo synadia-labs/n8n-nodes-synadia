@@ -9,7 +9,7 @@ import {
 } from 'n8n-workflow';
 import { NatsConnection, Msg, StringCodec } from 'nats';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
-import { encodeMessage, parseMessage, createNatsHeaders, validateSubject } from '../utils/NatsHelpers';
+import { encodeMessage, parseMessage, createNatsHeaders, validateSubject, parseNatsMessage } from '../utils/NatsHelpers';
 
 export class NatsServiceReply implements INodeType {
 	description: INodeTypeDescription = {
@@ -159,6 +159,12 @@ export class NatsServiceReply implements INodeType {
 		
 		const processRequest = async (msg: Msg) => {
 			try {
+				// Check if this is a request (has reply subject)
+				if (!msg.reply) {
+					// Not a request, ignore
+					return;
+				}
+				
 				// Check max messages limit
 				if (options.maxMessages > 0 && messageCount >= options.maxMessages) {
 					if (subscription) {
@@ -168,26 +174,20 @@ export class NatsServiceReply implements INodeType {
 				}
 				messageCount++;
 				
-				// Parse request data
-				const requestData = parseMessage(msg.data, options.requestEncoding || 'auto');
-				
 				// Generate unique ID for this request
 				const requestId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 				
 				// Store the message for manual trigger function
 				pendingMessages.set(requestId, msg);
 				
-				// Emit the request data
-				const emitData = {
-					subject: msg.subject,
-					request: requestData,
-					headers: msg.headers ? Object.fromEntries(msg.headers) : {},
-					replyTo: msg.reply || '',
-					requestId,
-					timestamp: new Date().toISOString(),
-				};
+				// Use the same parseNatsMessage function as NatsTrigger
+				const parsedMessage = parseNatsMessage(msg);
 				
-				this.emit([this.helpers.returnJsonArray([emitData])]);
+				// Add the requestId to the parsed message
+				parsedMessage.json.requestId = requestId;
+				
+				// Emit the message in the same format as NatsTrigger
+				this.emit([[parsedMessage]]);
 				
 			} catch (error: any) {
 				this.logger.error('Error processing request:', error);
@@ -238,13 +238,10 @@ export class NatsServiceReply implements INodeType {
 			if (pendingMessages.size === 0) {
 				const sampleData = {
 					subject,
-					request: {
-						method: 'getUser',
-						params: {
-							userId: '12345',
-							includeDetails: true
-						},
-						timestamp: Date.now()
+					data: {
+						userId: '12345',
+						action: 'getUser',
+						includeDetails: true
 					},
 					headers: {
 						'X-Request-ID': 'sample-req-123',
@@ -278,7 +275,7 @@ export class NatsServiceReply implements INodeType {
 							replyData = item.json[replyField];
 						} else {
 							// Use entire output minus internal fields
-							const { requestId: _, subject, request, headers, replyTo, timestamp, ...cleanReply } = item.json;
+							const { requestId: _, subject, data, headers, replyTo, timestamp, seq, ...cleanReply } = item.json;
 							
 							// Use clean reply or default reply
 							if (Object.keys(cleanReply).length === 0) {
@@ -296,9 +293,9 @@ export class NatsServiceReply implements INodeType {
 						}
 						
 						// Include request if option is set
-						if (options.includeRequest && item.json.request) {
+						if (options.includeRequest && item.json.data) {
 							replyData = {
-								request: item.json.request,
+								request: item.json.data,
 								response: replyData,
 							};
 						}

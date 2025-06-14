@@ -608,13 +608,10 @@ All trigger nodes include built-in sample data for easy testing and development.
 ```json
 {
   "subject": "api.users.get",
-  "request": {
-    "method": "getUser",
-    "params": {
-      "userId": "12345",
-      "includeDetails": true
-    },
-    "timestamp": 1703001234567
+  "data": {
+    "userId": "12345",
+    "action": "getUser",
+    "includeDetails": true
   },
   "headers": {
     "X-Request-ID": "sample-req-123",

@@ -123,13 +123,9 @@ export class NatsService implements INodeType {
 		const manualTriggerFunction = async () => {
 			// Provide sample data for testing
 			const sampleRequest = {
-				method: 'getUser',
-				params: {
-					userId: '12345',
-					includeDetails: true,
-				},
-				requestId: 'sample-request-123',
-				timestamp: Date.now(),
+				userId: '12345',
+				action: 'getUser',
+				includeDetails: true,
 			};
 
 			// Parse and process the response template
@@ -146,13 +142,15 @@ export class NatsService implements INodeType {
 
 			const outputData = {
 				subject,
+				data: sampleRequest,
+				replyTo: '_INBOX.sample.reply',
 				timestamp: new Date().toISOString(),
 			} as IDataObject;
 
 			if (options.includeRequest !== false) {
-				outputData.request = sampleRequest;
+				outputData.sentRequest = sampleRequest;
 			}
-			outputData.response = sampleResponse;
+			outputData.sentResponse = sampleResponse;
 
 			this.emit([[{ json: outputData }]]);
 		};
@@ -186,14 +184,16 @@ export class NatsService implements INodeType {
 							requestData = decoder.decode(msg.data);
 						}
 
-						// Prepare the output data
+						// Prepare the output data (matching NatsTrigger format)
 						const outputData = {
 							subject: msg.subject,
+							data: requestData,
+							replyTo: msg.reply,
 							timestamp: new Date().toISOString(),
 						} as IDataObject;
 
 						if (options.includeRequest !== false) {
-							outputData.request = requestData;
+							outputData.sentRequest = requestData;
 						}
 
 						// Generate the response
@@ -225,11 +225,11 @@ export class NatsService implements INodeType {
 								
 								if (responseEncoding === 'json') {
 									response = JSON.parse(processedResponse);
-									outputData.response = response;
+									outputData.sentResponse = response;
 									const responseBytes = new TextEncoder().encode(JSON.stringify(response));
 									msg.respond(responseBytes);
 								} else {
-									outputData.response = processedResponse;
+									outputData.sentResponse = processedResponse;
 									const responseBytes = new TextEncoder().encode(processedResponse);
 									msg.respond(responseBytes);
 								}
@@ -241,13 +241,13 @@ export class NatsService implements INodeType {
 										const errorResp = JSON.parse(options.errorResponse as string);
 										const errorData = new TextEncoder().encode(JSON.stringify(errorResp));
 										msg.respond(errorData);
-										outputData.response = errorResp;
+										outputData.sentResponse = errorResp;
 										outputData.error = error.message;
 									} catch {
 										// If error response is invalid, send generic error
 										const genericError = { error: 'Internal service error' };
 										msg.respond(new TextEncoder().encode(JSON.stringify(genericError)));
-										outputData.response = genericError;
+										outputData.sentResponse = genericError;
 										outputData.error = error.message;
 									}
 								}
