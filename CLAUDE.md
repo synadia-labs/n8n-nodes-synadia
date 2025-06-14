@@ -51,6 +51,7 @@ npm test
 The build process compiles TypeScript and copies icons:
 ```bash
 npm run build
+npm link
 ```
 
 ## Important Conventions
@@ -147,7 +148,3 @@ All trigger nodes must provide sample data via `manualTriggerFunction`:
 - 0.2.0: Added KV, Object Store, and Request/Reply nodes
 - 0.2.1: Added sample data to all trigger nodes
 - 0.2.2: Added Synadia Cloud .creds file support
-
-## Contact
-- GitHub Issues: https://github.com/synadia/n8n-nodes-synadia/issues
-- Synadia Support: https://synadia.com/support
