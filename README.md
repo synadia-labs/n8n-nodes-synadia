@@ -69,6 +69,7 @@ npm link n8n-nodes-synadia
 | NATS Object Store Trigger | Trigger | Watch object changes | ✅ Yes |
 | NATS Request/Reply | Action | Send requests and wait for replies | N/A |
 | NATS Service Reply | Trigger | Respond to requests as a service | ✅ Yes |
+| NATS Service | Trigger | Receive requests and auto-respond | ✅ Yes |
 
 ### NATS Trigger
 
@@ -208,6 +209,24 @@ Respond to NATS request/reply messages as a service endpoint.
 - API endpoint implementation
 - Service worker pools
 - Request processing pipelines
+
+### NATS Service
+
+All-in-one service that receives requests and automatically sends responses without needing a workflow.
+
+**Features:**
+- Receive and respond in a single node
+- Template-based response generation
+- Support for dynamic response data
+- Queue group load balancing
+- Error response handling
+- JSON and string response formats
+
+**Use Cases:**
+- Simple microservices
+- Mock services for testing
+- Static API endpoints
+- Health check endpoints
 
 ## Authentication
 
@@ -378,7 +397,7 @@ To connect to Synadia Cloud:
 }
 ```
 
-### Service Implementation
+### Service Implementation (with workflow)
 
 ```json
 {
@@ -400,6 +419,23 @@ To connect to Synadia Cloud:
       "type": "n8n-nodes-base.code",
       "parameters": {
         "code": "return { userData: { id: $json.request.userId, name: 'John Doe' } };"
+      }
+    }
+  ]
+}
+```
+
+### Simple Service (single node)
+
+```json
+{
+  "nodes": [
+    {
+      "name": "Echo Service",
+      "type": "n8n-nodes-synadia.natsService",
+      "parameters": {
+        "subject": "api.echo",
+        "responseData": "{\n  \"success\": true,\n  \"echo\": \"{{$json.request}}\",\n  \"timestamp\": \"{{new Date().toISOString()}}\"\n}"
       }
     }
   ]
