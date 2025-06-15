@@ -66,6 +66,9 @@ describe('NatsTrigger', () => {
       mockGetNodeParameter
         .mockReturnValueOnce('core') // subscriptionType
         .mockReturnValueOnce('test.subject') // subject
+        .mockReturnValueOnce('disabled') // replyMode
+        .mockReturnValueOnce({}) // replyOptions
+        .mockReturnValueOnce({}) // automaticReply
         .mockReturnValueOnce(''); // queueGroup
 
       const response = await node.trigger.call(mockTriggerFunctions);
@@ -82,6 +85,9 @@ describe('NatsTrigger', () => {
       mockGetNodeParameter
         .mockReturnValueOnce('core')
         .mockReturnValueOnce('test.subject')
+        .mockReturnValueOnce('disabled') // replyMode
+        .mockReturnValueOnce({}) // replyOptions
+        .mockReturnValueOnce({}) // automaticReply
         .mockReturnValueOnce('my-queue-group');
 
       await node.trigger.call(mockTriggerFunctions);
@@ -166,6 +172,9 @@ describe('NatsTrigger', () => {
       mockGetNodeParameter
         .mockReturnValueOnce('jetstream') // subscriptionType
         .mockReturnValueOnce('test.subject') // subject
+        .mockReturnValueOnce('disabled') // replyMode
+        .mockReturnValueOnce({}) // replyOptions
+        .mockReturnValueOnce({}) // automaticReply
         .mockReturnValueOnce('test-stream') // streamName
         .mockReturnValueOnce('ephemeral') // consumerType
         .mockReturnValueOnce({ // options
@@ -198,6 +207,9 @@ describe('NatsTrigger', () => {
       mockGetNodeParameter
         .mockReturnValueOnce('jetstream')
         .mockReturnValueOnce('test.subject')
+        .mockReturnValueOnce('disabled') // replyMode
+        .mockReturnValueOnce({}) // replyOptions
+        .mockReturnValueOnce({}) // automaticReply
         .mockReturnValueOnce('test-stream')
         .mockReturnValueOnce('durable') // consumerType
         .mockReturnValueOnce({}) // options
@@ -246,6 +258,9 @@ describe('NatsTrigger', () => {
         mockGetNodeParameter
           .mockReturnValueOnce('jetstream')
           .mockReturnValueOnce('test.subject')
+          .mockReturnValueOnce('disabled') // replyMode
+          .mockReturnValueOnce({}) // replyOptions
+          .mockReturnValueOnce({}) // automaticReply
           .mockReturnValueOnce('test-stream')
           .mockReturnValueOnce('ephemeral')
           .mockReturnValueOnce(options);

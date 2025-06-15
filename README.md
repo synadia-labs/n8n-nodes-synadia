@@ -81,12 +81,17 @@ Triggers workflows when messages are received on NATS subjects.
 - JetStream consumer support (durable & ephemeral)
 - Configurable delivery policies
 - Manual or automatic message acknowledgment
+- **Reply Modes** (NEW):
+  - **Disabled**: Traditional trigger behavior (default)
+  - **Manual**: Store request messages and reply after workflow completion
+  - **Automatic**: Reply immediately with template-based responses
 
 **Use Cases:**
 - Event-driven workflows
 - Microservice communication
 - Real-time data processing
 - IoT message handling
+- Request-reply patterns (with reply modes)
 
 ### NATS Publisher
 
@@ -209,6 +214,8 @@ Respond to NATS request/reply messages as a service endpoint.
 - API endpoint implementation
 - Service worker pools
 - Request processing pipelines
+
+**Note**: Consider using NATS Trigger with Reply Mode instead for simpler setups.
 
 ### NATS Service
 
@@ -441,6 +448,82 @@ To connect to Synadia Cloud:
   ]
 }
 ```
+
+## Reply Modes in NATS Trigger
+
+The NATS Trigger node now supports three reply modes for handling request-reply patterns:
+
+### Disabled Mode (Default)
+Traditional trigger behavior - processes messages without sending replies.
+
+### Manual Mode
+Stores incoming request messages and allows the workflow to process them before sending replies.
+
+**How it works:**
+1. Messages with reply subjects are stored with a unique `requestId`
+2. The workflow processes the message
+3. After workflow completion, replies are sent based on the output
+4. Use the `reply` field in the output to specify custom reply data
+
+**Example workflow:**
+```json
+{
+  "nodes": [
+    {
+      "name": "NATS Service",
+      "type": "n8n-nodes-synadia.natsTrigger",
+      "parameters": {
+        "subject": "api.process",
+        "replyMode": "manual",
+        "replyOptions": {
+          "replyField": "response",
+          "includeRequest": true,
+          "defaultReply": "{\"success\": true}"
+        }
+      }
+    },
+    {
+      "name": "Process Data",
+      "type": "n8n-nodes-base.code",
+      "parameters": {
+        "code": "return { response: { processed: true, id: $json.requestId } };"
+      }
+    }
+  ]
+}
+```
+
+### Automatic Mode
+Immediately replies to requests using a template-based response without waiting for workflow completion.
+
+**How it works:**
+1. Messages with reply subjects trigger an immediate response
+2. The response is generated from a template with dynamic data
+3. The workflow still processes the message for logging/side effects
+4. Useful for acknowledgments or static responses
+
+**Example:**
+```json
+{
+  "name": "NATS Acknowledger",
+  "type": "n8n-nodes-synadia.natsTrigger",
+  "parameters": {
+    "subject": "events.>",
+    "replyMode": "automatic",
+    "automaticReply": {
+      "responseTemplate": "{\n  \"acknowledged\": true,\n  \"timestamp\": \"{{new Date().toISOString()}}\",\n  \"receivedData\": \"{{$json.data}}\"\n}",
+      "includeRequestInOutput": true,
+      "errorResponse": "{\"success\": false, \"error\": \"Processing failed\"}"
+    }
+  }
+}
+```
+
+**Template Variables:**
+- `{{$json.data}}` - Access the request data
+- `{{$json.data.propertyName}}` - Access nested properties
+- `{{new Date().toISOString()}}` - Current timestamp
+- `{{$json}}` - Full request data object
 
 ## Message Formats
 
