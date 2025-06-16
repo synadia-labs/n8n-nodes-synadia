@@ -68,20 +68,38 @@ export async function createNatsConnection(
 			break;
 		case 'credsFile':
 			if (creds.credsFile) {
-				// Parse the credentials file content
-				const credsContent = creds.credsFile;
-				const jwtMatch = credsContent.match(/-----BEGIN NATS USER JWT-----\n([\s\S]*?)\n------END NATS USER JWT------/);
-				const seedMatch = credsContent.match(/-----BEGIN USER NKEY SEED-----\n([\s\S]*?)\n------END USER NKEY SEED------/);
+				// Parse the credentials file content - handle any whitespace/formatting
+				const credsContent = creds.credsFile.trim();
+				
+				// Very flexible regex that handles any whitespace between sections
+				const jwtMatch = credsContent.match(/-----BEGIN NATS USER JWT-----\s*([\s\S]*?)\s*------END NATS USER JWT------/);
+				const seedMatch = credsContent.match(/-----BEGIN USER NKEY SEED-----\s*([\s\S]*?)\s*------END USER NKEY SEED------/);
 				
 				if (jwtMatch && seedMatch) {
-					const jwt = jwtMatch[1].trim();
-					const seed = seedMatch[1].trim();
+					// Extract and clean the JWT and seed - remove ALL whitespace and newlines
+					const jwt = jwtMatch[1].replace(/\s/g, '');
+					const seed = seedMatch[1].replace(/\s/g, '');
+					
+					// Debug logging (only in development)
+					if (process.env.NODE_ENV === 'development' || process.env.NATS_DEBUG) {
+						console.log('NATS Creds Debug:');
+						console.log('- JWT length:', jwt.length);
+						console.log('- JWT preview:', jwt.substring(0, 20) + '...');
+						console.log('- Seed length:', seed.length);
+						console.log('- Seed preview:', seed.substring(0, 20) + '...');
+					}
+					
+					// Validate that we have actual content
+					if (!jwt || !seed || jwt.length < 20 || seed.length < 20) {
+						throw new Error('Invalid credentials file format. JWT or seed appears to be empty or malformed.');
+					}
+					
 					connectionOptions.authenticator = jwtAuthenticator(
 						jwt,
 						new TextEncoder().encode(seed)
 					);
 				} else {
-					throw new Error('Invalid credentials file format. Please paste the entire .creds file content.');
+					throw new Error('Invalid credentials file format. Please paste the entire .creds file content including the BEGIN/END markers.');
 				}
 			}
 			break;
