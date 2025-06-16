@@ -857,3 +857,7 @@ Contributions are welcome! Please:
 - **Issues**: [GitHub Issues](https://github.com/synadia-io/n8n-nodes-synadia/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/synadia-io/n8n-nodes-synadia/discussions)
 - **NATS Support**: [Synadia Support](https://synadia.com/support)
+
+## Acknowledgments
+
+This package was developed with assistance from Claude (Anthropic) to ensure high-quality code, comprehensive documentation, and adherence to n8n's best practices for community nodes.
