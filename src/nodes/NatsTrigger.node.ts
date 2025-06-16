@@ -8,7 +8,7 @@ import {
 	NodeConnectionType,
 	INodeExecutionData,
 } from 'n8n-workflow';
-import { NatsConnection, Subscription, consumerOpts, Msg, StringCodec } from 'nats';
+import { NatsConnection, Subscription, consumerOpts, Msg, StringCodec, jetstream } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { parseNatsMessage, validateSubject, encodeMessage, createNatsHeaders } from '../utils/NatsHelpers';
 
@@ -498,7 +498,14 @@ export class NatsTrigger implements INodeType {
 							replyData = (item.json as any)[replyField];
 						} else {
 							// Use entire output minus internal fields
-							const { requestId: _, subject, data, headers, replyTo, timestamp, seq, ...cleanReply } = item.json;
+							const { requestId: _, ...cleanReply } = item.json;
+							// Remove internal fields
+							delete cleanReply.subject;
+							delete cleanReply.data;
+							delete cleanReply.headers;
+							delete cleanReply.replyTo;
+							delete cleanReply.timestamp;
+							delete cleanReply.seq;
 							
 							// Use clean reply or default reply
 							if (Object.keys(cleanReply).length === 0) {
@@ -541,7 +548,7 @@ export class NatsTrigger implements INodeType {
 								const errorReply = JSON.stringify({ error: error.message });
 								const sc = StringCodec();
 								msg.respond(sc.encode(errorReply));
-							} catch (e) {
+							} catch {
 								// Ignore reply errors
 							}
 						}
@@ -634,7 +641,7 @@ export class NatsTrigger implements INodeType {
 
 			} else {
 				// JetStream subscription
-				const js = nc.jetstream();
+				const js = jetstream(nc);
 				const streamName = this.getNodeParameter('streamName') as string;
 				const consumerType = this.getNodeParameter('consumerType') as string;
 				const options = this.getNodeParameter('options', {}) as IDataObject;
@@ -689,7 +696,8 @@ export class NatsTrigger implements INodeType {
 						opts.manualAck();
 					}
 
-					const sub = await js.subscribe(subject, opts);
+					// For now, cast to any to work around API differences
+					const sub = await (js as any).subscribe(subject, opts);
 					
 					(async () => {
 						for await (const msg of sub) {

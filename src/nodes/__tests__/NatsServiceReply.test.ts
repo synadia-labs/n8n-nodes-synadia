@@ -1,14 +1,41 @@
 import { NatsServiceReply } from '../NatsServiceReply.node';
 import { ITriggerFunctions } from 'n8n-workflow';
+import { StringCodec, Empty, createInbox, headers, jetstream } from '../../bundled/nats-bundled';
 import * as NatsConnection from '../../utils/NatsConnection';
-import { NatsConnection as NC } from 'nats';
 
 jest.mock('../../utils/NatsConnection');
+jest.mock('../../bundled/nats-bundled', () => ({
+	jetstream: jest.fn(),
+	jetstreamManager: jest.fn(),
+	Kvm: jest.fn(),
+	Objm: jest.fn(),
+	consumerOpts: jest.fn(() => ({
+		deliverAll: jest.fn().mockReturnThis(),
+		deliverNew: jest.fn().mockReturnThis(),
+		deliverLast: jest.fn().mockReturnThis(),
+		deliverLastPerSubject: jest.fn().mockReturnThis(),
+		ackExplicit: jest.fn().mockReturnThis(),
+		manualAck: jest.fn().mockReturnThis(),
+		bind: jest.fn().mockReturnThis(),
+		build: jest.fn().mockReturnValue({}),
+	})),
+	StringCodec: jest.fn(() => ({
+		encode: jest.fn((str) => new TextEncoder().encode(str)),
+		decode: jest.fn((data) => new TextDecoder().decode(data)),
+	})),
+	Empty: new Uint8Array(0),
+	createInbox: jest.fn(() => '_INBOX.test'),
+	headers: jest.fn(() => ({
+		append: jest.fn(),
+		set: jest.fn(),
+		get: jest.fn(),
+	})),
+}));
 
 describe('NatsServiceReply', () => {
 	let node: NatsServiceReply;
 	let mockTriggerFunctions: ITriggerFunctions;
-	let mockNatsConnection: NC;
+	let mockNatsConnection: any;
 	let mockSubscription: any;
 	let mockEmit: jest.Mock;
 	let mockGetNodeParameter: jest.Mock;
@@ -33,7 +60,7 @@ describe('NatsServiceReply', () => {
 		mockNatsConnection = {
 			subscribe: jest.fn().mockReturnValue(mockSubscription),
 			jetstream: jest.fn(),
-		} as unknown as NC;
+		} as any;
 
 		// Mock trigger functions
 		mockTriggerFunctions = {

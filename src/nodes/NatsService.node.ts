@@ -7,7 +7,7 @@ import {
 	ApplicationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection } from 'nats';
+import { NatsConnection } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { validateSubject } from '../utils/NatsHelpers';
 

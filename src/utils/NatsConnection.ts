@@ -1,5 +1,5 @@
 import { ICredentialDataDecryptedObject, IExecuteFunctions, ILoadOptionsFunctions, ITriggerFunctions } from 'n8n-workflow';
-import { connect, NatsConnection, ConnectionOptions, jwtAuthenticator, nkeyAuthenticator } from 'nats';
+import { connect, NatsConnection, ConnectionOptions, jwtAuthenticator, nkeyAuthenticator } from '../bundled/nats-bundled';
 
 export type NatsCredentials = {
 	connectionType: 'url' | 'credentials' | 'token' | 'nkey' | 'jwt' | 'credsFile';

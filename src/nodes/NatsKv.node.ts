@@ -6,7 +6,7 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection, KV } from 'nats';
+import { jetstream, jetstreamManager, Kvm } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 
 export class NatsKv implements INodeType {
@@ -278,11 +278,11 @@ export class NatsKv implements INodeType {
 		const returnData: INodeExecutionData[] = [];
 		const credentials = await this.getCredentials('natsApi');
 		
-		let nc: NatsConnection;
+		let nc: any;
 		
 		try {
 			nc = await createNatsConnection(credentials, this);
-			const js = nc.jetstream();
+			const js = jetstream(nc);
 			
 			for (let i = 0; i < items.length; i++) {
 				try {
@@ -303,7 +303,8 @@ export class NatsKv implements INodeType {
 						if (options.maxBucketSize > 0) config.max_bytes = options.maxBucketSize;
 						if (options.maxValueSize > 0) config.max_value_size = options.maxValueSize;
 						
-						const kv = await js.views.kv(bucket, config);
+						const kvManager = new Kvm(js);
+						const kv = await kvManager.create(bucket, config);
 						const status = await kv.status();
 						
 						returnData.push({
@@ -322,7 +323,7 @@ export class NatsKv implements INodeType {
 						
 					} else if (operation === 'deleteBucket') {
 						// Delete a KV bucket
-						const jsm = await js.jetstreamManager();
+						const jsm = await jetstreamManager(nc);
 						const success = await jsm.streams.delete(`KV_${bucket}`);
 						
 						returnData.push({
@@ -335,7 +336,8 @@ export class NatsKv implements INodeType {
 						
 					} else {
 						// Get the KV bucket
-						const kv = await js.views.kv(bucket);
+						const kvManager = new Kvm(js);
+						const kv = await kvManager.open(bucket);
 						
 						switch (operation) {
 							case 'get': {

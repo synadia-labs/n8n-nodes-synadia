@@ -2,8 +2,14 @@ import { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NatsKv } from '../NatsKv.node';
 import * as NatsConnection from '../../utils/NatsConnection';
 import { NodeApiError } from 'n8n-workflow';
+import { jetstream, jetstreamManager, Kvm } from '../../bundled/nats-bundled';
 
 jest.mock('../../utils/NatsConnection');
+jest.mock('../../bundled/nats-bundled', () => ({
+	jetstream: jest.fn(),
+	jetstreamManager: jest.fn(),
+	Kvm: jest.fn(),
+}));
 
 describe('NatsKv Node', () => {
 	let node: NatsKv;
@@ -12,6 +18,7 @@ describe('NatsKv Node', () => {
 	let mockJs: any;
 	let mockJsm: any;
 	let mockKv: any;
+	let mockKvManager: any;
 	
 	beforeEach(() => {
 		jest.clearAllMocks();
@@ -30,6 +37,12 @@ describe('NatsKv Node', () => {
 			status: jest.fn(),
 		};
 		
+		// Mock KV Manager
+		mockKvManager = {
+			create: jest.fn().mockResolvedValue(mockKv),
+			open: jest.fn().mockResolvedValue(mockKv),
+		};
+		
 		// Mock JetStream manager
 		mockJsm = {
 			streams: {
@@ -39,17 +52,18 @@ describe('NatsKv Node', () => {
 		
 		// Mock JetStream
 		mockJs = {
-			views: {
-				kv: jest.fn().mockResolvedValue(mockKv),
-			},
-			jetstreamManager: jest.fn().mockResolvedValue(mockJsm),
+			// No longer has views property
 		};
 		
 		// Mock NATS connection
 		mockNc = {
-			jetstream: jest.fn().mockReturnValue(mockJs),
 			flush: jest.fn().mockResolvedValue(undefined),
 		};
+		
+		// Mock the bundled functions
+		(jetstream as jest.Mock).mockReturnValue(mockJs);
+		(jetstreamManager as jest.Mock).mockResolvedValue(mockJsm);
+		(Kvm as any).mockImplementation(() => mockKvManager);
 		
 		// Mock execute functions
 		mockExecuteFunctions = {
@@ -91,7 +105,8 @@ describe('NatsKv Node', () => {
 			
 			const result = await node.execute.call(mockExecuteFunctions);
 			
-			expect(mockJs.views.kv).toHaveBeenCalledWith('test-bucket', expect.objectContaining({
+			expect(Kvm).toHaveBeenCalledWith(mockJs);
+			expect(mockKvManager.create).toHaveBeenCalledWith('test-bucket', expect.objectContaining({
 				history: 20,
 				ttl: 3600000000000, // converted to nanoseconds
 				replicas: 2,

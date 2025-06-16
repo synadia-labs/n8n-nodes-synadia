@@ -1,7 +1,10 @@
 import { createNatsConnection } from '../../utils/NatsConnection';
-import { connect, jwtAuthenticator } from 'nats';
+import { connect, jwtAuthenticator } from '../../bundled/nats-bundled';
 
-jest.mock('nats');
+jest.mock('../../bundled/nats-bundled', () => ({
+  connect: jest.fn(),
+  jwtAuthenticator: jest.fn(),
+}));
 
 describe('NatsConnection - Credentials File Support', () => {
 	const mockConnect = connect as jest.MockedFunction<typeof connect>;

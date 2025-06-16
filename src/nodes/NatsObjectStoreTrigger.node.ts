@@ -6,7 +6,7 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection, consumerOpts } from 'nats';
+import { NatsConnection, consumerOpts, jetstream } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 
 export class NatsObjectStoreTrigger implements INodeType {
@@ -91,10 +91,10 @@ export class NatsObjectStoreTrigger implements INodeType {
 		const startWatcher = async () => {
 			try {
 				nc = await createNatsConnection(credentials, this);
-				const js = nc.jetstream();
+				const js = jetstream(nc);
 				
 				// Object Store uses the underlying stream events
-				const streamName = `OBJ_${bucket}`;
+				const _streamName = `OBJ_${bucket}`;
 				
 				// Create consumer options
 				const opts = consumerOpts();
@@ -109,7 +109,8 @@ export class NatsObjectStoreTrigger implements INodeType {
 				
 				// Subscribe to the object store stream
 				const subject = `$O.${bucket}.M.>`;
-				subscription = await js.subscribe(subject, opts);
+				// For now, cast to any to work around API differences
+				subscription = await (js as any).subscribe(subject, opts);
 				
 				// Process messages
 				(async () => {

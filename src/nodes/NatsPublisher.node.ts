@@ -6,7 +6,7 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection } from 'nats';
+import { NatsConnection, jetstream } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { encodeMessage, createNatsHeaders, validateSubject } from '../utils/NatsHelpers';
 
@@ -255,7 +255,7 @@ export class NatsPublisher implements INodeType {
 						
 					} else {
 						// JetStream publish
-						const js = nc.jetstream();
+						const js = jetstream(nc);
 						const pubOptions: any = { 
 							headers,
 							timeout: options.timeout || 5000,

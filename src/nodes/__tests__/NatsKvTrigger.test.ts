@@ -1,8 +1,13 @@
 import { ITriggerFunctions } from 'n8n-workflow';
 import { NatsKvTrigger } from '../NatsKvTrigger.node';
 import * as NatsConnection from '../../utils/NatsConnection';
+import { jetstream, Kvm } from '../../bundled/nats-bundled';
 
 jest.mock('../../utils/NatsConnection');
+jest.mock('../../bundled/nats-bundled', () => ({
+	jetstream: jest.fn(),
+	Kvm: jest.fn(),
+}));
 
 describe('NatsKvTrigger Node', () => {
 	let node: NatsKvTrigger;
@@ -10,6 +15,7 @@ describe('NatsKvTrigger Node', () => {
 	let mockNc: any;
 	let mockJs: any;
 	let mockKv: any;
+	let mockKvManager: any;
 	let mockWatcher: any;
 	let mockEmit: jest.Mock;
 	
@@ -29,17 +35,24 @@ describe('NatsKvTrigger Node', () => {
 			watch: jest.fn().mockResolvedValue(mockWatcher),
 		};
 		
+		// Mock KV Manager
+		mockKvManager = {
+			open: jest.fn().mockResolvedValue(mockKv),
+		};
+		
 		// Mock JetStream
 		mockJs = {
-			views: {
-				kv: jest.fn().mockResolvedValue(mockKv),
-			},
+			// No longer has views property
 		};
 		
 		// Mock NATS connection
 		mockNc = {
-			jetstream: jest.fn().mockReturnValue(mockJs),
+			// No longer has jetstream method
 		};
+		
+		// Mock the bundled functions
+		(jetstream as jest.Mock).mockReturnValue(mockJs);
+		(Kvm as any).mockImplementation(() => mockKvManager);
 		
 		// Mock trigger functions
 		mockTriggerFunctions = {

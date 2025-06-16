@@ -6,7 +6,7 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection } from 'nats';
+import { NatsConnection, jetstream, Kvm } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 
 export class NatsKvTrigger implements INodeType {
@@ -169,8 +169,9 @@ export class NatsKvTrigger implements INodeType {
 		const startWatcher = async () => {
 			try {
 				nc = await createNatsConnection(credentials, this);
-				const js = nc.jetstream();
-				const kv = await js.views.kv(bucket);
+				const js = jetstream(nc);
+				const kvManager = new Kvm(js);
+				const kv = await kvManager.open(bucket);
 				
 				// Configure watch options
 				const watchOpts: any = {

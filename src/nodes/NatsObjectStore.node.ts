@@ -6,7 +6,7 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection, ObjectStore } from 'nats';
+import { jetstream, jetstreamManager, Objm } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 
 export class NatsObjectStore implements INodeType {
@@ -275,11 +275,11 @@ export class NatsObjectStore implements INodeType {
 		const returnData: INodeExecutionData[] = [];
 		const credentials = await this.getCredentials('natsApi');
 		
-		let nc: NatsConnection;
+		let nc: any;
 		
 		try {
 			nc = await createNatsConnection(credentials, this);
-			const js = nc.jetstream();
+			const js = jetstream(nc);
 			
 			for (let i = 0; i < items.length; i++) {
 				try {
@@ -298,7 +298,8 @@ export class NatsObjectStore implements INodeType {
 						if (options.ttl) config.ttl = options.ttl * 1000000000; // Convert to nanoseconds
 						if (options.maxBucketSize > 0) config.max_bytes = options.maxBucketSize;
 						
-						const os = await js.views.os(bucket, config);
+						const objManager = new Objm(js);
+						const os = await objManager.create(bucket, config);
 						const status = await os.status();
 						
 						returnData.push({
@@ -317,7 +318,7 @@ export class NatsObjectStore implements INodeType {
 						
 					} else if (operation === 'deleteBucket') {
 						// Delete an object store bucket
-						const jsm = await js.jetstreamManager();
+						const jsm = await jetstreamManager(nc);
 						const success = await jsm.streams.delete(`OBJ_${bucket}`);
 						
 						returnData.push({
@@ -330,7 +331,8 @@ export class NatsObjectStore implements INodeType {
 						
 					} else {
 						// Get the object store
-						const os = await js.views.os(bucket);
+						const objManager = new Objm(js);
+						const os = await objManager.open(bucket);
 						
 						switch (operation) {
 							case 'put': {
@@ -500,7 +502,8 @@ export class NatsObjectStore implements INodeType {
 									throw new Error('Link source must be in format: bucket/object');
 								}
 								
-								const sourceOs = await js.views.os(sourceBucket);
+								const sourceObjManager = new Objm(js);
+								const sourceOs = await sourceObjManager.open(sourceBucket);
 								const sourceInfo = await sourceOs.info(sourceObject);
 								
 								if (!sourceInfo) {

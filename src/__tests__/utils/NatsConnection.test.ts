@@ -1,8 +1,8 @@
 import { createNatsConnection, closeNatsConnection } from '../../utils/NatsConnection';
-import { connect, NatsConnection } from 'nats';
+import { connect, credsAuthenticator, jwtAuthenticator, nkeyAuthenticator } from '../../bundled/nats-bundled';
 
-// Mock the nats module
-jest.mock('nats', () => ({
+// Mock the bundled module
+jest.mock('../../bundled/nats-bundled', () => ({
   connect: jest.fn(),
   credsAuthenticator: jest.fn(),
   jwtAuthenticator: jest.fn(),
@@ -13,7 +13,7 @@ describe('NatsConnection', () => {
   const mockNatsConnection = {
     drain: jest.fn(),
     close: jest.fn(),
-  } as unknown as NatsConnection;
+  } as any;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -90,9 +90,8 @@ describe('NatsConnection', () => {
     });
 
     it('should handle NKey authentication', async () => {
-      const { nkeyAuthenticator } = require('nats');
       const mockAuthenticator = jest.fn();
-      nkeyAuthenticator.mockReturnValue(mockAuthenticator);
+      (nkeyAuthenticator as jest.Mock).mockReturnValue(mockAuthenticator);
 
       const credentials = {
         connectionType: 'nkey',
@@ -111,9 +110,8 @@ describe('NatsConnection', () => {
     });
 
     it('should handle JWT authentication', async () => {
-      const { jwtAuthenticator } = require('nats');
       const mockAuthenticator = jest.fn();
-      jwtAuthenticator.mockReturnValue(mockAuthenticator);
+      (jwtAuthenticator as jest.Mock).mockReturnValue(mockAuthenticator);
 
       const credentials = {
         connectionType: 'jwt',

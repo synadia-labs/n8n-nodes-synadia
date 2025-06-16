@@ -1,5 +1,4 @@
 import { parseNatsMessage, encodeMessage, createNatsHeaders, validateSubject } from '../../utils/NatsHelpers';
-import { Msg } from 'nats';
 
 describe('NatsHelpers', () => {
   describe('parseNatsMessage', () => {
@@ -11,7 +10,7 @@ describe('NatsHelpers', () => {
         headers: undefined,
         sid: 1,
         seq: undefined,
-      } as unknown as Msg;
+      } as any;
 
       const result = parseNatsMessage(mockMsg);
 
@@ -28,7 +27,7 @@ describe('NatsHelpers', () => {
         reply: undefined,
         headers: undefined,
         sid: 1,
-      } as unknown as Msg;
+      } as any;
 
       const result = parseNatsMessage(mockMsg);
 
@@ -42,7 +41,7 @@ describe('NatsHelpers', () => {
         reply: undefined,
         headers: undefined,
         sid: 1,
-      } as unknown as Msg;
+      } as any;
 
       const result = parseNatsMessage(mockMsg);
 
@@ -61,7 +60,7 @@ describe('NatsHelpers', () => {
         reply: undefined,
         headers: mockHeaders,
         sid: 1,
-      } as unknown as Msg;
+      } as any;
 
       const result = parseNatsMessage(mockMsg);
 
@@ -79,7 +78,7 @@ describe('NatsHelpers', () => {
         headers: undefined,
         sid: 1,
         seq: 123,
-      } as unknown as Msg;
+      } as any;
 
       const result = parseNatsMessage(mockMsg);
 
