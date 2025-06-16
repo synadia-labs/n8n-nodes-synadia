@@ -216,9 +216,38 @@ For production environments:
    }
    ```
 
+## JetStream and Account Restrictions
+
+### Error: "account requires a stream config to have max bytes set"
+
+This error occurs when your NATS account has restrictions on stream creation. Common on:
+- Synadia Cloud accounts with limits
+- NATS servers with account resource limits
+
+**Solutions:**
+
+1. **Create buckets with explicit configuration**:
+   ```bash
+   # Create KV bucket with max bytes set
+   nats kv add my-bucket --max-bytes=1MB
+   
+   # Create Object Store with limits
+   nats object add my-objects --max-bytes=100MB
+   ```
+
+2. **Check account limits**:
+   ```bash
+   nats account info
+   ```
+
+3. **For Synadia Cloud**:
+   - Use the Synadia Cloud UI to create buckets with proper limits
+   - Ensure your account plan supports the required resources
+
 ## Need Help?
 
 1. Check NATS server logs: `docker logs nats-ws`
 2. Verify WebSocket endpoint: `wscat -c ws://your-server:8080`
 3. Test with demo server: `wss://demo.nats.io:443`
-4. Report issues: https://github.com/synadia-labs/n8n-nodes-synadia/issues
+4. Check account limits: `nats account info`
+5. Report issues: https://github.com/synadia-labs/n8n-nodes-synadia/issues

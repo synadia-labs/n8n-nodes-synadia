@@ -180,6 +180,15 @@ export class NatsKvTrigger implements INodeType {
 					if (error.message?.includes('not found') || error.message?.includes('does not exist')) {
 						throw new NodeOperationError(this.getNode(), `KV bucket '${bucket}' does not exist. Please create it first using the NATS KV Store node's 'Create Bucket' operation.`);
 					}
+					// Check for permission/configuration errors
+					if (error.message?.includes('stream config') || error.message?.includes('max bytes')) {
+						throw new NodeOperationError(
+							this.getNode(), 
+							`Cannot access KV bucket '${bucket}': ${error.message}. ` +
+							`This error typically occurs when your NATS account has restrictions on stream configurations. ` +
+							`Please ensure the KV bucket was created with proper settings that comply with your account limits.`
+						);
+					}
 					throw error;
 				}
 				
@@ -210,7 +219,21 @@ export class NatsKvTrigger implements INodeType {
 						break;
 				}
 				
-				watcher = await kv.watch(watchOpts);
+				try {
+					watcher = await kv.watch(watchOpts);
+				} catch (error: any) {
+					// Check for specific errors related to stream configuration
+					if (error.message?.includes('stream config') || error.message?.includes('max bytes')) {
+						throw new NodeOperationError(
+							this.getNode(), 
+							`Cannot watch KV bucket '${bucket}': ${error.message}. ` +
+							`This typically happens when the NATS account has restrictions on stream creation or modification. ` +
+							`Please ensure the KV bucket exists and your account has permission to create consumers on it.`
+						);
+					}
+					// Re-throw other errors
+					throw error;
+				}
 				
 				// Process entries
 				(async () => {
