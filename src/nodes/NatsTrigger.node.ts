@@ -638,11 +638,30 @@ export class NatsTrigger implements INodeType {
 				const streamName = this.getNodeParameter('streamName') as string;
 				const consumerType = this.getNodeParameter('consumerType') as string;
 				const options = this.getNodeParameter('options', {}) as IDataObject;
+				
+				// Check if the stream exists
+				try {
+					const jsm = await js.jetstreamManager();
+					await jsm.streams.info(streamName);
+				} catch (error: any) {
+					if (error.message?.includes('not found') || error.message?.includes('does not exist')) {
+						throw new ApplicationError(`Stream '${streamName}' does not exist. Please create the stream first using NATS CLI or management tools.`);
+					}
+					throw error;
+				}
 
 				if (consumerType === 'durable') {
 					// Use existing durable consumer
 					const consumerName = this.getNodeParameter('consumerName') as string;
-					const consumer = await js.consumers.get(streamName, consumerName);
+					let consumer;
+					try {
+						consumer = await js.consumers.get(streamName, consumerName);
+					} catch (error: any) {
+						if (error.message?.includes('not found') || error.message?.includes('does not exist')) {
+							throw new ApplicationError(`Consumer '${consumerName}' does not exist on stream '${streamName}'. Please create the consumer first using NATS CLI or management tools.`);
+						}
+						throw error;
+					}
 					
 					const messages = await consumer.consume();
 					(async () => {

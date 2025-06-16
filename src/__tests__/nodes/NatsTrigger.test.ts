@@ -36,8 +36,12 @@ describe('NatsTrigger', () => {
         consumers: {
           get: jest.fn(),
         },
+        jetstreamManager: jest.fn().mockReturnValue({
+          streams: {
+            info: jest.fn().mockResolvedValue({}),
+          },
+        }),
       }),
-      jetstreamManager: jest.fn().mockResolvedValue({}),
     } as unknown as NC;
 
     // Mock trigger functions
@@ -151,20 +155,11 @@ describe('NatsTrigger', () => {
 
   describe('JetStream Subscription', () => {
     it('should create ephemeral consumer', async () => {
-      const mockConsumerOpts = {
-        deliverNew: jest.fn(),
-        ackWait: jest.fn(),
-        maxDeliver: jest.fn(),
-        manualAck: jest.fn(),
-      };
-      
       const mockJsSubscription = {
         [Symbol.asyncIterator]: jest.fn().mockReturnValue({
           async next() { return { done: true }; },
         }),
       };
-
-      jest.spyOn(require('nats'), 'consumerOpts').mockReturnValue(mockConsumerOpts);
       
       const js = mockNatsConnection.jetstream();
       (js.subscribe as jest.Mock).mockResolvedValue(mockJsSubscription);
@@ -186,10 +181,16 @@ describe('NatsTrigger', () => {
 
       await node.trigger.call(mockTriggerFunctions);
 
-      expect(js.subscribe).toHaveBeenCalledWith('test.subject', mockConsumerOpts);
-      expect(mockConsumerOpts.deliverNew).toHaveBeenCalled();
-      expect(mockConsumerOpts.ackWait).toHaveBeenCalledWith(30000);
-      expect(mockConsumerOpts.maxDeliver).toHaveBeenCalledWith(3);
+      expect(js.subscribe).toHaveBeenCalledWith(
+        'test.subject',
+        expect.objectContaining({
+          config: expect.objectContaining({
+            deliver_policy: 'new',
+            ack_wait: 30000000000, // nanoseconds
+            max_deliver: 3,
+          }),
+        })
+      );
     });
 
     it('should use durable consumer', async () => {
@@ -233,11 +234,7 @@ describe('NatsTrigger', () => {
       for (const testCase of testCases) {
         jest.clearAllMocks();
         
-        const mockConsumerOpts = {
-          [testCase.method]: jest.fn(),
-        };
-        
-        jest.spyOn(require('nats'), 'consumerOpts').mockReturnValue(mockConsumerOpts);
+        // No need to mock consumerOpts anymore since we're testing the actual implementation
         
         const js = mockNatsConnection.jetstream();
         (js.subscribe as jest.Mock).mockResolvedValue({
@@ -267,17 +264,27 @@ describe('NatsTrigger', () => {
 
         await node.trigger.call(mockTriggerFunctions);
 
-        if (testCase.param !== undefined) {
-          if (testCase.policy === 'startTime') {
-            expect(mockConsumerOpts[testCase.method]).toHaveBeenCalledWith(
-              expect.any(Date)
-            );
-          } else {
-            expect(mockConsumerOpts[testCase.method]).toHaveBeenCalledWith(testCase.param);
-          }
-        } else {
-          expect(mockConsumerOpts[testCase.method]).toHaveBeenCalled();
+        // Check that subscribe was called with correct consumer options
+        const expectedDeliverPolicy = testCase.policy === 'startSequence' ? 'by_start_sequence' :
+                                     testCase.policy === 'startTime' ? 'by_start_time' :
+                                     testCase.policy;
+        
+        const expectedConfig: any = {
+          deliver_policy: expectedDeliverPolicy,
+        };
+        
+        if (testCase.policy === 'startSequence') {
+          expectedConfig.opt_start_seq = testCase.param;
+        } else if (testCase.policy === 'startTime') {
+          expectedConfig.opt_start_time = expect.any(String);
         }
+
+        expect(js.subscribe).toHaveBeenCalledWith(
+          'test.subject',
+          expect.objectContaining({
+            config: expect.objectContaining(expectedConfig),
+          })
+        );
       }
     });
   });

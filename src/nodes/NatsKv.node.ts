@@ -346,8 +346,16 @@ export class NatsKv implements INodeType {
 						});
 						
 					} else {
-						// Get the KV bucket
-						const kv = await js.views.kv(bucket);
+						// Get the KV bucket (will throw if bucket doesn't exist)
+						let kv;
+						try {
+							kv = await js.views.kv(bucket);
+						} catch (error: any) {
+							if (error.message?.includes('not found') || error.message?.includes('does not exist')) {
+								throw new NodeOperationError(this.getNode(), `KV bucket '${bucket}' does not exist. Please create it first using the 'Create Bucket' operation.`);
+							}
+							throw error;
+						}
 						
 						switch (operation) {
 							case 'get': {

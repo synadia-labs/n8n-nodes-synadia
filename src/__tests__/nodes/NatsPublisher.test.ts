@@ -90,9 +90,6 @@ describe('NatsPublisher', () => {
     });
 
     it('should include headers when provided', async () => {
-      const mockHeaders = { append: jest.fn(), headers: new Map() };
-      jest.spyOn(require('nats'), 'headers').mockReturnValue(mockHeaders);
-
       mockGetNodeParameter
         .mockReturnValueOnce('core')
         .mockReturnValueOnce('test.subject')
@@ -107,7 +104,11 @@ describe('NatsPublisher', () => {
       expect(mockNatsConnection.publish).toHaveBeenCalledWith(
         'test.subject',
         expect.any(Uint8Array),
-        expect.objectContaining({ headers: mockHeaders })
+        expect.objectContaining({ 
+          headers: expect.objectContaining({
+            headers: expect.any(Map)
+          })
+        })
       );
     });
 

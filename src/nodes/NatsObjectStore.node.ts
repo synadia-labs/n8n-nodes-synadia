@@ -339,8 +339,16 @@ export class NatsObjectStore implements INodeType {
 						});
 						
 					} else {
-						// Get the object store
-						const os = await js.views.os(bucket);
+						// Get the object store (will throw if bucket doesn't exist)
+						let os;
+						try {
+							os = await js.views.os(bucket);
+						} catch (error: any) {
+							if (error.message?.includes('not found') || error.message?.includes('does not exist')) {
+								throw new NodeOperationError(this.getNode(), `Object Store bucket '${bucket}' does not exist. Please create it first using the 'Create Bucket' operation.`);
+							}
+							throw error;
+						}
 						
 						switch (operation) {
 							case 'put': {
@@ -510,7 +518,17 @@ export class NatsObjectStore implements INodeType {
 									throw new NodeOperationError(this.getNode(), 'Link source must be in format: bucket/object');
 								}
 								
-								const sourceOs = await js.views.os(sourceBucket);
+								// Get source object store (will throw if bucket doesn't exist)
+								let sourceOs;
+								try {
+									sourceOs = await js.views.os(sourceBucket);
+								} catch (error: any) {
+									if (error.message?.includes('not found') || error.message?.includes('does not exist')) {
+										throw new NodeOperationError(this.getNode(), `Source Object Store bucket '${sourceBucket}' does not exist.`);
+									}
+									throw error;
+								}
+								
 								const sourceInfo = await sourceOs.info(sourceObject);
 								
 								if (!sourceInfo) {

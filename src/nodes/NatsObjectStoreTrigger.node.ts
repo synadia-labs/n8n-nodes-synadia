@@ -94,7 +94,18 @@ export class NatsObjectStoreTrigger implements INodeType {
 				const js = nc.jetstream();
 				
 				// Object Store uses the underlying stream events
-				const _streamName = `OBJ_${bucket}`;
+				const streamName = `OBJ_${bucket}`;
+				
+				// Check if the stream exists
+				try {
+					const jsm = await js.jetstreamManager();
+					await jsm.streams.info(streamName);
+				} catch (error: any) {
+					if (error.message?.includes('not found') || error.message?.includes('does not exist')) {
+						throw new NodeOperationError(this.getNode(), `Object Store bucket '${bucket}' does not exist. Please create it first using the NATS Object Store node's 'Create Bucket' operation.`);
+					}
+					throw error;
+				}
 				
 				// Create consumer options
 				const opts = consumerOpts();
