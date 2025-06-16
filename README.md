@@ -58,7 +58,7 @@ This package uses NATS.ws (WebSocket) connections exclusively. Before using thes
 cd ~/.n8n/custom
 
 # Clone or download this repository
-git clone https://github.com/synadia/n8n-nodes-synadia.git
+git clone https://github.com/synadia-io/n8n-nodes-synadia.git
 
 # Install dependencies
 cd n8n-nodes-synadia
@@ -72,7 +72,7 @@ npm run build
 
 ```bash
 # Clone the repository
-git clone https://github.com/synadia/n8n-nodes-synadia.git
+git clone https://github.com/synadia-io/n8n-nodes-synadia.git
 cd n8n-nodes-synadia
 
 # Install dependencies
@@ -854,6 +854,6 @@ Contributions are welcome! Please:
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/synadia/n8n-nodes-synadia/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/synadia/n8n-nodes-synadia/discussions)
+- **Issues**: [GitHub Issues](https://github.com/synadia-io/n8n-nodes-synadia/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/synadia-io/n8n-nodes-synadia/discussions)
 - **NATS Support**: [Synadia Support](https://synadia.com/support)

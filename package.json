@@ -5,12 +5,12 @@
   "main": "dist/index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/synadia/n8n-nodes-synadia.git"
+    "url": "https://github.com/synadia-io/n8n-nodes-synadia.git"
   },
   "bugs": {
-    "url": "https://github.com/synadia/n8n-nodes-synadia/issues"
+    "url": "https://github.com/synadia-io/n8n-nodes-synadia/issues"
   },
-  "homepage": "https://github.com/synadia/n8n-nodes-synadia#readme",
+  "homepage": "https://github.com/synadia-io/n8n-nodes-synadia#readme",
   "scripts": {
     "build": "npm run build:nats && npm run build:tsc && npm run postbuild",
     "build:nats": "rollup -c rollup.nats.config.js",

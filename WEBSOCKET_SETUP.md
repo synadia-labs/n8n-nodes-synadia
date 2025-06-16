@@ -250,4 +250,4 @@ This error occurs when your NATS account has restrictions on stream creation. Co
 2. Verify WebSocket endpoint: `wscat -c ws://your-server:8080`
 3. Test with demo server: `wss://demo.nats.io:443`
 4. Check account limits: `nats account info`
-5. Report issues: https://github.com/synadia-labs/n8n-nodes-synadia/issues
+5. Report issues: https://github.com/synadia-io/n8n-nodes-synadia/issues
