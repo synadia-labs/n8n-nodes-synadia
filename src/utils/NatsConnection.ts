@@ -1,5 +1,5 @@
 import { ICredentialDataDecryptedObject, IExecuteFunctions, ILoadOptionsFunctions, ITriggerFunctions } from 'n8n-workflow';
-import { connect, NatsConnection, ConnectionOptions, jwtAuthenticator, nkeyAuthenticator } from 'nats';
+import { connect, NatsConnection, ConnectionOptions, jwtAuthenticator, nkeyAuthenticator } from '../bundled';
 
 export type NatsCredentials = {
 	connectionType: 'url' | 'credentials' | 'token' | 'nkey' | 'jwt' | 'credsFile';
@@ -29,7 +29,27 @@ export async function createNatsConnection(
 	_context?: IExecuteFunctions | ITriggerFunctions | ILoadOptionsFunctions,
 ): Promise<NatsConnection> {
 	const creds = credentials as unknown as NatsCredentials;
-	const servers = creds.servers.split(',').map(s => s.trim());
+	let servers = creds.servers.split(',').map(s => s.trim());
+	
+	// Convert NATS URLs to WebSocket URLs for NATS.ws
+	servers = servers.map(server => {
+		// Handle Synadia Cloud NGS URLs
+		if (server.includes('connect.ngs.global')) {
+			// Always use the WebSocket endpoint for NGS
+			return 'wss://connect.ngs.global:443';
+		}
+		
+		// Convert nats:// to ws:// and tls:// to wss://
+		if (server.startsWith('nats://')) {
+			return server.replace('nats://', 'ws://');
+		} else if (server.startsWith('tls://')) {
+			return server.replace('tls://', 'wss://');
+		} else if (!server.startsWith('ws://') && !server.startsWith('wss://')) {
+			// If no protocol specified, assume ws://
+			return `ws://${server}`;
+		}
+		return server;
+	});
 	
 	const connectionOptions: ConnectionOptions = {
 		servers,

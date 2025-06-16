@@ -8,7 +8,7 @@ import {
 	NodeConnectionType,
 	INodeExecutionData,
 } from 'n8n-workflow';
-import { NatsConnection, Subscription, consumerOpts, Msg, StringCodec } from 'nats';
+import { NatsConnection, Subscription, consumerOpts, Msg, StringCodec } from '../bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { parseNatsMessage, validateSubject, encodeMessage, createNatsHeaders } from '../utils/NatsHelpers';
 
@@ -171,7 +171,7 @@ export class NatsTrigger implements INodeType {
 						name: 'responseTemplate',
 						type: 'json',
 						default: '{\n  "success": true,\n  "message": "Request processed",\n  "timestamp": "{{new Date().toISOString()}}",\n  "echo": "{{$json.data}}"\n}',
-						description: 'Template for the response. Use {{$json.data}} to access request data.',
+						description: 'Template for the response. Use {{$JSON.data}} to access request data.',
 					},
 					{
 						displayName: 'Response Encoding',
@@ -498,7 +498,7 @@ export class NatsTrigger implements INodeType {
 							replyData = (item.json as any)[replyField];
 						} else {
 							// Use entire output minus internal fields
-							const { requestId: _, subject, data, headers, replyTo, timestamp, seq, ...cleanReply } = item.json;
+							const { requestId: _, subject: _subject, data: _data, headers: _headers, replyTo: _replyTo, timestamp: _timestamp, seq: _seq, ...cleanReply } = item.json;
 							
 							// Use clean reply or default reply
 							if (Object.keys(cleanReply).length === 0) {
@@ -541,7 +541,7 @@ export class NatsTrigger implements INodeType {
 								const errorReply = JSON.stringify({ error: error.message });
 								const sc = StringCodec();
 								msg.respond(sc.encode(errorReply));
-							} catch (e) {
+							} catch {
 								// Ignore reply errors
 							}
 						}

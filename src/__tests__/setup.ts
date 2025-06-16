@@ -6,3 +6,12 @@ global.console.error = jest.fn();
 
 // Set test timeout
 jest.setTimeout(10000);
+
+// Mock WebSocket for NATS.ws
+global.WebSocket = jest.fn(() => ({
+  addEventListener: jest.fn(),
+  removeEventListener: jest.fn(),
+  send: jest.fn(),
+  close: jest.fn(),
+  readyState: 1,
+})) as any;

@@ -7,7 +7,7 @@ import {
 	ApplicationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection } from 'nats';
+import { NatsConnection } from '../bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { validateSubject } from '../utils/NatsHelpers';
 
@@ -54,7 +54,7 @@ export class NatsService implements INodeType {
 				name: 'responseData',
 				type: 'json',
 				default: '{\n  "success": true,\n  "message": "Request processed",\n  "timestamp": "{{new Date().toISOString()}}",\n  "echo": "{{$json.request}}"\n}',
-				description: 'JSON response to send back. You can use expressions like {{$json.request}} to access request data.',
+				description: 'JSON response to send back. You can use expressions like {{$JSON.request}} to access request data.',
 			},
 			{
 				displayName: 'Options',

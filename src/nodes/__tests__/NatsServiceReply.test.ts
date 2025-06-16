@@ -1,7 +1,7 @@
 import { NatsServiceReply } from '../NatsServiceReply.node';
 import { ITriggerFunctions } from 'n8n-workflow';
 import * as NatsConnection from '../../utils/NatsConnection';
-import { NatsConnection as NC } from 'nats';
+import { NatsConnection as NC } from 'nats.ws';
 
 jest.mock('../../utils/NatsConnection');
 

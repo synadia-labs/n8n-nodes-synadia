@@ -251,9 +251,11 @@ The NATS credential supports multiple authentication methods:
 To connect to Synadia Cloud:
 
 1. Select **Credentials File** as the connection type
-2. Set Server URLs to: `tls://connect.ngs.global`
+2. Set Server URLs to: `tls://connect.ngs.global` or `connect.ngs.global`
 3. Paste your entire `.creds` file content into the Credentials File field
 4. The node will automatically extract the JWT and NKey for authentication
+
+**Note**: This package uses WebSocket connections (NATS.ws) to connect to NATS servers. When connecting to Synadia Cloud, the connection will automatically use `wss://connect.ngs.global:443`.
 
 ### Connection Options
 

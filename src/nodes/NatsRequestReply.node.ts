@@ -6,7 +6,7 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection, StringCodec, Empty } from 'nats';
+import { NatsConnection } from '../bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { encodeMessage, parseMessage, createNatsHeaders, validateSubject } from '../utils/NatsHelpers';
 

@@ -6,7 +6,7 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection, consumerOpts } from 'nats';
+import { NatsConnection, consumerOpts } from '../bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 
 export class NatsObjectStoreTrigger implements INodeType {
@@ -94,7 +94,7 @@ export class NatsObjectStoreTrigger implements INodeType {
 				const js = nc.jetstream();
 				
 				// Object Store uses the underlying stream events
-				const streamName = `OBJ_${bucket}`;
+				const _streamName = `OBJ_${bucket}`;
 				
 				// Create consumer options
 				const opts = consumerOpts();

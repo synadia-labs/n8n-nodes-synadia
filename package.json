@@ -12,11 +12,15 @@
   },
   "homepage": "https://github.com/synadia/n8n-nodes-synadia#readme",
   "scripts": {
-    "build": "tsc && npm run copy:icons",
+    "build": "npm run build:nats && npm run build:tsc && npm run postbuild",
+    "build:nats": "rollup -c rollup.nats.config.js",
+    "build:tsc": "tsc",
+    "postbuild": "npm run copy:icons && npm run copy:bundled",
+    "copy:bundled": "cp src/bundled/nats-bundled.js dist/bundled/",
     "copy:icons": "cp -r src/icons dist/",
     "dev": "tsc --watch",
     "lint": "eslint src --ext .ts",
-    "lint:n8n": "eslint 'src/**/*.ts' --ignore-pattern '**/*.test.ts' --ignore-pattern '**/*.spec.ts'",
+    "lint:n8n": "eslint 'src/**/*.ts' --ignore-pattern '**/*.test.ts' --ignore-pattern '**/*.spec.ts' --ignore-pattern 'src/bundled/**'",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
@@ -30,7 +34,7 @@
     "automation"
   ],
   "author": "Synadia",
-  "license": "ISC",
+  "license": "MIT",
   "type": "commonjs",
   "files": [
     "dist/**/*"
@@ -54,19 +58,25 @@
   },
   "dependencies": {
     "n8n-core": "^1.14.1",
-    "n8n-workflow": "^1.82.0",
-    "nats": "^2.29.3"
+    "n8n-workflow": "^1.82.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.28.0",
+    "@rollup/plugin-commonjs": "^28.0.5",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-typescript": "^12.1.2",
     "@types/jest": "^29.5.14",
     "@types/node": "^24.0.1",
     "@typescript-eslint/eslint-plugin": "^8.34.0",
     "@typescript-eslint/parser": "^8.34.0",
     "eslint": "^9.28.0",
     "eslint-plugin-n8n-nodes-base": "^1.16.3",
+    "glob": "^11.0.3",
     "jest": "^30.0.0",
     "n8n-node-dev": "^0.100.0",
+    "nats.ws": "^1.30.3",
+    "rollup": "^4.43.0",
     "ts-jest": "^29.4.0",
     "typescript": "^5.8.3"
   }

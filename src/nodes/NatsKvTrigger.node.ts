@@ -6,7 +6,7 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection } from 'nats';
+import { NatsConnection } from '../bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 
 export class NatsKvTrigger implements INodeType {
@@ -66,6 +66,7 @@ export class NatsKvTrigger implements INodeType {
 				displayName: 'Key',
 				name: 'key',
 				type: 'string',
+				typeOptions: { password: true },
 				default: '',
 				required: true,
 				displayOptions: {
@@ -181,15 +182,17 @@ export class NatsKvTrigger implements INodeType {
 				
 				// Start the appropriate watcher
 				switch (watchType) {
-					case 'key':
+					case 'key': {
 						const key = this.getNodeParameter('key') as string;
 						watchOpts.key = key;
 						break;
+					}
 						
-					case 'pattern':
+					case 'pattern': {
 						const pattern = this.getNodeParameter('pattern') as string;
 						watchOpts.key = pattern;
 						break;
+					}
 						
 					case 'all':
 					default:

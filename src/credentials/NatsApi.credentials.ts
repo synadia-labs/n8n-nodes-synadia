@@ -20,14 +20,14 @@ export class NatsApi implements ICredentialType {
 					description: 'Connect using username/password',
 				},
 				{
-					name: 'JWT',
-					value: 'jwt',
-					description: 'Connect using JWT authentication',
-				},
-				{
 					name: 'Credentials File',
 					value: 'credsFile',
 					description: 'Connect using Synadia Cloud .creds file',
+				},
+				{
+					name: 'JWT',
+					value: 'jwt',
+					description: 'Connect using JWT authentication',
 				},
 				{
 					name: 'NKey',
@@ -53,8 +53,8 @@ export class NatsApi implements ICredentialType {
 			type: 'string',
 			default: 'nats://localhost:4222',
 			placeholder: 'nats://localhost:4222,nats://localhost:4223',
-			description: 'Comma-separated list of NATS server URLs. For Synadia Cloud, use: tls://connect.ngs.global',
-			hint: 'For Synadia Cloud with .creds file, use: tls://connect.ngs.global',
+			description: 'Comma-separated list of NATS server URLs. For Synadia Cloud, use: tls://connect.ngs.global or connect.ngs.global.',
+			hint: 'For Synadia Cloud with .creds file, use: tls://connect.ngs.global or connect.ngs.global',
 		},
 		{
 			displayName: 'Username',

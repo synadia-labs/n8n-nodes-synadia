@@ -7,9 +7,9 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection, Msg, StringCodec } from 'nats';
+import { NatsConnection, Msg, StringCodec } from '../bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
-import { encodeMessage, parseMessage, createNatsHeaders, validateSubject, parseNatsMessage } from '../utils/NatsHelpers';
+import { encodeMessage, createNatsHeaders, validateSubject, parseNatsMessage } from '../utils/NatsHelpers';
 
 export class NatsServiceReply implements INodeType {
 	description: INodeTypeDescription = {
@@ -197,7 +197,7 @@ export class NatsServiceReply implements INodeType {
 						const errorReply = JSON.stringify({ error: error.message });
 						const sc = StringCodec();
 						msg.respond(sc.encode(errorReply));
-					} catch (e) {
+					} catch {
 						// Ignore reply errors
 					}
 				}
@@ -275,7 +275,7 @@ export class NatsServiceReply implements INodeType {
 							replyData = item.json[replyField];
 						} else {
 							// Use entire output minus internal fields
-							const { requestId: _, subject, data, headers, replyTo, timestamp, seq, ...cleanReply } = item.json;
+							const { requestId: _, subject: _subject, data: _data, headers: _headers, replyTo: _replyTo, timestamp: _timestamp, seq: _seq, ...cleanReply } = item.json;
 							
 							// Use clean reply or default reply
 							if (Object.keys(cleanReply).length === 0) {
@@ -318,7 +318,7 @@ export class NatsServiceReply implements INodeType {
 								const errorReply = JSON.stringify({ error: error.message });
 								const sc = StringCodec();
 								msg.respond(sc.encode(errorReply));
-							} catch (e) {
+							} catch {
 								// Ignore reply errors
 							}
 						}

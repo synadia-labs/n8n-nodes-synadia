@@ -1,5 +1,5 @@
 import { INodeExecutionData } from 'n8n-workflow';
-import { Msg, headers } from 'nats';
+import { Msg, headers } from '../bundled';
 
 export interface NatsMessage {
 	subject: string;
