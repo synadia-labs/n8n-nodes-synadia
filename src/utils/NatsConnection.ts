@@ -88,21 +88,35 @@ export async function createNatsConnection(
 			break;
 		case 'credsFile':
 			if (creds.credsFile) {
-				// Parse the credentials file content - handle different line endings and whitespace
+				// Parse the credentials file content - handle any whitespace/formatting
 				const credsContent = creds.credsFile.trim();
 				
-				// More flexible regex patterns that handle different line endings
-				const jwtMatch = credsContent.match(/-----BEGIN NATS USER JWT-----[\r\n]+([\s\S]*?)[\r\n]+------END NATS USER JWT------/);
-				const seedMatch = credsContent.match(/-----BEGIN USER NKEY SEED-----[\r\n]+([\s\S]*?)[\r\n]+------END USER NKEY SEED------/);
+				// Very flexible regex that handles any whitespace between sections
+				const jwtMatch = credsContent.match(/-----BEGIN NATS USER JWT-----\s*([\s\S]*?)\s*------END NATS USER JWT------/);
+				const seedMatch = credsContent.match(/-----BEGIN USER NKEY SEED-----\s*([\s\S]*?)\s*------END USER NKEY SEED------/);
 				
 				if (jwtMatch && seedMatch) {
-					// Extract and clean the JWT and seed
-					const jwt = jwtMatch[1].replace(/[\r\n\s]/g, '').trim();
-					const seed = seedMatch[1].replace(/[\r\n\s]/g, '').trim();
+					// Extract and clean the JWT and seed - remove ALL whitespace and newlines
+					const jwt = jwtMatch[1].replace(/\s/g, '');
+					const seed = seedMatch[1].replace(/\s/g, '');
+					
+					// Debug logging (only in development)
+					if (process.env.NODE_ENV === 'development' || process.env.NATS_DEBUG) {
+						console.log('NATS Creds Debug:');
+						console.log('- JWT length:', jwt.length);
+						console.log('- JWT preview:', jwt.substring(0, 20) + '...');
+						console.log('- Seed length:', seed.length);
+						console.log('- Seed preview:', seed.substring(0, 20) + '...');
+					}
 					
 					// Validate that we have actual content
 					if (!jwt || !seed) {
 						throw new Error('Credentials file appears to be empty or corrupted.');
+					}
+					
+					// Additional validation - check expected format
+					if (!jwt.includes('.') || seed.length < 50) {
+						throw new Error('Credentials file content appears to be invalid. JWT should contain dots and seed should be at least 50 characters.');
 					}
 					
 					connectionOptions.authenticator = jwtAuthenticator(
@@ -110,7 +124,22 @@ export async function createNatsConnection(
 						new TextEncoder().encode(seed)
 					);
 				} else {
-					throw new Error('Invalid credentials file format. Please paste the entire .creds file content including the BEGIN/END markers.');
+					// Provide more helpful error message
+					const hasJwtBegin = credsContent.includes('-----BEGIN NATS USER JWT-----');
+					const hasJwtEnd = credsContent.includes('------END NATS USER JWT------');
+					const hasSeedBegin = credsContent.includes('-----BEGIN USER NKEY SEED-----');
+					const hasSeedEnd = credsContent.includes('------END USER NKEY SEED------');
+					
+					let errorMsg = 'Invalid credentials file format. ';
+					if (!hasJwtBegin || !hasJwtEnd) {
+						errorMsg += 'Missing JWT section. ';
+					}
+					if (!hasSeedBegin || !hasSeedEnd) {
+						errorMsg += 'Missing NKEY seed section. ';
+					}
+					errorMsg += 'Please paste the entire .creds file content including all BEGIN/END markers.';
+					
+					throw new Error(errorMsg);
 				}
 			}
 			break;
