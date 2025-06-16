@@ -88,20 +88,29 @@ export async function createNatsConnection(
 			break;
 		case 'credsFile':
 			if (creds.credsFile) {
-				// Parse the credentials file content
-				const credsContent = creds.credsFile;
-				const jwtMatch = credsContent.match(/-----BEGIN NATS USER JWT-----\n([\s\S]*?)\n------END NATS USER JWT------/);
-				const seedMatch = credsContent.match(/-----BEGIN USER NKEY SEED-----\n([\s\S]*?)\n------END USER NKEY SEED------/);
+				// Parse the credentials file content - handle different line endings and whitespace
+				const credsContent = creds.credsFile.trim();
+				
+				// More flexible regex patterns that handle different line endings
+				const jwtMatch = credsContent.match(/-----BEGIN NATS USER JWT-----[\r\n]+([\s\S]*?)[\r\n]+------END NATS USER JWT------/);
+				const seedMatch = credsContent.match(/-----BEGIN USER NKEY SEED-----[\r\n]+([\s\S]*?)[\r\n]+------END USER NKEY SEED------/);
 				
 				if (jwtMatch && seedMatch) {
-					const jwt = jwtMatch[1].trim();
-					const seed = seedMatch[1].trim();
+					// Extract and clean the JWT and seed
+					const jwt = jwtMatch[1].replace(/[\r\n\s]/g, '').trim();
+					const seed = seedMatch[1].replace(/[\r\n\s]/g, '').trim();
+					
+					// Validate that we have actual content
+					if (!jwt || !seed) {
+						throw new Error('Credentials file appears to be empty or corrupted.');
+					}
+					
 					connectionOptions.authenticator = jwtAuthenticator(
 						jwt,
 						new TextEncoder().encode(seed)
 					);
 				} else {
-					throw new Error('Invalid credentials file format. Please paste the entire .creds file content.');
+					throw new Error('Invalid credentials file format. Please paste the entire .creds file content including the BEGIN/END markers.');
 				}
 			}
 			break;
@@ -120,6 +129,20 @@ export async function createNatsConnection(
 		const nc = await connect(connectionOptions);
 		return nc;
 	} catch (error: any) {
+		// Provide more helpful error messages
+		if (error.message.includes('non-101 status code')) {
+			throw new Error(
+				`Failed to connect to NATS: WebSocket connection failed. ` +
+				`Make sure your NATS server has WebSocket enabled on the specified port. ` +
+				`Common issues: wrong port (use 8080 not 4222), WebSocket not enabled, or firewall blocking connection. ` +
+				`See WEBSOCKET_SETUP.md for troubleshooting.`
+			);
+		} else if (error.message.includes('Authentication')) {
+			throw new Error(
+				`NATS authentication failed: ${error.message}. ` +
+				`Check your credentials and ensure they are correctly formatted.`
+			);
+		}
 		throw new Error(`Failed to connect to NATS: ${error.message}`);
 	}
 }

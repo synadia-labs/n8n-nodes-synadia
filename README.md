@@ -791,6 +791,18 @@ All trigger nodes include built-in sample data for easy testing and development.
    ```
    - Ensure your NATS server is configured with WebSocket support
    - Check that the WebSocket port is accessible (default: 8080 for ws://, 443 for wss://)
+   - See [WEBSOCKET_SETUP.md](WEBSOCKET_SETUP.md) for detailed setup instructions
+
+2. **Common Error: "Received network error or non-101 status code"**
+   - This means the WebSocket connection failed
+   - Check if NATS server has `--websocket` flag or websocket config
+   - Verify you're using the correct port (8080, not 4222)
+   - Test with: `wscat -c ws://your-server:8080`
+
+3. **Credentials File Issues**
+   - Copy the ENTIRE .creds file content including BEGIN/END markers
+   - Use a plain text editor to avoid formatting issues
+   - Don't modify the file content - paste exactly as provided
 
 2. **Check credentials**
    - Ensure authentication method matches server configuration

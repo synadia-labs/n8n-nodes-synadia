@@ -155,18 +155,9 @@ export class NatsApi implements ICredentialType {
 				},
 			},
 			default: '',
-			placeholder: `-----BEGIN NATS USER JWT-----
-eyJ0eXAiOiJKV1QiLCJhbGciOiJlZDI1NTE5LW5rZXkifQ...
-------END NATS USER JWT------
-
-************************* IMPORTANT *************************
-NKEY Seed printed below can be used to sign and prove identity.
-NKEYs are sensitive and should be treated as secrets.
-
------BEGIN USER NKEY SEED-----
-SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
-------END USER NKEY SEED------`,
-			description: 'Paste the entire contents of your .creds file here',
+			placeholder: `Paste your entire .creds file content here`,
+			description: 'Open your .creds file in a text editor, select all (Ctrl/Cmd+A), copy (Ctrl/Cmd+C), and paste here. The file must include both the JWT and NKEY sections with their BEGIN/END markers.',
+			hint: 'Make sure to copy the ENTIRE file content including all the "-----BEGIN..." and "-----END..." lines',
 		},
 		{
 			displayName: 'Options',
