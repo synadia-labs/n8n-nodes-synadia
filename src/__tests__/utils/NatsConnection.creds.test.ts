@@ -44,7 +44,7 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
 			
 			expect(mockConnect).toHaveBeenCalledWith(
 				expect.objectContaining({
-					servers: ['tls://connect.ngs.global'],
+					servers: ['wss://connect.ngs.global:443'],
 					authenticator: expect.anything(),
 				})
 			);
@@ -67,7 +67,7 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
 			
 			const credentials = {
 				connectionType: 'credsFile',
-				servers: 'tls://connect.ngs.global',
+				servers: 'wss://connect.ngs.global:443',
 				credsFile: credsWithSpaces,
 			};
 			
@@ -81,7 +81,7 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
 			
 			const credentials = {
 				connectionType: 'credsFile',
-				servers: 'tls://connect.ngs.global',
+				servers: 'wss://connect.ngs.global:443',
 				credsFile: invalidCreds,
 			};
 			
@@ -97,7 +97,7 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
 			
 			const credentials = {
 				connectionType: 'credsFile',
-				servers: 'tls://connect.ngs.global',
+				servers: 'wss://connect.ngs.global:443',
 				credsFile: missingJWT,
 			};
 			
@@ -113,7 +113,7 @@ eyJ0eXAiOiJKV1QiLCJhbGciOiJlZDI1NTE5LW5rZXkifQ.SOME_JWT
 			
 			const credentials = {
 				connectionType: 'credsFile',
-				servers: 'tls://connect.ngs.global',
+				servers: 'wss://connect.ngs.global:443',
 				credsFile: missingSeed,
 			};
 			
@@ -125,7 +125,7 @@ eyJ0eXAiOiJKV1QiLCJhbGciOiJlZDI1NTE5LW5rZXkifQ.SOME_JWT
 		it('should work with Synadia Cloud NGS URLs', async () => {
 			const credentials = {
 				connectionType: 'credsFile',
-				servers: 'tls://connect.ngs.global,tls://connect.ngs.global:7422',
+				servers: 'connect.ngs.global',
 				credsFile: validCredsFile,
 			};
 			
@@ -133,7 +133,7 @@ eyJ0eXAiOiJKV1QiLCJhbGciOiJlZDI1NTE5LW5rZXkifQ.SOME_JWT
 			
 			expect(mockConnect).toHaveBeenCalledWith(
 				expect.objectContaining({
-					servers: ['tls://connect.ngs.global', 'tls://connect.ngs.global:7422'],
+					servers: ['wss://connect.ngs.global:443'],
 				})
 			);
 		});

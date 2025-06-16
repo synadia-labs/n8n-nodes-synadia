@@ -37,7 +37,7 @@ describe('NatsServiceReply', () => {
 
 		// Mock trigger functions
 		mockTriggerFunctions = {
-			getCredentials: jest.fn().mockResolvedValue({ connectionType: 'url', servers: 'nats://localhost:4222' }),
+			getCredentials: jest.fn().mockResolvedValue({ connectionType: 'url', servers: 'ws://localhost:8080' }),
 			getNodeParameter: mockGetNodeParameter,
 			getNode: jest.fn().mockReturnValue({}),
 			emit: mockEmit,

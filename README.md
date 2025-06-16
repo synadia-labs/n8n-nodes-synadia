@@ -2,6 +2,8 @@
 
 Official [Synadia](https://synadia.com) nodes for [n8n](https://n8n.io), providing seamless integration with [NATS](https://nats.io) messaging system. Built and maintained by the creators of NATS, these nodes support both Core NATS and JetStream functionality for reliable workflow automation.
 
+**Important:** This package uses WebSocket connections (NATS.ws) exclusively to connect to NATS servers. Ensure your NATS server has WebSocket support enabled.
+
 ## Features
 
 - 🚀 **Core NATS** - Publish/Subscribe messaging
@@ -11,6 +13,35 @@ Official [Synadia](https://synadia.com) nodes for [n8n](https://n8n.io), providi
 - 📦 **Message Encoding** - JSON, String, and Binary formats
 - 🎯 **Queue Groups** - Load balancing for subscribers
 - 💾 **JetStream Features** - Streams, Key-Value store, Object Store support
+- 🌐 **WebSocket Only** - Uses NATS.ws for browser-compatible connections
+
+## WebSocket Requirements
+
+This package uses NATS.ws (WebSocket) connections exclusively. Before using these nodes:
+
+1. **Enable WebSocket in NATS Server**
+   ```
+   websocket {
+     port: 8080
+     no_tls: true
+   }
+   ```
+   
+2. **For Secure Connections (WSS)**
+   ```
+   websocket {
+     port: 443
+     tls {
+       cert_file: "server-cert.pem"
+       key_file:  "server-key.pem"
+     }
+   }
+   ```
+
+3. **Default Ports**
+   - Standard WebSocket: 8080 (ws://)
+   - Secure WebSocket: 443 (wss://)
+   - NATS standard ports (4222) won't work
 
 ## Installation
 
@@ -251,18 +282,44 @@ The NATS credential supports multiple authentication methods:
 To connect to Synadia Cloud:
 
 1. Select **Credentials File** as the connection type
-2. Set Server URLs to: `tls://connect.ngs.global` or `connect.ngs.global`
+2. Set Server URLs to: `wss://connect.ngs.global:443`, `tls://connect.ngs.global`, or `connect.ngs.global`
 3. Paste your entire `.creds` file content into the Credentials File field
 4. The node will automatically extract the JWT and NKey for authentication
 
-**Note**: This package uses WebSocket connections (NATS.ws) to connect to NATS servers. When connecting to Synadia Cloud, the connection will automatically use `wss://connect.ngs.global:443`.
+**Note**: When connecting to Synadia Cloud, the connection will automatically use `wss://connect.ngs.global:443` regardless of the URL format provided.
 
 ### Connection Options
 
 - **Multiple Servers** - Comma-separated list for clustering
-- **TLS/SSL** - Certificate-based encryption
+- **WebSocket URLs** - Use `ws://` for standard connections or `wss://` for secure connections
+- **Protocol Conversion** - `nats://` URLs are automatically converted to `ws://`, and `tls://` URLs to `wss://`
+- **TLS/SSL** - Certificate-based encryption (when using `wss://`)
 - **Reconnection** - Configurable retry behavior
 - **Timeouts** - Connection and ping intervals
+
+## WebSocket Connection Examples
+
+### Common Connection Scenarios
+
+1. **Local NATS with WebSocket**
+   - Server URL: `ws://localhost:8080`
+   - Default WebSocket port is 8080
+
+2. **Secure WebSocket Connection**
+   - Server URL: `wss://nats.example.com:443`
+   - Uses TLS/SSL encryption
+
+3. **Synadia Cloud**
+   - Server URL: `wss://connect.ngs.global:443`
+   - Always uses secure WebSocket
+
+4. **Multiple Servers**
+   - Server URLs: `ws://server1:8080,wss://server2:443`
+   - Mix of standard and secure connections
+
+5. **Legacy URL Conversion**
+   - `nats://host:4222` → `ws://host:4222`
+   - `tls://host:4222` → `wss://host:4222`
 
 ## Examples
 
@@ -728,18 +785,26 @@ All trigger nodes include built-in sample data for easy testing and development.
 
 ### Connection Issues
 
-1. **Verify NATS server is running**
+1. **Verify NATS server has WebSocket support enabled**
    ```bash
    nats server info
    ```
+   - Ensure your NATS server is configured with WebSocket support
+   - Check that the WebSocket port is accessible (default: 8080 for ws://, 443 for wss://)
 
 2. **Check credentials**
    - Ensure authentication method matches server configuration
-   - Verify certificates for TLS connections
+   - Verify certificates for TLS connections (when using wss://)
 
 3. **Network connectivity**
-   - Check firewall rules
-   - Verify server URLs are accessible
+   - Check firewall rules for WebSocket ports
+   - Verify WebSocket URLs are accessible
+   - Note: Standard NATS ports (4222) won't work - use WebSocket ports
+
+4. **URL Format**
+   - Use `ws://host:port` for standard WebSocket connections
+   - Use `wss://host:port` for secure WebSocket connections
+   - Legacy `nats://` and `tls://` URLs are automatically converted
 
 ### Message Handling
 
@@ -755,7 +820,7 @@ All trigger nodes include built-in sample data for easy testing and development.
 ### Common Errors
 
 - `Subject cannot contain spaces` - Remove spaces from subject names
-- `Failed to connect to NATS` - Check server URL and credentials
+- `Failed to connect to NATS` - Check WebSocket URL and ensure NATS server has WebSocket support enabled
 - `Stream not found` - Ensure JetStream stream exists
 
 ## Contributing

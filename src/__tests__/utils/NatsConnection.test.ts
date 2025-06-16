@@ -24,13 +24,13 @@ describe('NatsConnection', () => {
     it('should create connection with basic URL configuration', async () => {
       const credentials = {
         connectionType: 'url',
-        servers: 'nats://localhost:4222',
+        servers: 'ws://localhost:8080',
       };
 
       const nc = await createNatsConnection(credentials);
 
       expect(connect).toHaveBeenCalledWith({
-        servers: ['nats://localhost:4222'],
+        servers: ['ws://localhost:8080'],
         name: 'n8n-nats-client',
         maxReconnectAttempts: -1,
         reconnectTimeWait: 2000,
@@ -43,14 +43,14 @@ describe('NatsConnection', () => {
     it('should handle multiple servers', async () => {
       const credentials = {
         connectionType: 'url',
-        servers: 'nats://server1:4222, nats://server2:4222',
+        servers: 'ws://server1:8080, wss://server2:443',
       };
 
       await createNatsConnection(credentials);
 
       expect(connect).toHaveBeenCalledWith(
         expect.objectContaining({
-          servers: ['nats://server1:4222', 'nats://server2:4222'],
+          servers: ['ws://server1:8080', 'wss://server2:443'],
         })
       );
     });
@@ -58,7 +58,7 @@ describe('NatsConnection', () => {
     it('should handle username/password authentication', async () => {
       const credentials = {
         connectionType: 'credentials',
-        servers: 'nats://localhost:4222',
+        servers: 'ws://localhost:8080',
         username: 'testuser',
         password: 'testpass',
       };
@@ -76,7 +76,7 @@ describe('NatsConnection', () => {
     it('should handle token authentication', async () => {
       const credentials = {
         connectionType: 'token',
-        servers: 'nats://localhost:4222',
+        servers: 'ws://localhost:8080',
         token: 'mytoken',
       };
 
@@ -96,7 +96,7 @@ describe('NatsConnection', () => {
 
       const credentials = {
         connectionType: 'nkey',
-        servers: 'nats://localhost:4222',
+        servers: 'ws://localhost:8080',
         nkeySeed: 'SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY',
       };
 
@@ -117,7 +117,7 @@ describe('NatsConnection', () => {
 
       const credentials = {
         connectionType: 'jwt',
-        servers: 'nats://localhost:4222',
+        servers: 'ws://localhost:8080',
         jwt: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...',
         jwtNkey: 'SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY',
       };
@@ -135,7 +135,7 @@ describe('NatsConnection', () => {
     it('should handle TLS configuration', async () => {
       const credentials = {
         connectionType: 'url',
-        servers: 'nats://localhost:4222',
+        servers: 'wss://localhost:443',
         options: {
           tls: true,
           tlsCaCert: 'ca-cert-content',
@@ -160,7 +160,7 @@ describe('NatsConnection', () => {
     it('should handle custom options', async () => {
       const credentials = {
         connectionType: 'url',
-        servers: 'nats://localhost:4222',
+        servers: 'ws://localhost:8080',
         options: {
           name: 'custom-client',
           maxReconnectAttempts: 10,
@@ -189,11 +189,71 @@ describe('NatsConnection', () => {
 
       const credentials = {
         connectionType: 'url',
-        servers: 'nats://localhost:4222',
+        servers: 'ws://localhost:8080',
       };
 
       await expect(createNatsConnection(credentials)).rejects.toThrow(
         'Failed to connect to NATS: Connection failed'
+      );
+    });
+
+    it('should convert legacy nats:// URLs to ws://', async () => {
+      const credentials = {
+        connectionType: 'url',
+        servers: 'nats://localhost:4222',
+      };
+
+      await createNatsConnection(credentials);
+
+      expect(connect).toHaveBeenCalledWith(
+        expect.objectContaining({
+          servers: ['ws://localhost:4222'],
+        })
+      );
+    });
+
+    it('should convert tls:// URLs to wss://', async () => {
+      const credentials = {
+        connectionType: 'url',
+        servers: 'tls://secure.example.com:4222',
+      };
+
+      await createNatsConnection(credentials);
+
+      expect(connect).toHaveBeenCalledWith(
+        expect.objectContaining({
+          servers: ['wss://secure.example.com:4222'],
+        })
+      );
+    });
+
+    it('should handle Synadia Cloud URLs correctly', async () => {
+      const credentials = {
+        connectionType: 'url',
+        servers: 'connect.ngs.global',
+      };
+
+      await createNatsConnection(credentials);
+
+      expect(connect).toHaveBeenCalledWith(
+        expect.objectContaining({
+          servers: ['wss://connect.ngs.global:443'],
+        })
+      );
+    });
+
+    it('should handle mixed URL formats', async () => {
+      const credentials = {
+        connectionType: 'url',
+        servers: 'nats://old-server:4222, ws://new-server:8080, tls://secure:4222',
+      };
+
+      await createNatsConnection(credentials);
+
+      expect(connect).toHaveBeenCalledWith(
+        expect.objectContaining({
+          servers: ['ws://old-server:4222', 'ws://new-server:8080', 'wss://secure:4222'],
+        })
       );
     });
   });
