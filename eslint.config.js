@@ -6,8 +6,19 @@ const n8nNodesBase = require('eslint-plugin-n8n-nodes-base');
 module.exports = [
   js.configs.recommended,
   {
+    // Global ignores
+    ignores: [
+      'dist/**/*',
+      'node_modules/**/*',
+      'coverage/**/*',
+      'src/bundled/nats-bundled.js',
+      '**/*.test.ts',
+      '**/*.spec.ts',
+      'src/index.ts'
+    ],
+  },
+  {
     files: ['src/**/*.ts'],
-    ignores: ['**/*.test.ts', '**/*.spec.ts', 'dist/**/*', 'src/index.ts'],
     languageOptions: {
       parser: typescriptParser,
       parserOptions: {
