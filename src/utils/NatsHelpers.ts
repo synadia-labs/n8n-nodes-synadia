@@ -124,3 +124,25 @@ export function parseMessage(data: Uint8Array, encoding: 'auto' | 'json' | 'stri
 	
 	return stringData;
 }
+
+export function encodeKvValue(value: any, valueType: string): Uint8Array {
+	switch (valueType) {
+		case 'binary':
+			return new TextEncoder().encode(Buffer.from(value, 'base64').toString());
+		case 'json': {
+			const jsonValue = typeof value === 'string' ? JSON.parse(value) : value;
+			return new TextEncoder().encode(JSON.stringify(jsonValue));
+		}
+		default:
+			return new TextEncoder().encode(value);
+	}
+}
+
+export function decodeKvValue(data: Uint8Array): any {
+	const stringValue = new TextDecoder().decode(data);
+	try {
+		return JSON.parse(stringValue);
+	} catch {
+		return stringValue;
+	}
+}
