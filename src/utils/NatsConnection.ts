@@ -68,8 +68,8 @@ export async function createNatsConnection(
 			break;
 		case 'credsFile':
 			if (creds.credsFile) {
-				// Parse the credentials file content - handle any whitespace/formatting
-				const credsContent = creds.credsFile.trim();
+				// Parse the credentials file content with improved regex
+				const credsContent = creds.credsFile;
 				
 				// Very flexible regex that handles any whitespace between sections
 				const jwtMatch = credsContent.match(/-----BEGIN NATS USER JWT-----\s*([\s\S]*?)\s*------END NATS USER JWT------/);
@@ -80,26 +80,12 @@ export async function createNatsConnection(
 					const jwt = jwtMatch[1].replace(/\s/g, '');
 					const seed = seedMatch[1].replace(/\s/g, '');
 					
-					// Debug logging (only in development)
-					if (process.env.NODE_ENV === 'development' || process.env.NATS_DEBUG) {
-						console.log('NATS Creds Debug:');
-						console.log('- JWT length:', jwt.length);
-						console.log('- JWT preview:', jwt.substring(0, 20) + '...');
-						console.log('- Seed length:', seed.length);
-						console.log('- Seed preview:', seed.substring(0, 20) + '...');
-					}
-					
-					// Validate that we have actual content
-					if (!jwt || !seed || jwt.length < 20 || seed.length < 20) {
-						throw new Error('Invalid credentials file format. JWT or seed appears to be empty or malformed.');
-					}
-					
 					connectionOptions.authenticator = jwtAuthenticator(
 						jwt,
 						new TextEncoder().encode(seed)
 					);
 				} else {
-					throw new Error('Invalid credentials file format. Please paste the entire .creds file content including the BEGIN/END markers.');
+					throw new Error('Invalid credentials file format. Please paste the entire .creds file content.');
 				}
 			}
 			break;
