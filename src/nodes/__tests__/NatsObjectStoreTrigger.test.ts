@@ -47,7 +47,7 @@ describe('NatsObjectStoreTrigger', () => {
 			}),
 			emit: mockEmit,
 			helpers: {
-				returnJsonArray: jest.fn((data) => data),
+				returnJsonArray: jest.fn((data) => data.map((item: any) => ({ json: item }))),
 			},
 			getMode: jest.fn().mockReturnValue('trigger'),
 			getNode: jest.fn().mockReturnValue({}),
@@ -79,14 +79,18 @@ describe('NatsObjectStoreTrigger', () => {
 			// Mock the message with object store metadata format
 			const mockMsg = {
 				subject: '$O.test-bucket.M.test.txt',
-				data: new TextEncoder().encode('{"name":"test.txt","headers":{"Nats-Object":"test.txt","Nats-Object-Size":"100"}}'),
+				data: new TextEncoder().encode(''),
 				headers: {
 					get: jest.fn((key) => {
-						if (key === 'Nats-Object') return 'test.txt';
-						if (key === 'Nats-Object-Size') return '100';
+						if (key === 'X-Nats-Operation') return 'PUT';
+						if (key === 'X-Nats-Object-Size') return '100';
+						if (key === 'X-Nats-Object-Chunks') return '1';
+						if (key === 'X-Nats-Object-Digest') return 'SHA-256=abc123';
+						if (key === 'X-Nats-Object-Mtime') return '2023-10-01T12:00:00.000Z';
 						return undefined;
 					}),
 				},
+				ack: jest.fn(),
 			};
 			
 			// Setup async iterator
@@ -117,9 +121,16 @@ describe('NatsObjectStoreTrigger', () => {
 				expect.objectContaining({
 					json: expect.objectContaining({
 						bucket: 'test-bucket',
-						object: 'test.txt',
-						size: 100,
 						operation: 'put',
+						object: expect.objectContaining({
+							name: 'test.txt',
+							size: 100,
+							chunks: 1,
+							digest: 'SHA-256=abc123',
+							mtime: '2023-10-01T12:00:00.000Z',
+							deleted: false,
+						}),
+						timestamp: expect.any(String),
 					}),
 				}),
 			])]);
@@ -184,7 +195,7 @@ describe('NatsObjectStoreTrigger', () => {
 			const triggerPromise = node.trigger.call(mockTriggerFunctions);
 			await new Promise(resolve => setTimeout(resolve, 10));
 			
-			expect(mockTriggerFunctions.logger.error).toHaveBeenCalledWith('Error processing object store events:', expect.any(Error));
+			expect(mockTriggerFunctions.logger.error).toHaveBeenCalledWith('Object store watcher error:', expect.objectContaining({ error: expect.any(Error) }));
 			
 			const triggerResponse = await triggerPromise;
 			if (triggerResponse && typeof triggerResponse === 'object' && 'closeFunction' in triggerResponse) {
@@ -203,29 +214,108 @@ describe('NatsObjectStoreTrigger', () => {
 			
 			(createNatsConnection as jest.Mock).mockRejectedValue(new Error('Connection failed'));
 			
-			await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow('Connection failed');
+			await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow('Failed to start object store watcher: Connection failed');
+		});
+
+		it('should filter messages by name pattern', async () => {
+			mockGetNodeParameter.mockImplementation((param: string) => {
+				switch (param) {
+					case 'bucket': return 'test-bucket';
+					case 'options': return { nameFilter: '*.jpg' };
+					default: return '';
+				}
+			});
+			
+			// Create messages for different file types
+			const jpgMsg = {
+				subject: '$O.test-bucket.M.image.jpg',
+				data: new TextEncoder().encode(''),
+				headers: {
+					get: jest.fn((key) => {
+						if (key === 'X-Nats-Operation') return 'PUT';
+						if (key === 'X-Nats-Object-Size') return '1024';
+						return undefined;
+					}),
+				},
+				ack: jest.fn(),
+			};
+			
+			const txtMsg = {
+				subject: '$O.test-bucket.M.document.txt',
+				data: new TextEncoder().encode(''),
+				headers: {
+					get: jest.fn((key) => {
+						if (key === 'X-Nats-Operation') return 'PUT';
+						if (key === 'X-Nats-Object-Size') return '512';
+						return undefined;
+					}),
+				},
+				ack: jest.fn(),
+			};
+			
+			// Setup async iterator with both messages
+			const filterAsyncIterator = {
+				[Symbol.asyncIterator]: jest.fn().mockReturnValue({
+					next: jest.fn()
+						.mockResolvedValueOnce({ done: false, value: jpgMsg })
+						.mockResolvedValueOnce({ done: false, value: txtMsg })
+						.mockResolvedValueOnce({ done: true }),
+				}),
+			};
+			mockSubscription[Symbol.asyncIterator] = filterAsyncIterator[Symbol.asyncIterator];
+			
+			const triggerPromise = node.trigger.call(mockTriggerFunctions);
+			await new Promise(resolve => setTimeout(resolve, 10));
+			
+			// Should only emit the .jpg file
+			expect(mockEmit).toHaveBeenCalledTimes(1);
+			expect(mockEmit).toHaveBeenCalledWith([expect.arrayContaining([
+				expect.objectContaining({
+					json: expect.objectContaining({
+						bucket: 'test-bucket',
+						operation: 'put',
+						object: expect.objectContaining({
+							name: 'image.jpg',
+							size: 1024,
+						}),
+					}),
+				}),
+			])]);
+			
+			// Verify both messages were acknowledged
+			expect(jpgMsg.ack).toHaveBeenCalled();
+			expect(txtMsg.ack).toHaveBeenCalled();
+			
+			const triggerResponse = await triggerPromise;
+			if (triggerResponse && typeof triggerResponse === 'object' && 'closeFunction' in triggerResponse) {
+				await (triggerResponse as any).closeFunction();
+			}
 		});
 
 		it('should handle delete operations', async () => {
 			mockGetNodeParameter.mockImplementation((param: string) => {
 				switch (param) {
 					case 'bucket': return 'test-bucket';
-					case 'options': return {};
+					case 'options': return { includeDeletes: true };
 					default: return '';
 				}
 			});
 			
-			// Mock delete message (has subject ending with DEL)
+			// Mock delete message
 			const mockDeleteMsg = {
 				subject: '$O.test-bucket.M.deleted.txt',
-				data: new TextEncoder().encode('{"name":"deleted.txt","headers":{"Nats-Object":"deleted.txt","Nats-Deleted":"true"}}'),
+				data: new TextEncoder().encode(''),
 				headers: {
 					get: jest.fn((key) => {
-						if (key === 'Nats-Object') return 'deleted.txt';
-						if (key === 'Nats-Deleted') return 'true';
+						if (key === 'X-Nats-Operation') return 'DELETE';
+						if (key === 'X-Nats-Object-Size') return '0';
+						if (key === 'X-Nats-Object-Chunks') return '0';
+						if (key === 'X-Nats-Object-Digest') return '';
+						if (key === 'X-Nats-Object-Mtime') return '2023-10-01T12:00:00.000Z';
 						return undefined;
 					}),
 				},
+				ack: jest.fn(),
 			};
 			
 			// Setup async iterator with delete message
@@ -245,8 +335,16 @@ describe('NatsObjectStoreTrigger', () => {
 				expect.objectContaining({
 					json: expect.objectContaining({
 						bucket: 'test-bucket',
-						object: 'deleted.txt',
 						operation: 'delete',
+						object: expect.objectContaining({
+							name: 'deleted.txt',
+							size: 0,
+							chunks: 0,
+							digest: '',
+							mtime: '2023-10-01T12:00:00.000Z',
+							deleted: true,
+						}),
+						timestamp: expect.any(String),
 					}),
 				}),
 			])]);
@@ -264,19 +362,33 @@ describe('NatsObjectStoreTrigger', () => {
 				...mockTriggerFunctions,
 				getMode: jest.fn().mockReturnValue('manual'),
 				emit: jest.fn(),
+				getNodeParameter: jest.fn((param: string) => {
+					if (param === 'bucket') return 'test-bucket';
+					return {};
+				}),
 			};
 
-			await node.trigger.call(manualMockTriggerFunctions);
+			const triggerResponse = await node.trigger.call(manualMockTriggerFunctions);
+			
+			// Call the manual trigger function
+			if (triggerResponse && typeof triggerResponse === 'object' && 'manualTriggerFunction' in triggerResponse) {
+				await (triggerResponse as any).manualTriggerFunction();
+			}
 
 			expect(manualMockTriggerFunctions.emit).toHaveBeenCalledWith([expect.arrayContaining([
 				expect.objectContaining({
 					json: expect.objectContaining({
-						bucket: 'my-bucket',
-						object: 'documents/report.pdf',
-						size: 102400,
+						bucket: 'test-bucket',
 						operation: 'put',
+						object: expect.objectContaining({
+							name: 'reports/2024/sales-report.pdf',
+							size: 2457600,
+							chunks: 20,
+							digest: 'SHA-256=47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=',
+							mtime: expect.any(String),
+							deleted: false,
+						}),
 						timestamp: expect.any(String),
-						etag: expect.any(String),
 					}),
 				}),
 			])]);

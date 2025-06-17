@@ -359,7 +359,7 @@ describe('NatsObjectStore', () => {
 				});
 			(mockExecuteFunctions.continueOnFail as jest.Mock).mockReturnValue(false);
 
-			await expect(node.execute.call(mockExecuteFunctions)).rejects.toThrow('Link source must be in format: bucket/object');
+			await expect(node.execute.call(mockExecuteFunctions)).rejects.toThrow('Link source must be in format: bucket-name/object-path');
 		});
 	});
 

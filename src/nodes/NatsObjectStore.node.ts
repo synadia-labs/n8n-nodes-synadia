@@ -5,10 +5,12 @@ import {
 	INodeTypeDescription,
 	NodeOperationError,
 	NodeConnectionType,
+	ApplicationError,
 } from 'n8n-workflow';
 import { jetstream, Objm } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { objectStoreOperationHandlers } from '../utils/operations/objectstore';
+import { validateBucketName, validateObjectName } from '../utils/ValidationHelpers';
 
 export class NatsObjectStore implements INodeType {
 	description: INodeTypeDescription = {
@@ -17,7 +19,7 @@ export class NatsObjectStore implements INodeType {
 		icon: 'file:../icons/nats.svg',
 		group: ['transform'],
 		version: 1,
-		description: 'Interact with NATS JetStream Object Store',
+		description: 'Store and retrieve objects (files, data) in NATS JetStream Object Store',
 		subtitle: '={{$parameter["operation"]}} - {{$parameter["bucket"]}}',
 		defaults: {
 			name: 'NATS Object Store',
@@ -40,8 +42,8 @@ export class NatsObjectStore implements INodeType {
 					{
 						name: 'Create Bucket',
 						value: 'createBucket',
-						description: 'Create a new object store bucket',
-						action: 'Create a new object store bucket',
+						description: 'Create a new bucket for storing objects',
+						action: 'Create a new bucket for storing objects',
 					},
 					{
 						name: 'Delete Bucket',
@@ -70,8 +72,8 @@ export class NatsObjectStore implements INodeType {
 					{
 						name: 'Get Object',
 						value: 'get',
-						description: 'Retrieve an object from the bucket',
-						action: 'Retrieve an object from the bucket',
+						description: 'Download an object from the bucket',
+						action: 'Download an object from the bucket',
 					},
 					{
 						name: 'Get Status',
@@ -88,8 +90,8 @@ export class NatsObjectStore implements INodeType {
 					{
 						name: 'Put Object',
 						value: 'put',
-						description: 'Store an object in the bucket',
-						action: 'Store an object in the bucket',
+						description: 'Upload data or file to the bucket',
+						action: 'Upload data or file to the bucket',
 					},
 				],
 				default: 'get',
@@ -100,8 +102,9 @@ export class NatsObjectStore implements INodeType {
 				type: 'string',
 				default: '',
 				required: true,
-				placeholder: 'my-bucket',
-				description: 'The name of the object store bucket',
+				placeholder: 'my-files',
+				description: 'Name of the bucket (no spaces or dots allowed)',
+				hint: 'Use only letters, numbers, hyphens, and underscores',
 			},
 			{
 				displayName: 'Object Name',
@@ -114,8 +117,9 @@ export class NatsObjectStore implements INodeType {
 						operation: ['put', 'get', 'delete', 'info', 'link'],
 					},
 				},
-				placeholder: 'my-file.txt',
-				description: 'The name of the object',
+				placeholder: 'reports/2024/sales.pdf',
+				description: 'Name or path to the object (can include forward slashes for organization)',
+				hint: 'Example: images/logo.png or documents/report.pdf',
 			},
 			{
 				displayName: 'Data',
@@ -131,7 +135,8 @@ export class NatsObjectStore implements INodeType {
 				typeOptions: {
 					rows: 4,
 				},
-				description: 'The data to store',
+				description: 'Content to store in the object (text, JSON, or base64 for binary)',
+				hint: 'For files, use binary mode and provide base64 encoded data',
 			},
 			{
 				displayName: 'Link Source',
@@ -144,8 +149,9 @@ export class NatsObjectStore implements INodeType {
 						operation: ['link'],
 					},
 				},
-				placeholder: 'source-bucket/source-object',
-				description: 'The source object to link to (bucket/object format)',
+				placeholder: 'archive-bucket/reports/2023/annual.pdf',
+				description: 'Path to source object (format: bucket-name/object-path)',
+				hint: 'Creates a reference to an object in another bucket without copying data',
 			},
 			{
 				displayName: 'Options',
@@ -192,7 +198,8 @@ export class NatsObjectStore implements INodeType {
 								'/operation': ['createBucket', 'put'],
 							},
 						},
-						description: 'Description of the bucket or object',
+						description: 'Human-readable description for the bucket or object',
+						placeholder: 'Company financial reports archive',
 					},
 					{
 						displayName: 'Headers',
@@ -204,7 +211,8 @@ export class NatsObjectStore implements INodeType {
 								'/operation': ['put'],
 							},
 						},
-						description: 'Custom headers for the object',
+						description: 'Custom metadata headers as JSON (e.g., {"Content-Type": "application/pdf"})',
+						placeholder: '{"author": "John Doe", "department": "Sales"}',
 					},
 					{
 						displayName: 'Chunk Size',
@@ -216,7 +224,8 @@ export class NatsObjectStore implements INodeType {
 								'/operation': ['put', 'get'],
 							},
 						},
-						description: 'Chunk size for streaming operations',
+						description: 'Size of data chunks for streaming large files (in bytes)',
+						hint: 'Default 128KB. Increase for better performance with large files',
 					},
 					{
 						displayName: 'TTL (Seconds)',
@@ -228,7 +237,8 @@ export class NatsObjectStore implements INodeType {
 								'/operation': ['createBucket'],
 							},
 						},
-						description: 'Time to live for objects in seconds (0 = no expiry)',
+						description: 'Automatically delete objects after this many seconds (0 = never expire)',
+						hint: 'Useful for temporary files or cache data',
 					},
 					{
 						displayName: 'Max Bucket Size',
@@ -240,7 +250,8 @@ export class NatsObjectStore implements INodeType {
 								'/operation': ['createBucket'],
 							},
 						},
-						description: 'Maximum size of the bucket in bytes (-1 = unlimited)',
+						description: 'Maximum total size of all objects in the bucket in bytes',
+						hint: 'Use -1 for unlimited. Example: 1073741824 for 1GB',
 					},
 					{
 						displayName: 'Replicas',
@@ -252,7 +263,8 @@ export class NatsObjectStore implements INodeType {
 								'/operation': ['createBucket'],
 							},
 						},
-						description: 'Number of replicas for the bucket',
+						description: 'Number of data copies to maintain for redundancy',
+						hint: 'Higher values increase durability but use more storage',
 					},
 					{
 						displayName: 'Storage',
@@ -274,7 +286,8 @@ export class NatsObjectStore implements INodeType {
 								'/operation': ['createBucket'],
 							},
 						},
-						description: 'Storage backend for the bucket',
+						description: 'Where to store the data',
+						hint: 'File: persistent storage, Memory: faster but temporary',
 					},
 				],
 			},
@@ -298,6 +311,9 @@ export class NatsObjectStore implements INodeType {
 					const bucket = this.getNodeParameter('bucket', i) as string;
 					const options = this.getNodeParameter('options', i, {}) as any;
 					
+					// Validate bucket name
+					validateBucketName(bucket);
+					
 					const handler = objectStoreOperationHandlers[operation];
 					
 					if (!handler) {
@@ -313,13 +329,31 @@ export class NatsObjectStore implements INodeType {
 						data: this.getNodeParameter('data', i, '') as string,
 					};
 					
+					// Validate object name for operations that require it
+					if (['put', 'get', 'delete', 'info', 'link'].includes(operation) && params.name) {
+						validateObjectName(params.name);
+					}
+					
 					// Handle link operation parameters
 					if (operation === 'link') {
 						const linkSource = this.getNodeParameter('linkSource', i, '') as string;
-						const [sourceBucket, sourceName] = linkSource.split('/');
-						if (!sourceBucket || !sourceName) {
-							throw new NodeOperationError(this.getNode(), 'Link source must be in format: bucket/object');
+						if (!linkSource) {
+							throw new ApplicationError('Link source cannot be empty', {
+								level: 'warning',
+								tags: { nodeType: 'n8n-nodes-synadia.natsObjectStore' },
+							});
 						}
+						const parts = linkSource.split('/');
+						if (parts.length < 2) {
+							throw new ApplicationError('Link source must be in format: bucket-name/object-path', {
+								level: 'warning',
+								tags: { nodeType: 'n8n-nodes-synadia.natsObjectStore' },
+							});
+						}
+						const sourceBucket = parts[0];
+						const sourceName = parts.slice(1).join('/');
+						validateBucketName(sourceBucket);
+						validateObjectName(sourceName);
 						params.sourceBucket = sourceBucket;
 						params.sourceName = sourceName;
 					}
