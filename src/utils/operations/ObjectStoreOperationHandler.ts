@@ -1,4 +1,3 @@
-import { INodeExecutionData } from 'n8n-workflow';
 
 export interface ObjectStoreOperationParams {
 	bucket: string;

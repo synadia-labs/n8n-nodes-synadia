@@ -8,9 +8,10 @@ import {
 	NodeConnectionType,
 	INodeExecutionData,
 } from 'n8n-workflow';
-import { NatsConnection, Subscription, consumerOpts, Msg, StringCodec, jetstream } from '../bundled/nats-bundled';
+import { NatsConnection, Subscription, consumerOpts, Msg, jetstream } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
-import { parseNatsMessage, validateSubject, encodeMessage, createNatsHeaders } from '../utils/NatsHelpers';
+import { parseNatsMessage, validateSubject } from '../utils/NatsHelpers';
+import { createReplyHandler, ManualReplyHandler } from '../utils/reply';
 
 export class NatsTrigger implements INodeType {
 	description: INodeTypeDescription = {
@@ -383,7 +384,7 @@ export class NatsTrigger implements INodeType {
 
 		let nc: NatsConnection;
 		let subscription: Subscription;
-		const pendingMessages = new Map<string, Msg>();
+		const replyHandler = createReplyHandler(replyMode);
 
 		const closeFunction = async () => {
 			if (subscription) {
@@ -392,172 +393,37 @@ export class NatsTrigger implements INodeType {
 			if (nc) {
 				await closeNatsConnection(nc);
 			}
+			if (replyHandler.cleanup) {
+				replyHandler.cleanup();
+			}
 		};
 
 		// Helper function to process messages based on reply mode
 		const processMessage = async (msg: Msg) => {
 			const parsedMessage = parseNatsMessage(msg);
 			
-			// Handle automatic reply mode
-			if (replyMode === 'automatic' && msg.reply) {
-				try {
-					// Process the response template
-					let responseTemplate = automaticReply.responseTemplate as string || '{"success": true}';
-					const requestData = parsedMessage.json.data;
-					
-					// Simple template replacement
-					responseTemplate = responseTemplate
-						.replace(/\{\{new Date\(\)\.toISOString\(\)\}\}/g, new Date().toISOString())
-						.replace(/\{\{\$json\.data\}\}/g, JSON.stringify(requestData))
-						.replace(/\{\{\$json\}\}/g, JSON.stringify(requestData));
-					
-					// Handle nested property access
-					const propertyMatches = responseTemplate.match(/\{\{\$json\.data\.([^}]+)\}\}/g);
-					if (propertyMatches) {
-						propertyMatches.forEach(match => {
-							const propertyPath = match.match(/\{\{\$json\.data\.([^}]+)\}\}/)?.[1];
-							if (propertyPath && requestData && typeof requestData === 'object') {
-								const value = propertyPath.split('.').reduce((obj: any, key) => obj?.[key], requestData as any);
-								responseTemplate = responseTemplate.replace(match, JSON.stringify(value ?? null));
-							}
-						});
-					}
-					
-					// Send the response
-					const responseEncoding = automaticReply.responseEncoding || 'json';
-					let responseData: Uint8Array;
-					
-					if (responseEncoding === 'json') {
-						const response = JSON.parse(responseTemplate);
-						responseData = new TextEncoder().encode(JSON.stringify(response));
-						// Add sent response to output if requested
-						if (automaticReply.includeRequestInOutput !== false) {
-							parsedMessage.json.sentResponse = response;
-						}
-					} else {
-						responseData = new TextEncoder().encode(responseTemplate);
-						if (automaticReply.includeRequestInOutput !== false) {
-							parsedMessage.json.sentResponse = responseTemplate;
-						}
-					}
-					
-					msg.respond(responseData);
-				} catch (error: any) {
-					// Send error response
-					if (automaticReply.errorResponse) {
-						try {
-							const errorResp = JSON.parse(automaticReply.errorResponse as string);
-							const errorData = new TextEncoder().encode(JSON.stringify(errorResp));
-							msg.respond(errorData);
-							parsedMessage.json.sentResponse = errorResp;
-							parsedMessage.json.error = error.message;
-						} catch {
-							// Send generic error
-							const genericError = { error: 'Internal service error' };
-							msg.respond(new TextEncoder().encode(JSON.stringify(genericError)));
-							parsedMessage.json.sentResponse = genericError;
-							parsedMessage.json.error = error.message;
-						}
-					}
-				}
-			}
-			
-			// Handle manual reply mode
-			if (replyMode === 'manual' && msg.reply) {
-				// Generate unique ID for this request
-				const requestId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-				parsedMessage.json.requestId = requestId;
-				pendingMessages.set(requestId, msg);
-			}
+			// Process message with reply handler
+			await replyHandler.processMessage({
+				msg,
+				parsedMessage,
+				automaticReply,
+				replyOptions,
+			});
 			
 			this.emit([[parsedMessage]]);
 		};
 		
 		// Manual reply function (for manual mode)
 		const manualReplyFunction = async () => {
-			if (replyMode !== 'manual' || pendingMessages.size === 0) {
+			if (replyMode !== 'manual' || !(replyHandler instanceof ManualReplyHandler)) {
 				return;
 			}
 			
 			// Get the output items
 			const items = (this as any).getInputData() as INodeExecutionData[];
 			
-			// Process each item
-			for (const item of items) {
-				const requestId = item.json.requestId as string;
-				const msg = pendingMessages.get(requestId);
-				
-				if (msg && msg.reply) {
-					try {
-						// Determine reply data
-						let replyData: any;
-						const replyField = (replyOptions.replyField as string) || 'reply';
-						
-						// Check if reply field exists
-						if ((item.json as any)[replyField] !== undefined) {
-							replyData = (item.json as any)[replyField];
-						} else {
-							// Use entire output minus internal fields
-							const { requestId: _, ...cleanReply } = item.json;
-							// Remove internal fields
-							delete cleanReply.subject;
-							delete cleanReply.data;
-							delete cleanReply.headers;
-							delete cleanReply.replyTo;
-							delete cleanReply.timestamp;
-							delete cleanReply.seq;
-							
-							// Use clean reply or default reply
-							if (Object.keys(cleanReply).length === 0) {
-								replyData = replyOptions.defaultReply || '{"success": true}';
-								if (typeof replyData === 'string') {
-									try {
-										replyData = JSON.parse(replyData);
-									} catch {
-										// Keep as string
-									}
-								}
-							} else {
-								replyData = cleanReply;
-							}
-						}
-						
-						// Include request if option is set
-						if (replyOptions.includeRequest && item.json.data) {
-							replyData = {
-								request: item.json.data,
-								response: replyData,
-							};
-						}
-						
-						// Extract custom headers if provided
-						let replyHeaders;
-						if (item.json.replyHeaders && typeof item.json.replyHeaders === 'object') {
-							replyHeaders = createNatsHeaders(item.json.replyHeaders as Record<string, string>);
-						}
-						
-						// Encode and send reply
-						const encodedReply = encodeMessage(replyData, replyOptions.replyEncoding as any || 'json');
-						msg.respond(encodedReply, { headers: replyHeaders });
-						
-					} catch (error: any) {
-						this.logger.error('Error sending reply:', error);
-						// Try to send error reply
-						if (msg.reply) {
-							try {
-								const errorReply = JSON.stringify({ error: error.message });
-								const sc = StringCodec();
-								msg.respond(sc.encode(errorReply));
-							} catch {
-								// Ignore reply errors
-							}
-						}
-					} finally {
-						// Remove processed message
-						pendingMessages.delete(requestId);
-					}
-				}
-			}
+			// Send replies using the handler
+			await (replyHandler as ManualReplyHandler).sendReply(items, replyOptions, this.logger);
 		};
 
 		const manualTriggerFunction = async () => {

@@ -6,7 +6,7 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { jetstream, jetstreamManager, Objm } from '../bundled/nats-bundled';
+import { jetstream, Objm } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { objectStoreOperationHandlers } from '../utils/operations/objectstore';
 

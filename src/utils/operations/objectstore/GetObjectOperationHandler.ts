@@ -1,6 +1,5 @@
 import { ObjectStoreOperationHandler, ObjectStoreOperationParams, ObjectStoreOperationResult } from '../ObjectStoreOperationHandler';
 import { ObjectStore } from '../../../bundled/nats-bundled';
-import { NodeOperationError } from 'n8n-workflow';
 
 export class GetObjectOperationHandler extends ObjectStoreOperationHandler {
 	readonly operationName = 'get';
@@ -10,8 +9,6 @@ export class GetObjectOperationHandler extends ObjectStoreOperationHandler {
 			throw new Error('Name is required for get operation');
 		}
 		
-		const returnType = params.options.returnType || 'string';
-		const includeInfo = params.options.includeInfo !== false;
 		
 		const result = await os.get(params.name);
 		if (result === null) {

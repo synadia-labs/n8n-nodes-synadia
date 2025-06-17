@@ -1,6 +1,5 @@
 import { ObjectStoreOperationHandler, ObjectStoreOperationParams, ObjectStoreOperationResult } from '../ObjectStoreOperationHandler';
 import { ObjectStore } from '../../../bundled/nats-bundled';
-import { NodeOperationError } from 'n8n-workflow';
 
 export class PutObjectOperationHandler extends ObjectStoreOperationHandler {
 	readonly operationName = 'put';
