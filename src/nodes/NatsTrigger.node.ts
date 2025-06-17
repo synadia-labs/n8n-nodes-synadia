@@ -12,6 +12,7 @@ import { NatsConnection, Subscription, consumerOpts, Msg, jetstream } from '../b
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { parseNatsMessage, validateSubject } from '../utils/NatsHelpers';
 import { createReplyHandler, ManualReplyHandler } from '../utils/reply';
+import { validateQueueGroup, validateStreamName, validateConsumerName, validateTimeout } from '../utils/ValidationHelpers';
 
 export class NatsTrigger implements INodeType {
 	description: INodeTypeDescription = {
@@ -20,7 +21,7 @@ export class NatsTrigger implements INodeType {
 		icon: 'file:../icons/nats.svg',
 		group: ['trigger'],
 		version: 1,
-		description: 'Trigger workflows on NATS messages',
+		description: 'Start workflows when messages arrive on NATS subjects',
 		subtitle: '={{$parameter["subject"]}}',
 		defaults: {
 			name: 'NATS Trigger',
@@ -42,12 +43,12 @@ export class NatsTrigger implements INodeType {
 					{
 						name: 'Core NATS',
 						value: 'core',
-						description: 'Subscribe to regular NATS subjects',
+						description: 'Fast, at-most-once message delivery',
 					},
 					{
 						name: 'JetStream',
 						value: 'jetstream',
-						description: 'Subscribe using JetStream consumers',
+						description: 'Reliable, exactly-once message delivery with replay',
 					},
 				],
 				default: 'core',
@@ -59,7 +60,8 @@ export class NatsTrigger implements INodeType {
 				default: '',
 				required: true,
 				placeholder: 'orders.>',
-				description: 'The subject to subscribe to. Supports wildcards (* and >).',
+				description: 'Subject pattern to subscribe to (no spaces allowed)',
+				hint: 'Use * for single token wildcard, > for multi-token wildcard',
 			},
 			{
 				displayName: 'Queue Group',
@@ -71,7 +73,9 @@ export class NatsTrigger implements INodeType {
 						subscriptionType: ['core'],
 					},
 				},
-				description: 'Optional queue group for load balancing',
+				description: 'Group name for load balancing multiple subscribers',
+				placeholder: 'order-processors',
+				hint: 'Only one subscriber in the group receives each message',
 			},
 			{
 				displayName: 'Reply Mode',
@@ -95,7 +99,8 @@ export class NatsTrigger implements INodeType {
 					},
 				],
 				default: 'disabled',
-				description: 'How to handle messages that have a reply subject',
+				description: 'How to respond to request/reply messages',
+				hint: 'Only affects messages with a reply-to subject',
 			},
 			{
 				displayName: 'Reply Options',
@@ -114,21 +119,25 @@ export class NatsTrigger implements INodeType {
 						name: 'replyField',
 						type: 'string',
 						default: 'reply',
-						description: 'Field name containing the reply data. If not found, entire output is used.',
+						description: 'Output field containing the response data',
+						placeholder: 'response',
+						hint: 'If missing, entire output (minus internal fields) is sent',
 					},
 					{
 						displayName: 'Include Request',
 						name: 'includeRequest',
 						type: 'boolean',
 						default: false,
-						description: 'Whether to include the original request in the reply',
+						description: 'Whether to wrap response with original request data',
+						hint: 'Response format: {request: {...}, response: {...}}',
 					},
 					{
 						displayName: 'Default Reply',
 						name: 'defaultReply',
 						type: 'json',
 						default: '{"success": true}',
-						description: 'Default reply if no data is provided',
+						description: 'Fallback response when output is empty',
+						placeholder: '{"success": true, "message": "Processed"}',
 					},
 					{
 						displayName: 'Reply Encoding',
@@ -172,7 +181,8 @@ export class NatsTrigger implements INodeType {
 						name: 'responseTemplate',
 						type: 'json',
 						default: '{\n  "success": true,\n  "message": "Request processed",\n  "timestamp": "{{new Date().toISOString()}}",\n  "echo": "{{$json.data}}"\n}',
-						description: 'Template for the response. Use {{$JSON.data}} to access request data.',
+						description: 'Response template with access to request data',
+						hint: 'Use {{$json.data}} for request data, {{new Date().toISOString()}} for timestamp',
 					},
 					{
 						displayName: 'Response Encoding',
@@ -197,14 +207,16 @@ export class NatsTrigger implements INodeType {
 						name: 'includeRequestInOutput',
 						type: 'boolean',
 						default: true,
-						description: 'Whether to include the original request in the workflow output',
+						description: 'Whether to pass request data to workflow (for debugging/logging)',
+						hint: 'Response is still sent automatically',
 					},
 					{
 						displayName: 'Error Response',
 						name: 'errorResponse',
 						type: 'json',
 						default: '{"success": false, "error": "An error occurred processing the request"}',
-						description: 'Response to send when template processing fails',
+						description: 'Fallback response for template errors',
+						placeholder: '{"success": false, "error": "Processing failed"}',
 					},
 				],
 			},
@@ -219,7 +231,9 @@ export class NatsTrigger implements INodeType {
 						subscriptionType: ['jetstream'],
 					},
 				},
-				description: 'JetStream stream to consume from',
+				description: 'Name of the JetStream stream (no spaces or dots)',
+				placeholder: 'ORDERS',
+				hint: 'Stream must exist and contain the specified subject',
 			},
 			{
 				displayName: 'Consumer Type',
@@ -234,12 +248,12 @@ export class NatsTrigger implements INodeType {
 					{
 						name: 'Ephemeral',
 						value: 'ephemeral',
-						description: 'Create temporary consumer',
+						description: 'Create temporary consumer that disappears when disconnected',
 					},
 					{
 						name: 'Durable',
 						value: 'durable',
-						description: 'Use existing durable consumer',
+						description: 'Connect to existing consumer that persists across restarts',
 					},
 				],
 				default: 'ephemeral',
@@ -256,7 +270,9 @@ export class NatsTrigger implements INodeType {
 					},
 				},
 				required: true,
-				description: 'Name of the durable consumer',
+				description: 'Existing consumer name (no spaces or dots)',
+				placeholder: 'order-processor',
+				hint: 'Consumer must already exist on the stream',
 			},
 			{
 				displayName: 'Options',
@@ -340,7 +356,8 @@ export class NatsTrigger implements INodeType {
 							},
 						},
 						default: 30000,
-						description: 'Time to wait for message acknowledgment',
+						description: 'Time to wait for acknowledgment before redelivery (milliseconds)',
+						hint: 'Message will be redelivered if not acknowledged in time',
 					},
 					{
 						displayName: 'Max Deliver',
@@ -352,7 +369,8 @@ export class NatsTrigger implements INodeType {
 							},
 						},
 						default: -1,
-						description: 'Maximum delivery attempts (-1 for unlimited)',
+						description: 'Maximum delivery attempts before giving up',
+						hint: 'Use -1 for unlimited attempts',
 					},
 					{
 						displayName: 'Manual Ack',
@@ -364,7 +382,8 @@ export class NatsTrigger implements INodeType {
 							},
 						},
 						default: false,
-						description: 'Whether to manually acknowledge messages',
+						description: 'Whether to require explicit acknowledgment in workflow',
+						hint: 'Messages remain pending until acknowledged',
 					},
 				],
 			},
@@ -492,6 +511,11 @@ export class NatsTrigger implements INodeType {
 				// Core NATS subscription
 				const queueGroup = this.getNodeParameter('queueGroup', '') as string;
 				
+				// Validate queue group if specified
+				if (queueGroup) {
+					validateQueueGroup(queueGroup);
+				}
+				
 				const subOptions: any = {};
 				if (queueGroup) {
 					subOptions.queue = queueGroup;
@@ -511,10 +535,21 @@ export class NatsTrigger implements INodeType {
 				const streamName = this.getNodeParameter('streamName') as string;
 				const consumerType = this.getNodeParameter('consumerType') as string;
 				const options = this.getNodeParameter('options', {}) as IDataObject;
+				
+				// Validate stream name
+				validateStreamName(streamName);
+				
+				// Validate ack wait timeout if specified
+				if (options.ackWait) {
+					validateTimeout(options.ackWait as number, 'Ack Wait');
+				}
 
 				if (consumerType === 'durable') {
 					// Use existing durable consumer
 					const consumerName = this.getNodeParameter('consumerName') as string;
+					
+					// Validate consumer name
+					validateConsumerName(consumerName);
 					const consumer = await js.consumers.get(streamName, consumerName);
 					
 					const messages = await consumer.consume();
