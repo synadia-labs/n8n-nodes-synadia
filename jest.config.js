@@ -22,4 +22,6 @@ module.exports = {
   },
   setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
   testPathIgnorePatterns: ['/node_modules/', 'setup.ts'],
+  // Integration tests may take longer
+  testTimeout: 30000,
 };
