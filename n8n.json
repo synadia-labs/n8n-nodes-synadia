@@ -1,9 +1,0 @@
-{
-  "node": [
-    "dist/nodes/NatsTrigger.node.js",
-    "dist/nodes/NatsPublisher.node.js"
-  ],
-  "credentials": [
-    "dist/credentials/NatsApi.credentials.js"
-  ]
-}

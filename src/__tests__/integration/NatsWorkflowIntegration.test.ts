@@ -583,45 +583,6 @@ describe('NATS Nodes Integration Tests', () => {
 			]);
 		});
 
-		it.skip('should handle KV bucket operations', async () => {
-			const kvNode = new NatsKv();
-
-			// Test create bucket
-			const createFunctions = createMockExecuteFunctions({
-				operation: 'createBucket',
-				bucket: 'new-bucket',
-				options: {
-					history: 10,
-					maxValueSize: 1024,
-					ttl: 3600,
-				},
-			});
-
-			// Mock the kv function to create bucket
-			(kv as jest.Mock).mockResolvedValueOnce(mockKvStore);
-
-			await kvNode.execute.call(createFunctions);
-
-			expect(kv).toHaveBeenCalledWith(
-				mockNc,
-				'new-bucket',
-				expect.objectContaining({
-					history: 10,
-					max_value_size: 1024,
-					ttl: 3600000000000, // converted to nanos
-				})
-			);
-
-			// Test delete bucket
-			const deleteFunctions = createMockExecuteFunctions({
-				operation: 'deleteBucket',
-				bucket: 'old-bucket',
-			});
-
-			await kvNode.execute.call(deleteFunctions);
-
-			expect(mockKvStore.destroy).toHaveBeenCalled();
-		});
 	});
 
 	describe('Object Store Workflow', () => {

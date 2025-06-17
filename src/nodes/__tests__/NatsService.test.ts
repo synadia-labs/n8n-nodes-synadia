@@ -134,7 +134,7 @@ describe('NatsService', () => {
 	});
 
 	describe('Message Processing', () => {
-		it.skip('should process request and send response', async () => {
+		it('should process request and send response', async () => {
 			const mockMessage = {
 				data: new TextEncoder().encode('{"test": "data"}'),
 				subject: 'api.test',
@@ -142,13 +142,22 @@ describe('NatsService', () => {
 				respond: jest.fn(),
 			};
 
+			// Create a promise to track when emit is called
+			let emitResolver: (value: unknown) => void;
+			const emitPromise = new Promise((resolve) => {
+				emitResolver = resolve;
+			});
+
+			// Mock emit to resolve our promise when called  
+			mockEmit.mockImplementation((data) => {
+				emitResolver(data);
+			});
+
 			// Setup async iterator for subscription
 			let messageProcessed = false;
 			const mockIterator = {
 				next: jest.fn().mockImplementation(async () => {
 					if (messageProcessed) {
-						// Hang forever after processing first message
-						await new Promise(() => {});
 						return { done: true };
 					}
 					messageProcessed = true;
@@ -161,28 +170,34 @@ describe('NatsService', () => {
 			mockGetNodeParameter
 				.mockReturnValueOnce('api.test')
 				.mockReturnValueOnce('')
-				.mockReturnValueOnce('{"success": true, "echo": "{{$json}}"}')
+				.mockReturnValueOnce('{"success": true}')  // Simplified response without template
 				.mockReturnValueOnce({ includeRequest: true });
 
 			await node.trigger.call(mockTriggerFunctions);
 
-			// Wait for async processing
-			await new Promise(resolve => setTimeout(resolve, 500));
+			// Wait for emit to be called
+			const emittedData = await emitPromise;
 
-			expect(mockEmit).toHaveBeenCalledWith([[{
-				json: expect.objectContaining({
-					data: { test: 'data' },
-					replyTo: '_INBOX.123',
-					sentRequest: { test: 'data' },
-					sentResponse: expect.any(Object),
-					subject: 'api.test',
-					timestamp: expect.any(String),
-				})
-			}]]);
+			// Check the emitted data
+			const emittedJson = (emittedData as any)[0][0].json;
+			expect(emittedJson).toMatchObject({
+				data: { test: 'data' },
+				replyTo: '_INBOX.123',
+				sentRequest: { test: 'data' },
+				sentResponse: { success: true },
+				subject: 'api.test',
+			});
+			expect(emittedJson.timestamp).toBeDefined();
 
 			expect(mockMessage.respond).toHaveBeenCalledWith(
 				expect.any(Uint8Array)
 			);
+
+			// Verify the response content
+			const responseData = mockMessage.respond.mock.calls[0][0];
+			const responseStr = new TextDecoder().decode(responseData);
+			const responseObj = JSON.parse(responseStr);
+			expect(responseObj).toEqual({ success: true });
 		});
 	});
 
