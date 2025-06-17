@@ -1,4 +1,12 @@
-import { parseNatsMessage, encodeMessage, createNatsHeaders, validateSubject } from '../../utils/NatsHelpers';
+import { 
+  parseNatsMessage, 
+  encodeMessage, 
+  parseMessage,
+  createNatsHeaders, 
+  validateSubject,
+  encodeKvValue,
+  decodeKvValue
+} from '../../utils/NatsHelpers';
 
 describe('NatsHelpers', () => {
   describe('parseNatsMessage', () => {
@@ -178,6 +186,128 @@ describe('NatsHelpers', () => {
       expect(() => validateSubject('test$subject')).toThrow(
         'Subject contains invalid characters'
       );
+    });
+  });
+
+  describe('parseMessage', () => {
+    it('should parse binary data', () => {
+      const originalData = new Uint8Array([72, 101, 108, 108, 111]); // "Hello"
+      const parsed = parseMessage(originalData, 'binary');
+      
+      expect(parsed).toBe('SGVsbG8='); // Base64 encoded "Hello"
+    });
+
+    it('should parse string data', () => {
+      const data = new TextEncoder().encode('Hello World');
+      const parsed = parseMessage(data, 'string');
+      
+      expect(parsed).toBe('Hello World');
+    });
+
+    it('should parse JSON data', () => {
+      const data = new TextEncoder().encode('{"test": "value"}');
+      const parsed = parseMessage(data, 'json');
+      
+      expect(parsed).toEqual({ test: 'value' });
+    });
+
+    it('should throw error for invalid JSON with json encoding', () => {
+      const data = new TextEncoder().encode('invalid json');
+      
+      expect(() => parseMessage(data, 'json')).toThrow('Failed to parse JSON');
+    });
+
+    it('should handle auto mode - valid JSON', () => {
+      const data = new TextEncoder().encode('{"test": "value"}');
+      const parsed = parseMessage(data, 'auto');
+      
+      expect(parsed).toEqual({ test: 'value' });
+    });
+
+    it('should handle auto mode - fallback to string', () => {
+      const data = new TextEncoder().encode('plain text');
+      const parsed = parseMessage(data, 'auto');
+      
+      expect(parsed).toBe('plain text');
+    });
+
+    it('should handle empty data', () => {
+      const data = new Uint8Array(0);
+      const parsed = parseMessage(data, 'string');
+      
+      expect(parsed).toBe('');
+    });
+
+    it('should handle unknown encoding as string', () => {
+      const data = new TextEncoder().encode('test');
+      const parsed = parseMessage(data, 'unknown' as any);
+      
+      expect(parsed).toBe('test');
+    });
+  });
+
+  describe('encodeKvValue', () => {
+    it('should encode binary value from base64', () => {
+      const base64 = 'SGVsbG8gV29ybGQ='; // "Hello World"
+      const encoded = encodeKvValue(base64, 'binary');
+      const decoded = new TextDecoder().decode(encoded);
+      
+      expect(decoded).toBe('Hello World');
+    });
+
+    it('should encode JSON value from string', () => {
+      const value = '{"test": "value"}';
+      const encoded = encodeKvValue(value, 'json');
+      const decoded = new TextDecoder().decode(encoded);
+      
+      expect(JSON.parse(decoded)).toEqual({ test: 'value' });
+    });
+
+    it('should encode JSON value from object', () => {
+      const value = { test: 'value' };
+      const encoded = encodeKvValue(value, 'json');
+      const decoded = new TextDecoder().decode(encoded);
+      
+      expect(JSON.parse(decoded)).toEqual({ test: 'value' });
+    });
+
+    it('should encode string value', () => {
+      const value = 'plain text';
+      const encoded = encodeKvValue(value, 'string');
+      const decoded = new TextDecoder().decode(encoded);
+      
+      expect(decoded).toBe('plain text');
+    });
+
+    it('should handle unknown type as string', () => {
+      const value = 'test';
+      const encoded = encodeKvValue(value, 'unknown');
+      const decoded = new TextDecoder().decode(encoded);
+      
+      expect(decoded).toBe('test');
+    });
+  });
+
+  describe('decodeKvValue', () => {
+    it('should decode JSON value', () => {
+      const data = new TextEncoder().encode('{"test": "value"}');
+      const decoded = decodeKvValue(data);
+      
+      expect(decoded).toEqual({ test: 'value' });
+    });
+
+    it('should fallback to string for non-JSON', () => {
+      const data = new TextEncoder().encode('plain text');
+      const decoded = decodeKvValue(data);
+      
+      expect(decoded).toBe('plain text');
+    });
+
+    it('should handle empty data', () => {
+      const data = new Uint8Array(0);
+      const decoded = decodeKvValue(data);
+      
+      expect(decoded).toBe('');
     });
   });
 });

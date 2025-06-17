@@ -32,6 +32,38 @@ jest.mock('../../bundled/nats-bundled', () => ({
 	})),
 }));
 
+jest.mock('../../utils/NatsHelpers', () => ({
+	parseNatsMessage: jest.fn((msg) => {
+		let data;
+		if (msg.data) {
+			const decoded = new TextDecoder().decode(msg.data);
+			try {
+				data = JSON.parse(decoded);
+			} catch {
+				data = decoded;
+			}
+		} else {
+			data = {};
+		}
+		
+		return {
+			json: {
+				subject: msg.subject,
+				data,
+				replyTo: msg.reply,
+				headers: msg.headers ? Object.fromEntries(msg.headers) : undefined,
+				timestamp: new Date().toISOString(),
+			}
+		};
+	}),
+	encodeMessage: jest.fn((data, encoding) => {
+		const str = typeof data === 'string' ? data : JSON.stringify(data);
+		return new TextEncoder().encode(str);
+	}),
+	createNatsHeaders: jest.fn((headers) => headers),
+	validateSubject: jest.fn(),
+}));
+
 describe('NatsServiceReply', () => {
 	let node: NatsServiceReply;
 	let mockTriggerFunctions: ITriggerFunctions;
@@ -243,6 +275,329 @@ describe('NatsServiceReply', () => {
 
 			// Should not emit anything
 			expect(mockEmit).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('Error Handling', () => {
+		it('should handle parsing errors and send error reply', async () => {
+			const mockMessage = {
+				data: new TextEncoder().encode('invalid json'),
+				subject: 'api.test',
+				reply: '_INBOX.error',
+				respond: jest.fn(),
+			};
+
+			mockSubscription[Symbol.asyncIterator] = jest.fn().mockImplementation(() => ({
+				next: jest.fn().mockResolvedValueOnce({ value: mockMessage, done: false })
+					.mockResolvedValue({ done: true }),
+			}));
+
+			mockGetNodeParameter
+				.mockReturnValueOnce('api.test')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce({});
+
+			await node.trigger.call(mockTriggerFunctions);
+			await new Promise(resolve => setTimeout(resolve, 100));
+
+			expect(mockTriggerFunctions.logger.error).toHaveBeenCalledWith(
+				'Error processing request:',
+				expect.any(Error)
+			);
+			expect(mockMessage.respond).toHaveBeenCalledWith(
+				expect.any(Uint8Array)
+			);
+		});
+
+		it('should handle connection errors', async () => {
+			(NatsConnection.createNatsConnection as jest.Mock).mockRejectedValue(
+				new Error('Connection failed')
+			);
+
+			mockGetNodeParameter
+				.mockReturnValueOnce('api.test')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce({});
+
+			await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow(
+				'Failed to start service: Connection failed'
+			);
+		});
+
+		it('should handle subscription errors', async () => {
+			const errorAsyncIterator = {
+				[Symbol.asyncIterator]: jest.fn().mockImplementation(() => ({
+					next: jest.fn().mockRejectedValue(new Error('Subscription error')),
+				})),
+			};
+			mockSubscription[Symbol.asyncIterator] = errorAsyncIterator[Symbol.asyncIterator];
+
+			mockGetNodeParameter
+				.mockReturnValueOnce('api.test')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce({});
+
+			await node.trigger.call(mockTriggerFunctions);
+			await new Promise(resolve => setTimeout(resolve, 100));
+
+			expect(mockTriggerFunctions.logger.error).toHaveBeenCalledWith(
+				'Service error:',
+				expect.any(Error)
+			);
+		});
+	});
+
+	describe('Manual Reply Sending', () => {
+		it('should send replies when manual trigger is invoked with data', async () => {
+			const mockMessage = {
+				data: new TextEncoder().encode('{"userId": "123"}'),
+				subject: 'api.users.get',
+				reply: '_INBOX.123',
+				respond: jest.fn(),
+			};
+
+			// First, setup the subscription to receive a message
+			mockSubscription[Symbol.asyncIterator] = jest.fn().mockImplementation(() => ({
+				next: jest.fn().mockResolvedValueOnce({ value: mockMessage, done: false })
+					.mockResolvedValue({ done: true }),
+			}));
+
+			mockGetNodeParameter
+				.mockReturnValueOnce('api.users.get')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce({ replyField: 'response' });
+
+			const response = await node.trigger.call(mockTriggerFunctions);
+			await new Promise(resolve => setTimeout(resolve, 100));
+
+			// Verify message was received and stored
+			expect(mockEmit).toHaveBeenCalledWith([[{
+				json: expect.objectContaining({
+					requestId: expect.any(String),
+					data: { userId: '123' },
+				})
+			}]]);
+
+			// Extract the requestId from the emitted data
+			const emittedData = mockEmit.mock.calls[0][0][0];
+			const requestId = emittedData.json.requestId;
+
+			// Mock getInputData to return the response
+			(mockTriggerFunctions as any).getInputData = jest.fn().mockReturnValue([{
+				json: {
+					requestId,
+					response: { user: { id: '123', name: 'Test User' } },
+				}
+			}]);
+
+			// Call manual trigger to send reply
+			await response.manualTriggerFunction!();
+
+			// Verify reply was sent
+			expect(mockMessage.respond).toHaveBeenCalledWith(
+				expect.any(Uint8Array),
+				expect.any(Object)
+			);
+			
+			// Verify the content of the reply
+			const replyData = mockMessage.respond.mock.calls[0][0];
+			const replyText = new TextDecoder().decode(replyData);
+			const replyJson = JSON.parse(replyText);
+			expect(replyJson).toEqual({ user: { id: '123', name: 'Test User' } });
+		});
+
+		it('should use default reply when no reply field is present', async () => {
+			const mockMessage = {
+				data: new TextEncoder().encode('{"test": "data"}'),
+				subject: 'api.test',
+				reply: '_INBOX.456',
+				respond: jest.fn(),
+			};
+
+			mockSubscription[Symbol.asyncIterator] = jest.fn().mockImplementation(() => ({
+				next: jest.fn().mockResolvedValueOnce({ value: mockMessage, done: false })
+					.mockResolvedValue({ done: true }),
+			}));
+
+			mockGetNodeParameter
+				.mockReturnValueOnce('api.test')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce({ defaultReply: '{"status": "ok"}' });
+
+			const response = await node.trigger.call(mockTriggerFunctions);
+			await new Promise(resolve => setTimeout(resolve, 100));
+
+			const emittedData = mockEmit.mock.calls[0][0][0];
+			const requestId = emittedData.json.requestId;
+
+			(mockTriggerFunctions as any).getInputData = jest.fn().mockReturnValue([{
+				json: {
+					requestId,
+					// No reply field, just the original data
+					subject: 'api.test',
+					data: { test: 'data' },
+				}
+			}]);
+
+			await response.manualTriggerFunction!();
+
+			const replyData = mockMessage.respond.mock.calls[0][0];
+			const replyText = new TextDecoder().decode(replyData);
+			const replyJson = JSON.parse(replyText);
+			expect(replyJson).toEqual({ status: 'ok' });
+		});
+
+		it('should include request data when option is set', async () => {
+			const mockMessage = {
+				data: new TextEncoder().encode('{"action": "test"}'),
+				subject: 'api.test',
+				reply: '_INBOX.789',
+				respond: jest.fn(),
+			};
+
+			mockSubscription[Symbol.asyncIterator] = jest.fn().mockImplementation(() => ({
+				next: jest.fn().mockResolvedValueOnce({ value: mockMessage, done: false })
+					.mockResolvedValue({ done: true }),
+			}));
+
+			mockGetNodeParameter
+				.mockReturnValueOnce('api.test')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce({ includeRequest: true });
+
+			const response = await node.trigger.call(mockTriggerFunctions);
+			await new Promise(resolve => setTimeout(resolve, 100));
+
+			const emittedData = mockEmit.mock.calls[0][0][0];
+			const requestId = emittedData.json.requestId;
+
+			(mockTriggerFunctions as any).getInputData = jest.fn().mockReturnValue([{
+				json: {
+					requestId,
+					data: { action: 'test' },
+					reply: { result: 'success' },
+				}
+			}]);
+
+			await response.manualTriggerFunction!();
+
+			const replyData = mockMessage.respond.mock.calls[0][0];
+			const replyText = new TextDecoder().decode(replyData);
+			const replyJson = JSON.parse(replyText);
+			expect(replyJson).toEqual({
+				request: { action: 'test' },
+				response: { result: 'success' }
+			});
+		});
+
+		it('should handle reply errors gracefully', async () => {
+			const mockMessage = {
+				data: new TextEncoder().encode('{"test": "data"}'),
+				subject: 'api.test',
+				reply: '_INBOX.error',
+				respond: jest.fn().mockImplementation(() => {
+					throw new Error('Reply failed');
+				}),
+			};
+
+			mockSubscription[Symbol.asyncIterator] = jest.fn().mockImplementation(() => ({
+				next: jest.fn().mockResolvedValueOnce({ value: mockMessage, done: false })
+					.mockResolvedValue({ done: true }),
+			}));
+
+			mockGetNodeParameter
+				.mockReturnValueOnce('api.test')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce({});
+
+			const response = await node.trigger.call(mockTriggerFunctions);
+			await new Promise(resolve => setTimeout(resolve, 100));
+
+			const emittedData = mockEmit.mock.calls[0][0][0];
+			const requestId = emittedData.json.requestId;
+
+			(mockTriggerFunctions as any).getInputData = jest.fn().mockReturnValue([{
+				json: {
+					requestId,
+					reply: { result: 'test' },
+				}
+			}]);
+
+			await response.manualTriggerFunction!();
+
+			expect(mockTriggerFunctions.logger.error).toHaveBeenCalledWith(
+				'Error sending reply:',
+				expect.any(Error)
+			);
+			// Should attempt to send error reply
+			expect(mockMessage.respond).toHaveBeenCalledTimes(2);
+		});
+
+		it('should handle custom headers in replies', async () => {
+			const mockMessage = {
+				data: new TextEncoder().encode('{"test": "data"}'),
+				subject: 'api.test',
+				reply: '_INBOX.headers',
+				respond: jest.fn(),
+			};
+
+			mockSubscription[Symbol.asyncIterator] = jest.fn().mockImplementation(() => ({
+				next: jest.fn().mockResolvedValueOnce({ value: mockMessage, done: false })
+					.mockResolvedValue({ done: true }),
+			}));
+
+			mockGetNodeParameter
+				.mockReturnValueOnce('api.test')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce({});
+
+			const response = await node.trigger.call(mockTriggerFunctions);
+			await new Promise(resolve => setTimeout(resolve, 100));
+
+			const emittedData = mockEmit.mock.calls[0][0][0];
+			const requestId = emittedData.json.requestId;
+
+			(mockTriggerFunctions as any).getInputData = jest.fn().mockReturnValue([{
+				json: {
+					requestId,
+					reply: { result: 'success' },
+					replyHeaders: {
+						'X-Custom-Header': 'custom-value',
+						'X-Request-ID': 'req-123',
+					}
+				}
+			}]);
+
+			await response.manualTriggerFunction!();
+
+			expect(mockMessage.respond).toHaveBeenCalledWith(
+				expect.any(Uint8Array),
+				expect.objectContaining({
+					headers: expect.objectContaining({
+						'X-Custom-Header': 'custom-value',
+						'X-Request-ID': 'req-123',
+					})
+				})
+			);
+		});
+	});
+
+	describe('Cleanup', () => {
+		it('should properly clean up resources on close', async () => {
+			mockGetNodeParameter
+				.mockReturnValueOnce('api.test')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce({});
+
+			const response = await node.trigger.call(mockTriggerFunctions);
+			
+			// Call the close function
+			if (response && typeof response === 'object' && 'closeFunction' in response) {
+				await (response as any).closeFunction();
+			}
+
+			expect(mockSubscription.unsubscribe).toHaveBeenCalled();
+			expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(mockNatsConnection);
 		});
 	});
 });
