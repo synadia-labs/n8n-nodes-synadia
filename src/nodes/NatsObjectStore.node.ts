@@ -35,51 +35,61 @@ export class NatsObjectStore implements INodeType {
 				displayName: 'Operation',
 				name: 'operation',
 				type: 'options',
+				noDataExpression: true,
 				options: [
 					{
 						name: 'Create Bucket',
 						value: 'createBucket',
 						description: 'Create a new object store bucket',
+						action: 'Create a new object store bucket',
 					},
 					{
 						name: 'Delete Bucket',
 						value: 'deleteBucket',
 						description: 'Delete an object store bucket',
-					},
-					{
-						name: 'Put Object',
-						value: 'put',
-						description: 'Store an object in the bucket',
-					},
-					{
-						name: 'Get Object',
-						value: 'get',
-						description: 'Retrieve an object from the bucket',
+						action: 'Delete an object store bucket',
 					},
 					{
 						name: 'Delete Object',
 						value: 'delete',
 						description: 'Delete an object from the bucket',
+						action: 'Delete an object from the bucket',
 					},
 					{
 						name: 'Get Info',
 						value: 'info',
 						description: 'Get information about an object',
-					},
-					{
-						name: 'List Objects',
-						value: 'list',
-						description: 'List all objects in the bucket',
+						action: 'Get information about an object',
 					},
 					{
 						name: 'Get Link',
 						value: 'link',
 						description: 'Create a link to an object in another bucket',
+						action: 'Create a link to an object in another bucket',
+					},
+					{
+						name: 'Get Object',
+						value: 'get',
+						description: 'Retrieve an object from the bucket',
+						action: 'Retrieve an object from the bucket',
 					},
 					{
 						name: 'Get Status',
 						value: 'status',
 						description: 'Get status of an object store bucket',
+						action: 'Get status of an object store bucket',
+					},
+					{
+						name: 'List Objects',
+						value: 'list',
+						description: 'List all objects in the bucket',
+						action: 'List all objects in the bucket',
+					},
+					{
+						name: 'Put Object',
+						value: 'put',
+						description: 'Store an object in the bucket',
+						action: 'Store an object in the bucket',
 					},
 				],
 				default: 'get',
@@ -200,7 +210,7 @@ export class NatsObjectStore implements INodeType {
 						displayName: 'Chunk Size',
 						name: 'chunkSize',
 						type: 'number',
-						default: 128 * 1024,
+						default: 131072,
 						displayOptions: {
 							show: {
 								'/operation': ['put', 'get'],
@@ -209,7 +219,7 @@ export class NatsObjectStore implements INodeType {
 						description: 'Chunk size for streaming operations',
 					},
 					{
-						displayName: 'TTL (seconds)',
+						displayName: 'TTL (Seconds)',
 						name: 'ttl',
 						type: 'number',
 						default: 0,

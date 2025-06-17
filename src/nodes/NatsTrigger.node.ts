@@ -172,7 +172,7 @@ export class NatsTrigger implements INodeType {
 						name: 'responseTemplate',
 						type: 'json',
 						default: '{\n  "success": true,\n  "message": "Request processed",\n  "timestamp": "{{new Date().toISOString()}}",\n  "echo": "{{$json.data}}"\n}',
-						description: 'Template for the response. Use {{$json.data}} to access request data.',
+						description: 'Template for the response. Use {{$JSON.data}} to access request data.',
 					},
 					{
 						displayName: 'Response Encoding',
