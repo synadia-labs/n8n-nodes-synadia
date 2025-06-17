@@ -1,4 +1,4 @@
-import { INodeExecutionData } from 'n8n-workflow';
+import { INodeExecutionData, ApplicationError } from 'n8n-workflow';
 import { Msg, headers } from '../bundled/nats-bundled';
 
 export interface NatsMessage {
@@ -63,10 +63,16 @@ export function encodeMessage(data: any, encoding: 'json' | 'string' | 'binary' 
 				// Assume base64 encoded string
 				return Uint8Array.from(atob(data), c => c.charCodeAt(0));
 			} else {
-				throw new Error('Binary encoding requires Uint8Array or base64 string');
+				throw new ApplicationError('Binary encoding requires Uint8Array or base64 string', {
+					level: 'warning',
+					tags: { nodeType: 'n8n-nodes-synadia.nats' },
+				});
 			}
 		default:
-			throw new Error(`Unsupported encoding: ${encoding}`);
+			throw new ApplicationError(`Unsupported encoding: ${encoding}`, {
+				level: 'warning',
+				tags: { nodeType: 'n8n-nodes-synadia.nats' },
+			});
 	}
 }
 
@@ -84,18 +90,27 @@ export function createNatsHeaders(headersObj?: Record<string, string>): any {
 
 export function validateSubject(subject: string): void {
 	if (!subject || subject.trim() === '') {
-		throw new Error('Subject cannot be empty');
+		throw new ApplicationError('Subject cannot be empty', {
+			level: 'warning',
+			tags: { nodeType: 'n8n-nodes-synadia.nats' },
+		});
 	}
 	
 	// Check for invalid characters
 	if (subject.includes(' ')) {
-		throw new Error('Subject cannot contain spaces');
+		throw new ApplicationError('Subject cannot contain spaces', {
+			level: 'warning',
+			tags: { nodeType: 'n8n-nodes-synadia.nats' },
+		});
 	}
 	
 	// NATS subjects can contain alphanumeric characters and . * > _
 	const validPattern = /^[a-zA-Z0-9.*>_-]+$/;
 	if (!validPattern.test(subject)) {
-		throw new Error('Subject contains invalid characters. Valid characters are: a-z, A-Z, 0-9, ., *, >, _, -');
+		throw new ApplicationError('Subject contains invalid characters. Valid characters are: a-z, A-Z, 0-9, ., *, >, _, -', {
+			level: 'warning',
+			tags: { nodeType: 'n8n-nodes-synadia.nats' },
+		});
 	}
 }
 
@@ -115,7 +130,10 @@ export function parseMessage(data: Uint8Array, encoding: 'auto' | 'json' | 'stri
 			return JSON.parse(stringData);
 		} catch {
 			if (encoding === 'json') {
-				throw new Error('Failed to parse JSON');
+				throw new ApplicationError('Failed to parse JSON', {
+					level: 'warning',
+					tags: { nodeType: 'n8n-nodes-synadia.nats' },
+				});
 			}
 			// Auto mode: fallback to string
 			return stringData;

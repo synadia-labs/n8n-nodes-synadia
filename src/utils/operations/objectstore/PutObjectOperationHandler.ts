@@ -1,12 +1,16 @@
 import { ObjectStoreOperationHandler, ObjectStoreOperationParams, ObjectStoreOperationResult } from '../ObjectStoreOperationHandler';
 import { ObjectStore } from '../../../bundled/nats-bundled';
+import { ApplicationError } from 'n8n-workflow';
 
 export class PutObjectOperationHandler extends ObjectStoreOperationHandler {
 	readonly operationName = 'put';
 	
 	async execute(os: ObjectStore, params: ObjectStoreOperationParams): Promise<ObjectStoreOperationResult> {
 		if (!params.name || !params.data) {
-			throw new Error('Name and data are required for put operation');
+			throw new ApplicationError('Name and data are required for put operation', {
+				level: 'warning',
+				tags: { nodeType: 'n8n-nodes-synadia.natsObjectStore' },
+			});
 		}
 		
 		let objectData: Uint8Array;

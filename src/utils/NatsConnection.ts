@@ -1,4 +1,4 @@
-import { ICredentialDataDecryptedObject, IExecuteFunctions, ILoadOptionsFunctions, ITriggerFunctions } from 'n8n-workflow';
+import { ICredentialDataDecryptedObject, IExecuteFunctions, ILoadOptionsFunctions, ITriggerFunctions, ApplicationError, NodeApiError } from 'n8n-workflow';
 import { connect, NatsConnection, ConnectionOptions, jwtAuthenticator, nkeyAuthenticator } from '../bundled/nats-bundled';
 
 export type NatsCredentials = {
@@ -85,7 +85,10 @@ export async function createNatsConnection(
 						new TextEncoder().encode(seed)
 					);
 				} else {
-					throw new Error('Invalid credentials file format. Please paste the entire .creds file content.');
+					throw new ApplicationError('Invalid credentials file format. Please paste the entire .creds file content.', {
+						level: 'warning',
+						tags: { nodeType: 'n8n-nodes-synadia.nats' },
+					});
 				}
 			}
 			break;
@@ -104,7 +107,19 @@ export async function createNatsConnection(
 		const nc = await connect(connectionOptions);
 		return nc;
 	} catch (error: any) {
-		throw new Error(`Failed to connect to NATS: ${error.message}`);
+		// For connection errors, we use NodeApiError when we have a context with getNode method
+		if (_context && 'getNode' in _context) {
+			throw new NodeApiError(_context.getNode(), error, {
+				message: `Failed to connect to NATS: ${error.message}`,
+			});
+		} else {
+			// Fallback to ApplicationError when no node context is available
+			throw new ApplicationError(`Failed to connect to NATS: ${error.message}`, {
+				level: 'error',
+				tags: { nodeType: 'n8n-nodes-synadia.nats' },
+				cause: error,
+			});
+		}
 	}
 }
 
