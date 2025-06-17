@@ -1,0 +1,119 @@
+{
+  "name": "NATS Request/Reply Service Pattern",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger",
+      "name": "Start Request",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "subject": "api.users.get",
+        "queueGroup": "user-service",
+        "options": {
+          "replyField": "userData",
+          "includeRequest": true,
+          "defaultReply": "{\"error\": \"User not found\"}"
+        }
+      },
+      "id": "service-reply",
+      "name": "User Service",
+      "type": "n8n-nodes-synadia.natsServiceReply",
+      "typeVersion": 1,
+      "position": [240, 500],
+      "credentials": {
+        "natsApi": {
+          "id": "1",
+          "name": "NATS Connection"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "subject": "api.users.get",
+        "requestData": "={{JSON.stringify({\"userId\": \"123\", \"includeDetails\": true})}}",
+        "options": {
+          "timeout": 5000,
+          "requestEncoding": "json"
+        }
+      },
+      "id": "request-reply",
+      "name": "Call User Service",
+      "type": "n8n-nodes-synadia.natsRequestReply",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "credentials": {
+        "natsApi": {
+          "id": "1",
+          "name": "NATS Connection"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Simulate database lookup\nconst userId = $json.data.userId;\nconst includeDetails = $json.data.includeDetails;\n\n// Mock user data\nconst userData = {\n  id: userId,\n  name: \"John Doe\",\n  email: \"john.doe@example.com\",\n  createdAt: \"2024-01-15T10:30:00Z\"\n};\n\n// Add details if requested\nif (includeDetails) {\n  userData.details = {\n    lastLogin: \"2024-03-15T14:22:00Z\",\n    preferences: {\n      theme: \"dark\",\n      notifications: true\n    },\n    role: \"admin\"\n  };\n}\n\nreturn {\n  userData,\n  request: $json\n};"
+      },
+      "id": "process-request",
+      "name": "Process User Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [460, 500]
+    },
+    {
+      "parameters": {
+        "subject": "api.echo",
+        "responseData": "{\\n  \\\"echo\\\": \\\"{{$json.data}}\\\",\\n  \\\"timestamp\\\": \\\"{{new Date().toISOString()}}\\\",\\n  \\\"serviceId\\\": \\\"echo-service-1\\\"\\n}",
+        "options": {
+          "queueGroup": "echo-services",
+          "maxMessages": 100
+        }
+      },
+      "id": "simple-service",
+      "name": "Echo Service",
+      "type": "n8n-nodes-synadia.natsService",
+      "typeVersion": 1,
+      "position": [680, 500],
+      "credentials": {
+        "natsApi": {
+          "id": "1",
+          "name": "NATS Connection"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Start Request": {
+      "main": [
+        [
+          {
+            "node": "Call User Service",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User Service": {
+      "main": [
+        [
+          {
+            "node": "Process User Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "request-reply-v1",
+  "id": "3",
+  "meta": {
+    "instanceId": "n8n-instance-id"
+  },
+  "tags": ["nats", "request-reply", "service", "example"]
+}

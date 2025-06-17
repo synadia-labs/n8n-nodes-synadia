@@ -1,0 +1,47 @@
+# Source files (only dist is needed)
+src/
+*.ts
+!dist/**/*.d.ts
+
+# Test files
+__tests__/
+*.test.ts
+*.spec.ts
+jest.config.js
+coverage/
+
+# Development files
+.eslintrc.js
+eslint.config.js
+.prettierrc
+tsconfig.json
+esbuild.config.mjs
+
+# Git and CI
+.git/
+.github/
+.gitignore
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build files
+*.tsbuildinfo
+
+# Documentation source
+docs/
+CLAUDE.md
+
+# Logs
+*.log
+npm-debug.log*
+
+# Dependencies
+node_modules/

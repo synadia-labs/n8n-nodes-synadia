@@ -1,0 +1,100 @@
+{
+  "name": "Basic NATS Pub/Sub Example",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "e3e9ef5e-8e8f-4e5a-b8ea-c8f51a7e8d51",
+      "name": "When clicking \"Execute Workflow\"",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "subject": "test.messages",
+        "message": "={{JSON.stringify({\"timestamp\": $now.toISO(), \"message\": \"Hello from n8n!\", \"workflow\": \"Basic Pub/Sub\"})}}"
+      },
+      "id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+      "name": "Publish to NATS",
+      "type": "n8n-nodes-synadia.natsPublisher",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "credentials": {
+        "natsApi": {
+          "id": "1",
+          "name": "NATS Connection"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "subject": "test.messages"
+      },
+      "id": "f1e2d3c4-b5a6-4958-8b7c-6d5e4f3a2b1c",
+      "name": "Subscribe to NATS",
+      "type": "n8n-nodes-synadia.natsTrigger",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "credentials": {
+        "natsApi": {
+          "id": "1",
+          "name": "NATS Connection"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "receivedAt",
+              "value": "={{$now.toISO()}}"
+            },
+            {
+              "name": "subject",
+              "value": "={{$json.subject}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d4c3b2a1-f5e6-4d5c-8a9b-7e6f5d4c3b2a",
+      "name": "Process Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "When clicking \"Execute Workflow\"": {
+      "main": [
+        [
+          {
+            "node": "Publish to NATS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Subscribe to NATS": {
+      "main": [
+        [
+          {
+            "node": "Process Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "01234567-89ab-cdef-0123-456789abcdef",
+  "id": "1",
+  "meta": {
+    "instanceId": "n8n-instance-id"
+  },
+  "tags": []
+}
