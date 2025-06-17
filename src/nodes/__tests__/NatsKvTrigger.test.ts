@@ -132,7 +132,8 @@ describe('NatsKvTrigger Node', () => {
 				.mockReturnValueOnce('test-bucket') // bucket
 				.mockReturnValueOnce('key') // watchType
 				.mockReturnValueOnce({}) // options
-				.mockReturnValueOnce('my-key'); // key
+				.mockReturnValueOnce('my-key') // key for validation
+				.mockReturnValueOnce('my-key'); // key for watch
 			
 			mockWatcher[Symbol.asyncIterator] = async function* () {
 				// No entries for this test
@@ -153,7 +154,8 @@ describe('NatsKvTrigger Node', () => {
 				.mockReturnValueOnce('test-bucket') // bucket
 				.mockReturnValueOnce('pattern') // watchType
 				.mockReturnValueOnce({}) // options
-				.mockReturnValueOnce('user.*'); // pattern
+				.mockReturnValueOnce('user.*') // pattern for validation
+				.mockReturnValueOnce('user.*'); // pattern for watch
 			
 			mockWatcher[Symbol.asyncIterator] = async function* () {
 				// No entries for this test
@@ -319,7 +321,7 @@ describe('NatsKvTrigger Node', () => {
 				.mockReturnValueOnce({});
 			
 			await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow(
-				'Failed to start KV watcher: Connection failed'
+				'Failed to initialize KV trigger: Connection failed'
 			);
 		});
 		
@@ -362,6 +364,54 @@ describe('NatsKvTrigger Node', () => {
 			if (closeFunction) await closeFunction();
 			
 			expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(mockNc);
+		});
+		
+		it('should validate bucket name', async () => {
+			(mockTriggerFunctions.getNodeParameter as jest.Mock)
+				.mockReturnValueOnce('invalid bucket') // bucket with space
+				.mockReturnValueOnce('all')
+				.mockReturnValueOnce({});
+			
+			await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow(
+				'Bucket name cannot contain spaces'
+			);
+		});
+		
+		it('should validate key name when watching specific key', async () => {
+			(mockTriggerFunctions.getNodeParameter as jest.Mock)
+				.mockReturnValueOnce('test-bucket')
+				.mockReturnValueOnce('key')
+				.mockReturnValueOnce({})
+				.mockReturnValueOnce('invalid key'); // key with space
+			
+			await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow(
+				'Key name cannot contain spaces'
+			);
+		});
+		
+		it('should validate pattern when watching pattern', async () => {
+			(mockTriggerFunctions.getNodeParameter as jest.Mock)
+				.mockReturnValueOnce('test-bucket')
+				.mockReturnValueOnce('pattern')
+				.mockReturnValueOnce({})
+				.mockReturnValueOnce(''); // empty pattern
+			
+			await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow(
+				'Pattern cannot be empty'
+			);
+		});
+		
+		it('should handle bucket not found error', async () => {
+			(mockTriggerFunctions.getNodeParameter as jest.Mock)
+				.mockReturnValueOnce('test-bucket')
+				.mockReturnValueOnce('all')
+				.mockReturnValueOnce({});
+			
+			mockKvManager.open.mockRejectedValue(new Error('bucket not found'));
+			
+			await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow(
+				'KV bucket "test-bucket" not found. Please create it first using the NATS KV node.'
+			);
 		});
 	});
 });

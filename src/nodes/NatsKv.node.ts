@@ -5,9 +5,11 @@ import {
 	INodeTypeDescription,
 	NodeOperationError,
 	NodeConnectionType,
+	ApplicationError,
 } from 'n8n-workflow';
 import { jetstream, jetstreamManager, Kvm } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
+import { validateBucketName, validateKeyName, validateNumberRange } from '../utils/ValidationHelpers';
 
 export class NatsKv implements INodeType {
 	description: INodeTypeDescription = {
@@ -106,13 +108,14 @@ export class NatsKv implements INodeType {
 				default: '',
 				required: true,
 				placeholder: 'my-bucket',
-				description: 'The name of the KV bucket',
+				description: 'The name of the KV bucket to operate on. Must contain only letters, numbers, underscores, and hyphens (no spaces or dots).',
+				hint: 'Example: user-preferences, app-config, cache-data',
 			},
 			{
 				displayName: 'Key',
 				name: 'key',
+				// eslint-disable-next-line n8n-nodes-base/cred-class-field-type-options-password-missing
 				type: 'string',
-				typeOptions: { password: true },
 				default: '',
 				required: true,
 				displayOptions: {
@@ -120,8 +123,9 @@ export class NatsKv implements INodeType {
 						operation: ['get', 'put', 'update', 'delete', 'purge', 'history'],
 					},
 				},
-				placeholder: 'my-key',
-				description: 'The key to operate on',
+				placeholder: 'user.123.settings',
+				description: 'The key to operate on. Can use dots for hierarchical organization (e.g., "user.123.settings"). Cannot contain spaces.',
+				hint: 'Example: config.database.host, user.profile.avatar, session.abc123',
 			},
 			{
 				displayName: 'Value',
@@ -137,7 +141,8 @@ export class NatsKv implements INodeType {
 				typeOptions: {
 					rows: 4,
 				},
-				description: 'The value to store',
+				description: 'The value to store in the KV bucket. Can be a string, JSON object, or base64-encoded binary data.',
+				placeholder: '{"name": "John", "age": 30}',
 			},
 			{
 				displayName: 'Options',
@@ -184,7 +189,8 @@ export class NatsKv implements INodeType {
 								'/operation': ['update', 'get'],
 							},
 						},
-						description: 'Specific revision to get or expected revision for update',
+						description: 'For get: retrieve a specific revision of the value. For update: the expected current revision (optimistic concurrency control). Use 0 to update regardless of current revision.',
+						hint: 'Leave at 0 to get latest or update without revision check',
 					},
 					{
 						displayName: 'Description',
@@ -196,31 +202,42 @@ export class NatsKv implements INodeType {
 								'/operation': ['createBucket'],
 							},
 						},
-						description: 'Description of the bucket',
+						description: 'Human-readable description of what this bucket stores',
+						placeholder: 'Stores user preferences and settings',
 					},
 					{
 						displayName: 'History',
 						name: 'history',
 						type: 'number',
 						default: 10,
+						typeOptions: {
+							minValue: 1,
+							maxValue: 100,
+						},
 						displayOptions: {
 							show: {
 								'/operation': ['createBucket'],
 							},
 						},
-						description: 'Number of history entries to keep per key',
+						description: 'Number of historical versions to keep for each key (1-100). Useful for audit trails and rollback.',
+						hint: 'Higher values use more storage but provide better history',
 					},
 					{
 						displayName: 'TTL (Seconds)',
 						name: 'ttl',
 						type: 'number',
 						default: 0,
+						typeOptions: {
+							minValue: 0,
+						},
 						displayOptions: {
 							show: {
 								'/operation': ['createBucket'],
 							},
 						},
-						description: 'Time to live for entries in seconds (0 = no expiry)',
+						description: 'Time to live for all entries in seconds. Keys will automatically expire after this duration. Set to 0 for no expiration.',
+						hint: 'Example: 3600 = 1 hour, 86400 = 1 day',
+						placeholder: '3600',
 					},
 					{
 						displayName: 'Max Bucket Size',
@@ -232,7 +249,9 @@ export class NatsKv implements INodeType {
 								'/operation': ['createBucket'],
 							},
 						},
-						description: 'Maximum size of the bucket in bytes (-1 = unlimited)',
+						description: 'Maximum total size of the bucket in bytes. Set to -1 for unlimited size.',
+						hint: 'Example: 1048576 = 1MB, 1073741824 = 1GB',
+						placeholder: '1073741824',
 					},
 					{
 						displayName: 'Max Value Size',
@@ -244,19 +263,26 @@ export class NatsKv implements INodeType {
 								'/operation': ['createBucket'],
 							},
 						},
-						description: 'Maximum size of a single value in bytes (-1 = unlimited)',
+						description: 'Maximum size of a single value in bytes. Set to -1 for unlimited size.',
+						hint: 'Example: 1024 = 1KB, 1048576 = 1MB',
+						placeholder: '1048576',
 					},
 					{
 						displayName: 'Replicas',
 						name: 'replicas',
 						type: 'number',
 						default: 1,
+						typeOptions: {
+							minValue: 1,
+							maxValue: 5,
+						},
 						displayOptions: {
 							show: {
 								'/operation': ['createBucket'],
 							},
 						},
-						description: 'Number of replicas for the bucket',
+						description: 'Number of data replicas to maintain (1-5). Higher values provide better fault tolerance but use more resources.',
+						hint: 'Set to cluster size for maximum durability',
 					},
 					{
 						displayName: 'Storage',
@@ -278,7 +304,8 @@ export class NatsKv implements INodeType {
 								'/operation': ['createBucket'],
 							},
 						},
-						description: 'Storage backend for the bucket',
+						description: 'Storage backend for the bucket. File storage persists data to disk, memory storage is faster but data is lost on restart.',
+						hint: 'Use memory for cache-like data, file for persistent data',
 					},
 				],
 			},
@@ -302,16 +329,33 @@ export class NatsKv implements INodeType {
 					const bucket = this.getNodeParameter('bucket', i) as string;
 					const options = this.getNodeParameter('options', i, {}) as any;
 					
+					// Validate bucket name
+					validateBucketName(bucket);
+					
 					if (operation === 'createBucket') {
+						// Validate numeric parameters
+						const history = options.history || 10;
+						const replicas = options.replicas || 1;
+						const ttl = options.ttl || 0;
+						
+						validateNumberRange(history, 1, 100, 'History');
+						validateNumberRange(replicas, 1, 5, 'Replicas');
+						if (ttl < 0) {
+							throw new ApplicationError('TTL cannot be negative', {
+								level: 'warning',
+								tags: { nodeType: 'n8n-nodes-synadia.natsKv' },
+							});
+						}
+						
 						// Create a new KV bucket
 						const config: any = {
-							history: options.history || 10,
+							history,
 							storage: options.storage || 'file',
-							replicas: options.replicas || 1,
+							replicas,
 						};
 						
 						if (options.description) config.description = options.description;
-						if (options.ttl) config.ttl = options.ttl * 1000000000; // Convert to nanoseconds
+						if (ttl > 0) config.ttl = ttl * 1000000000; // Convert to nanoseconds
 						if (options.maxBucketSize > 0) config.max_bytes = options.maxBucketSize;
 						if (options.maxValueSize > 0) config.max_value_size = options.maxValueSize;
 						
@@ -354,6 +398,7 @@ export class NatsKv implements INodeType {
 						switch (operation) {
 							case 'get': {
 								const key = this.getNodeParameter('key', i) as string;
+								validateKeyName(key);
 								const entry = options.revision 
 									? await kv.get(key, { revision: options.revision })
 									: await kv.get(key);
@@ -396,6 +441,7 @@ export class NatsKv implements INodeType {
 							case 'put': {
 								const key = this.getNodeParameter('key', i) as string;
 								const value = this.getNodeParameter('value', i) as string;
+								validateKeyName(key);
 								
 								let encodedValue: Uint8Array;
 								if (options.valueType === 'binary') {
@@ -425,6 +471,7 @@ export class NatsKv implements INodeType {
 								const key = this.getNodeParameter('key', i) as string;
 								const value = this.getNodeParameter('value', i) as string;
 								const expectedRevision = options.revision || 0;
+								validateKeyName(key);
 								
 								let encodedValue: Uint8Array;
 								if (options.valueType === 'binary') {
@@ -452,6 +499,7 @@ export class NatsKv implements INodeType {
 							
 							case 'delete': {
 								const key = this.getNodeParameter('key', i) as string;
+								validateKeyName(key);
 								await kv.delete(key);
 								
 								returnData.push({
@@ -467,6 +515,7 @@ export class NatsKv implements INodeType {
 							
 							case 'purge': {
 								const key = this.getNodeParameter('key', i) as string;
+								validateKeyName(key);
 								await kv.purge(key);
 								
 								returnData.push({
@@ -500,6 +549,7 @@ export class NatsKv implements INodeType {
 							
 							case 'history': {
 								const key = this.getNodeParameter('key', i) as string;
+								validateKeyName(key);
 								const history: any[] = [];
 								const iter = await kv.history({ key });
 								
@@ -569,7 +619,12 @@ export class NatsKv implements INodeType {
 			}
 			
 		} catch (error: any) {
-			throw new NodeOperationError(this.getNode(), `NATS KV operation failed: ${error.message}`);
+			if (error instanceof ApplicationError) {
+				throw error;
+			}
+			throw new NodeOperationError(this.getNode(), `NATS KV operation failed: ${error.message}`, {
+				description: error.code === 'STREAM_NOT_FOUND' ? 'The KV bucket does not exist. Please create it first.' : undefined,
+			});
 		} finally {
 			if (nc!) {
 				await closeNatsConnection(nc);
