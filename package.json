@@ -5,12 +5,12 @@
   "main": "dist/index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/synadia/n8n-nodes-synadia.git"
+    "url": "https://github.com/synadia-io/n8n-nodes-synadia.git"
   },
   "bugs": {
-    "url": "https://github.com/synadia/n8n-nodes-synadia/issues"
+    "url": "https://github.com/synadia-io/n8n-nodes-synadia/issues"
   },
-  "homepage": "https://github.com/synadia/n8n-nodes-synadia#readme",
+  "homepage": "https://github.com/synadia-io/n8n-nodes-synadia#readme",
   "scripts": {
     "build": "npm run build:nats && tsc && npm run copy:icons && npm run copy:bundled",
     "build:nats": "node esbuild.config.mjs",
@@ -32,7 +32,7 @@
     "automation"
   ],
   "author": "Synadia",
-  "license": "ISC",
+  "license": "MIT",
   "type": "commonjs",
   "files": [
     "dist/**/*"
