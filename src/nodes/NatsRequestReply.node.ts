@@ -5,10 +5,12 @@ import {
 	INodeTypeDescription,
 	NodeOperationError,
 	NodeConnectionType,
+	ApplicationError,
 } from 'n8n-workflow';
 import { NatsConnection } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { encodeMessage, parseMessage, createNatsHeaders, validateSubject } from '../utils/NatsHelpers';
+import { validateTimeout } from '../utils/ValidationHelpers';
 
 export class NatsRequestReply implements INodeType {
 	description: INodeTypeDescription = {
@@ -17,7 +19,7 @@ export class NatsRequestReply implements INodeType {
 		icon: 'file:../icons/nats.svg',
 		group: ['transform'],
 		version: 1,
-		description: 'Send a request and wait for a reply from NATS services',
+		description: 'Send requests to NATS services and wait for responses',
 		subtitle: '={{$parameter["subject"]}}',
 		defaults: {
 			name: 'NATS Request/Reply',
@@ -38,7 +40,8 @@ export class NatsRequestReply implements INodeType {
 				default: '',
 				required: true,
 				placeholder: 'api.users.get',
-				description: 'The subject to send the request to',
+				description: 'Service subject to send the request to (no spaces allowed)',
+				hint: 'The service must be listening on this subject',
 			},
 			{
 				displayName: 'Request Data',
@@ -48,7 +51,8 @@ export class NatsRequestReply implements INodeType {
 					rows: 4,
 				},
 				default: '={{ $json }}',
-				description: 'The request data to send',
+				description: 'Data to send with the request',
+				hint: 'Supports expressions like {{ $json }} to use input data',
 			},
 			{
 				displayName: 'Options',
@@ -62,7 +66,8 @@ export class NatsRequestReply implements INodeType {
 						name: 'timeout',
 						type: 'number',
 						default: 5000,
-						description: 'Request timeout in milliseconds',
+						description: 'Maximum time to wait for a response (milliseconds)',
+						hint: 'Service must respond within this time or request fails',
 					},
 					{
 						displayName: 'Request Encoding',
@@ -123,14 +128,17 @@ export class NatsRequestReply implements INodeType {
 							rows: 4,
 						},
 						default: '{}',
-						description: 'Optional headers to include with the request',
+						description: 'Custom headers as JSON object',
+						placeholder: '{"X-Request-ID": "12345", "X-API-Version": "2.0"}',
+						hint: 'Headers can be used for metadata and routing',
 					},
 					{
 						displayName: 'No Reply Expected',
 						name: 'noReply',
 						type: 'boolean',
 						default: false,
-						description: 'Whether to send request without waiting for reply',
+						description: 'Whether to send request without waiting for a response (fire-and-forget)',
+						hint: 'Useful for notifications or async operations',
 					},
 					{
 						displayName: 'Max Replies',
@@ -142,14 +150,17 @@ export class NatsRequestReply implements INodeType {
 								noReply: [false],
 							},
 						},
-						description: 'Maximum number of replies to wait for (for scatter-gather pattern)',
+						description: 'Number of responses to collect from multiple services',
+						hint: 'Used for scatter-gather pattern when multiple services respond',
 					},
 					{
 						displayName: 'Reply Subject',
 						name: 'replySubject',
 						type: 'string',
 						default: '',
-						description: 'Custom reply subject (auto-generated if not specified)',
+						description: 'Custom inbox for receiving replies (auto-generated if empty)',
+						placeholder: '_INBOX.custom123',
+						hint: 'Usually left empty for automatic inbox generation',
 					},
 				],
 			},
@@ -174,6 +185,24 @@ export class NatsRequestReply implements INodeType {
 					
 					// Validate subject
 					validateSubject(subject);
+					
+					// Validate timeout if specified
+					if (options.timeout) {
+						validateTimeout(options.timeout, 'Timeout');
+					}
+					
+					// Validate reply subject if specified
+					if (options.replySubject) {
+						validateSubject(options.replySubject);
+					}
+					
+					// Validate max replies
+					if (options.maxReplies !== undefined && options.maxReplies < 1) {
+						throw new ApplicationError('Max replies must be at least 1', {
+							level: 'warning',
+							tags: { nodeType: 'n8n-nodes-synadia.natsRequestReply' },
+						});
+					}
 					
 					// Prepare request data
 					let data: any;
