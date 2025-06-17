@@ -10,6 +10,7 @@ import {
 import { NatsConnection } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { validateSubject } from '../utils/NatsHelpers';
+import { validateQueueGroup } from '../utils/ValidationHelpers';
 
 export class NatsService implements INodeType {
 	description: INodeTypeDescription = {
@@ -18,7 +19,7 @@ export class NatsService implements INodeType {
 		icon: 'file:../icons/nats.svg',
 		group: ['trigger'],
 		version: 1,
-		description: 'Receive NATS requests and automatically send responses',
+		description: 'Create a service that receives requests and sends automatic responses',
 		subtitle: '={{$parameter["subject"]}}',
 		defaults: {
 			name: 'NATS Service',
@@ -39,22 +40,25 @@ export class NatsService implements INodeType {
 				default: '',
 				required: true,
 				placeholder: 'api.users.get',
-				description: 'The subject to listen for requests on',
+				description: 'Service endpoint subject (no spaces allowed)',
+				hint: 'Clients will send requests to this subject',
 			},
 			{
 				displayName: 'Queue Group',
 				name: 'queueGroup',
 				type: 'string',
 				default: '',
-				placeholder: 'api-service',
-				description: 'Optional queue group for load balancing across multiple instances',
+				placeholder: 'user-service',
+				description: 'Group name for load balancing multiple service instances',
+				hint: 'Only one instance in the group will handle each request',
 			},
 			{
 				displayName: 'Response Data',
 				name: 'responseData',
 				type: 'json',
 				default: '{\n  "success": true,\n  "message": "Request processed",\n  "timestamp": "{{new Date().toISOString()}}",\n  "echo": "{{$json.request}}"\n}',
-				description: 'JSON response to send back. You can use expressions like {{$JSON.request}} to access request data.',
+				description: 'Response template with access to request data via {{$JSON.request}}',
+				hint: 'Use {{$JSON.request}} for full request or {{$JSON.request.field}} for specific fields',
 			},
 			{
 				displayName: 'Options',
@@ -86,14 +90,17 @@ export class NatsService implements INodeType {
 						name: 'includeRequest',
 						type: 'boolean',
 						default: true,
-						description: 'Whether to include the original request in the output data',
+						description: 'Whether to include the original request in the workflow output',
+						hint: 'Useful for debugging and logging',
 					},
 					{
 						displayName: 'Error Response',
 						name: 'errorResponse',
 						type: 'json',
 						default: '{"success": false, "error": "An error occurred processing the request"}',
-						description: 'JSON response to send when an error occurs',
+						description: 'Response template for error scenarios',
+						placeholder: '{"success": false, "error": "Service temporarily unavailable"}',
+						hint: 'Sent when response generation fails',
 					},
 				],
 			},
@@ -109,6 +116,11 @@ export class NatsService implements INodeType {
 
 		// Validate subject
 		validateSubject(subject);
+		
+		// Validate queue group if specified
+		if (queueGroup) {
+			validateQueueGroup(queueGroup);
+		}
 
 		let nc: NatsConnection;
 		let isActive = true;
