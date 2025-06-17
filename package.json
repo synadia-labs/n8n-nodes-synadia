@@ -55,7 +55,7 @@
     ]
   },
   "dependencies": {
-    "n8n-core": "^1.14.1",
+    "n8n-core": "^1.82.0",
     "n8n-workflow": "^1.82.0"
   },
   "devDependencies": {
