@@ -17,7 +17,8 @@ n8n-nodes-synadia/
 │   │   ├── NatsObjectStore.node.ts   # Object storage operations
 │   │   ├── NatsObjectStoreTrigger.node.ts  # Watch object changes
 │   │   ├── NatsRequestReply.node.ts  # Send requests and wait for replies
-│   │   └── NatsServiceReply.node.ts  # Respond to requests as a service
+│   │   ├── NatsServiceReply.node.ts  # Respond to requests as a service
+│   │   └── NatsService.node.ts       # All-in-one request/response service
 │   ├── utils/
 │   │   ├── NatsConnection.ts         # Connection management
 │   │   └── NatsHelpers.ts            # Message parsing and validation
@@ -148,3 +149,4 @@ All trigger nodes must provide sample data via `manualTriggerFunction`:
 - 0.2.0: Added KV, Object Store, and Request/Reply nodes
 - 0.2.1: Added sample data to all trigger nodes
 - 0.2.2: Added Synadia Cloud .creds file support
+- 0.2.3: Added NATS Service node for single-node request/response

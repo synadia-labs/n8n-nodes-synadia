@@ -6,9 +6,10 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection } from 'nats';
+import { NatsConnection, jetstream } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { encodeMessage, createNatsHeaders, validateSubject } from '../utils/NatsHelpers';
+import { validateStreamName, validateTimeout } from '../utils/ValidationHelpers';
 
 export class NatsPublisher implements INodeType {
 	description: INodeTypeDescription = {
@@ -17,7 +18,7 @@ export class NatsPublisher implements INodeType {
 		icon: 'file:../icons/nats.svg',
 		group: ['output'],
 		version: 1,
-		description: 'Publish messages to NATS',
+		description: 'Send messages to NATS subjects or JetStream streams',
 		subtitle: '={{$parameter["subject"]}}',
 		defaults: {
 			name: 'NATS Publisher',
@@ -39,12 +40,12 @@ export class NatsPublisher implements INodeType {
 					{
 						name: 'Core NATS',
 						value: 'core',
-						description: 'Publish to regular NATS subjects',
+						description: 'Fast, at-most-once delivery to subscribers',
 					},
 					{
 						name: 'JetStream',
 						value: 'jetstream',
-						description: 'Publish to JetStream streams',
+						description: 'Guaranteed delivery with persistence and replay',
 					},
 				],
 				default: 'core',
@@ -56,7 +57,8 @@ export class NatsPublisher implements INodeType {
 				default: '',
 				required: true,
 				placeholder: 'orders.new',
-				description: 'The subject to publish to',
+				description: 'Subject name for message routing (no spaces allowed)',
+				hint: 'Use dots for hierarchy: orders.new, sensors.temperature.room1',
 			},
 			{
 				displayName: 'Message',
@@ -66,7 +68,8 @@ export class NatsPublisher implements INodeType {
 					rows: 4,
 				},
 				default: '={{ $json }}',
-				description: 'The message to send',
+				description: 'Message content to publish',
+				hint: 'Supports expressions like {{ $json }} to use input data',
 			},
 			{
 				displayName: 'Stream Name',
@@ -78,7 +81,9 @@ export class NatsPublisher implements INodeType {
 						publishType: ['jetstream'],
 					},
 				},
-				description: 'JetStream stream name (optional, will auto-detect if not specified)',
+				description: 'Target stream name (auto-detected if not specified)',
+				placeholder: 'ORDERS',
+				hint: 'Leave empty to let JetStream find the appropriate stream',
 			},
 			{
 				displayName: 'Options',
@@ -118,21 +123,26 @@ export class NatsPublisher implements INodeType {
 							rows: 4,
 						},
 						default: '{}',
-						description: 'Optional headers to include with the message',
+						description: 'Custom headers as JSON object',
+						placeholder: '{"X-Order-Type": "express", "X-Priority": "high"}',
+						hint: 'Headers can be used for routing and metadata',
 					},
 					{
 						displayName: 'Reply To',
 						name: 'replyTo',
 						type: 'string',
 						default: '',
-						description: 'Optional reply-to subject',
+						description: 'Subject for receiving replies',
+						placeholder: 'orders.replies',
+						hint: 'Used with request-reply pattern',
 					},
 					{
 						displayName: 'Timeout (Ms)',
 						name: 'timeout',
 						type: 'number',
 						default: 5000,
-						description: 'Publish timeout in milliseconds',
+						description: 'Maximum time to wait for acknowledgment (milliseconds)',
+						hint: 'Only applies to JetStream publishes',
 					},
 					{
 						displayName: 'Message ID',
@@ -144,7 +154,9 @@ export class NatsPublisher implements INodeType {
 							},
 						},
 						default: '',
-						description: 'Optional message ID for deduplication',
+						description: 'Unique ID to prevent duplicate messages',
+						placeholder: 'order-12345',
+						hint: 'JetStream will reject duplicates within the deduplication window',
 					},
 					{
 						displayName: 'Expected Last Message ID',
@@ -156,7 +168,9 @@ export class NatsPublisher implements INodeType {
 							},
 						},
 						default: '',
-						description: 'Expected last message ID for optimistic concurrency',
+						description: 'Only publish if this was the last message ID',
+						placeholder: 'order-12344',
+						hint: 'Prevents concurrent updates - fails if another message was published',
 					},
 					{
 						displayName: 'Expected Last Sequence',
@@ -168,7 +182,8 @@ export class NatsPublisher implements INodeType {
 							},
 						},
 						default: 0,
-						description: 'Expected last sequence for optimistic concurrency',
+						description: 'Only publish if stream is at this sequence number',
+						hint: 'Prevents concurrent updates - fails if stream has advanced',
 					},
 					{
 						displayName: 'Expected Stream',
@@ -180,7 +195,9 @@ export class NatsPublisher implements INodeType {
 							},
 						},
 						default: '',
-						description: 'Expected stream name for validation',
+						description: 'Verify message goes to this specific stream',
+						placeholder: 'ORDERS',
+						hint: 'Fails if subject would be stored in a different stream',
 					},
 				],
 			},
@@ -206,6 +223,16 @@ export class NatsPublisher implements INodeType {
 					
 					// Validate subject
 					validateSubject(subject);
+					
+					// Validate timeout if specified
+					if (options.timeout) {
+						validateTimeout(options.timeout, 'Timeout');
+					}
+					
+					// Validate stream name if specified
+					if (publishType === 'jetstream' && options.expectedStream) {
+						validateStreamName(options.expectedStream);
+					}
 					
 					// Prepare message data
 					let messageData: any;
@@ -255,7 +282,7 @@ export class NatsPublisher implements INodeType {
 						
 					} else {
 						// JetStream publish
-						const js = nc.jetstream();
+						const js = jetstream(nc);
 						const pubOptions: any = { 
 							headers,
 							timeout: options.timeout || 5000,

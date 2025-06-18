@@ -1,16 +1,43 @@
 import { NatsTrigger } from '../../nodes/NatsTrigger.node';
 import { ITriggerFunctions, ITriggerResponse } from 'n8n-workflow';
 import * as NatsConnection from '../../utils/NatsConnection';
-import { NatsConnection as NC, Subscription, JetStreamClient } from 'nats';
+import { StringCodec, jetstream, consumerOpts } from '../../bundled/nats-bundled';
 
 // Mock dependencies
 jest.mock('../../utils/NatsConnection');
+jest.mock('../../bundled/nats-bundled', () => ({
+	jetstream: jest.fn(),
+	jetstreamManager: jest.fn(),
+	Kvm: jest.fn(),
+	Objm: jest.fn(),
+	consumerOpts: jest.fn(() => ({
+		deliverAll: jest.fn().mockReturnThis(),
+		deliverNew: jest.fn().mockReturnThis(),
+		deliverLast: jest.fn().mockReturnThis(),
+		deliverLastPerSubject: jest.fn().mockReturnThis(),
+		ackExplicit: jest.fn().mockReturnThis(),
+		manualAck: jest.fn().mockReturnThis(),
+		bind: jest.fn().mockReturnThis(),
+		build: jest.fn().mockReturnValue({}),
+	})),
+	StringCodec: jest.fn(() => ({
+		encode: jest.fn((str) => new TextEncoder().encode(str)),
+		decode: jest.fn((data) => new TextDecoder().decode(data)),
+	})),
+	Empty: new Uint8Array(0),
+	createInbox: jest.fn(() => '_INBOX.test'),
+	headers: jest.fn(() => ({
+		append: jest.fn(),
+		set: jest.fn(),
+		get: jest.fn(),
+	})),
+}));
 
 describe('NatsTrigger', () => {
   let node: NatsTrigger;
   let mockTriggerFunctions: ITriggerFunctions;
-  let mockNatsConnection: NC;
-  let mockSubscription: Subscription;
+  let mockNatsConnection: any;
+  let mockSubscription: any;
   let mockEmit: jest.Mock;
   let mockGetNodeParameter: jest.Mock;
 
@@ -26,7 +53,7 @@ describe('NatsTrigger', () => {
           return { done: true };
         },
       }),
-    } as unknown as Subscription;
+    } as any;
 
     // Mock NATS connection
     mockNatsConnection = {
@@ -38,7 +65,7 @@ describe('NatsTrigger', () => {
         },
       }),
       jetstreamManager: jest.fn().mockResolvedValue({}),
-    } as unknown as NC;
+    } as any;
 
     // Mock trigger functions
     mockGetNodeParameter = jest.fn();
@@ -66,6 +93,9 @@ describe('NatsTrigger', () => {
       mockGetNodeParameter
         .mockReturnValueOnce('core') // subscriptionType
         .mockReturnValueOnce('test.subject') // subject
+        .mockReturnValueOnce('disabled') // replyMode
+        .mockReturnValueOnce({}) // replyOptions
+        .mockReturnValueOnce({}) // automaticReply
         .mockReturnValueOnce(''); // queueGroup
 
       const response = await node.trigger.call(mockTriggerFunctions);
@@ -82,6 +112,9 @@ describe('NatsTrigger', () => {
       mockGetNodeParameter
         .mockReturnValueOnce('core')
         .mockReturnValueOnce('test.subject')
+        .mockReturnValueOnce('disabled') // replyMode
+        .mockReturnValueOnce({}) // replyOptions
+        .mockReturnValueOnce({}) // automaticReply
         .mockReturnValueOnce('my-queue-group');
 
       await node.trigger.call(mockTriggerFunctions);
@@ -158,14 +191,19 @@ describe('NatsTrigger', () => {
         }),
       };
 
-      jest.spyOn(require('nats'), 'consumerOpts').mockReturnValue(mockConsumerOpts);
+      (consumerOpts as jest.Mock).mockReturnValue(mockConsumerOpts);
       
-      const js = mockNatsConnection.jetstream();
-      (js.subscribe as jest.Mock).mockResolvedValue(mockJsSubscription);
+      const mockJs = {
+        subscribe: jest.fn().mockResolvedValue(mockJsSubscription)
+      };
+      (jetstream as jest.Mock).mockReturnValue(mockJs);
 
       mockGetNodeParameter
         .mockReturnValueOnce('jetstream') // subscriptionType
         .mockReturnValueOnce('test.subject') // subject
+        .mockReturnValueOnce('disabled') // replyMode
+        .mockReturnValueOnce({}) // replyOptions
+        .mockReturnValueOnce({}) // automaticReply
         .mockReturnValueOnce('test-stream') // streamName
         .mockReturnValueOnce('ephemeral') // consumerType
         .mockReturnValueOnce({ // options
@@ -177,7 +215,7 @@ describe('NatsTrigger', () => {
 
       await node.trigger.call(mockTriggerFunctions);
 
-      expect(js.subscribe).toHaveBeenCalledWith('test.subject', mockConsumerOpts);
+      expect(mockJs.subscribe).toHaveBeenCalledWith('test.subject', mockConsumerOpts);
       expect(mockConsumerOpts.deliverNew).toHaveBeenCalled();
       expect(mockConsumerOpts.ackWait).toHaveBeenCalledWith(30000);
       expect(mockConsumerOpts.maxDeliver).toHaveBeenCalledWith(3);
@@ -192,12 +230,19 @@ describe('NatsTrigger', () => {
         }),
       };
 
-      const js = mockNatsConnection.jetstream();
-      (js.consumers.get as jest.Mock).mockResolvedValue(mockConsumer);
+      const mockJs = {
+        consumers: {
+          get: jest.fn().mockResolvedValue(mockConsumer)
+        }
+      };
+      (jetstream as jest.Mock).mockReturnValue(mockJs);
 
       mockGetNodeParameter
         .mockReturnValueOnce('jetstream')
         .mockReturnValueOnce('test.subject')
+        .mockReturnValueOnce('disabled') // replyMode
+        .mockReturnValueOnce({}) // replyOptions
+        .mockReturnValueOnce({}) // automaticReply
         .mockReturnValueOnce('test-stream')
         .mockReturnValueOnce('durable') // consumerType
         .mockReturnValueOnce({}) // options
@@ -205,7 +250,7 @@ describe('NatsTrigger', () => {
 
       await node.trigger.call(mockTriggerFunctions);
 
-      expect(js.consumers.get).toHaveBeenCalledWith('test-stream', 'my-consumer');
+      expect(mockJs.consumers.get).toHaveBeenCalledWith('test-stream', 'my-consumer');
       expect(mockConsumer.consume).toHaveBeenCalled();
     });
 
@@ -225,14 +270,17 @@ describe('NatsTrigger', () => {
           [testCase.method]: jest.fn(),
         };
         
-        jest.spyOn(require('nats'), 'consumerOpts').mockReturnValue(mockConsumerOpts);
+        (consumerOpts as jest.Mock).mockReturnValue(mockConsumerOpts);
         
-        const js = mockNatsConnection.jetstream();
-        (js.subscribe as jest.Mock).mockResolvedValue({
+        const mockJs = {
+          publish: jest.fn(),
+          subscribe: jest.fn().mockResolvedValue({
           [Symbol.asyncIterator]: jest.fn().mockReturnValue({
             async next() { return { done: true }; },
           }),
-        });
+        })
+        };
+        (jetstream as jest.Mock).mockReturnValue(mockJs);
 
         const options: any = { deliverPolicy: testCase.policy };
         if (testCase.param !== undefined) {
@@ -246,6 +294,9 @@ describe('NatsTrigger', () => {
         mockGetNodeParameter
           .mockReturnValueOnce('jetstream')
           .mockReturnValueOnce('test.subject')
+          .mockReturnValueOnce('disabled') // replyMode
+          .mockReturnValueOnce({}) // replyOptions
+          .mockReturnValueOnce({}) // automaticReply
           .mockReturnValueOnce('test-stream')
           .mockReturnValueOnce('ephemeral')
           .mockReturnValueOnce(options);

@@ -27,7 +27,7 @@ Official [Synadia](https://synadia.com) nodes for [n8n](https://n8n.io), providi
 cd ~/.n8n/custom
 
 # Clone or download this repository
-git clone https://github.com/synadia/n8n-nodes-synadia.git
+git clone https://github.com/synadia-labs/n8n-nodes-synadia.git
 
 # Install dependencies
 cd n8n-nodes-synadia
@@ -41,7 +41,7 @@ npm run build
 
 ```bash
 # Clone the repository
-git clone https://github.com/synadia/n8n-nodes-synadia.git
+git clone https://github.com/synadia-labs/n8n-nodes-synadia.git
 cd n8n-nodes-synadia
 
 # Install dependencies
@@ -69,6 +69,7 @@ npm link n8n-nodes-synadia
 | NATS Object Store Trigger | Trigger | Watch object changes | ✅ Yes |
 | NATS Request/Reply | Action | Send requests and wait for replies | N/A |
 | NATS Service Reply | Trigger | Respond to requests as a service | ✅ Yes |
+| NATS Service | Trigger | Receive requests and auto-respond | ✅ Yes |
 
 ### NATS Trigger
 
@@ -80,12 +81,17 @@ Triggers workflows when messages are received on NATS subjects.
 - JetStream consumer support (durable & ephemeral)
 - Configurable delivery policies
 - Manual or automatic message acknowledgment
+- **Reply Modes** (NEW):
+  - **Disabled**: Traditional trigger behavior (default)
+  - **Manual**: Store request messages and reply after workflow completion
+  - **Automatic**: Reply immediately with template-based responses
 
 **Use Cases:**
 - Event-driven workflows
 - Microservice communication
 - Real-time data processing
 - IoT message handling
+- Request-reply patterns (with reply modes)
 
 ### NATS Publisher
 
@@ -208,6 +214,26 @@ Respond to NATS request/reply messages as a service endpoint.
 - API endpoint implementation
 - Service worker pools
 - Request processing pipelines
+
+**Note**: Consider using NATS Trigger with Reply Mode instead for simpler setups.
+
+### NATS Service
+
+All-in-one service that receives requests and automatically sends responses without needing a workflow.
+
+**Features:**
+- Receive and respond in a single node
+- Template-based response generation
+- Support for dynamic response data
+- Queue group load balancing
+- Error response handling
+- JSON and string response formats
+
+**Use Cases:**
+- Simple microservices
+- Mock services for testing
+- Static API endpoints
+- Health check endpoints
 
 ## Authentication
 
@@ -378,7 +404,7 @@ To connect to Synadia Cloud:
 }
 ```
 
-### Service Implementation
+### Service Implementation (with workflow)
 
 ```json
 {
@@ -405,6 +431,99 @@ To connect to Synadia Cloud:
   ]
 }
 ```
+
+### Simple Service (single node)
+
+```json
+{
+  "nodes": [
+    {
+      "name": "Echo Service",
+      "type": "n8n-nodes-synadia.natsService",
+      "parameters": {
+        "subject": "api.echo",
+        "responseData": "{\n  \"success\": true,\n  \"echo\": \"{{$json.request}}\",\n  \"timestamp\": \"{{new Date().toISOString()}}\"\n}"
+      }
+    }
+  ]
+}
+```
+
+## Reply Modes in NATS Trigger
+
+The NATS Trigger node now supports three reply modes for handling request-reply patterns:
+
+### Disabled Mode (Default)
+Traditional trigger behavior - processes messages without sending replies.
+
+### Manual Mode
+Stores incoming request messages and allows the workflow to process them before sending replies.
+
+**How it works:**
+1. Messages with reply subjects are stored with a unique `requestId`
+2. The workflow processes the message
+3. After workflow completion, replies are sent based on the output
+4. Use the `reply` field in the output to specify custom reply data
+
+**Example workflow:**
+```json
+{
+  "nodes": [
+    {
+      "name": "NATS Service",
+      "type": "n8n-nodes-synadia.natsTrigger",
+      "parameters": {
+        "subject": "api.process",
+        "replyMode": "manual",
+        "replyOptions": {
+          "replyField": "response",
+          "includeRequest": true,
+          "defaultReply": "{\"success\": true}"
+        }
+      }
+    },
+    {
+      "name": "Process Data",
+      "type": "n8n-nodes-base.code",
+      "parameters": {
+        "code": "return { response: { processed: true, id: $json.requestId } };"
+      }
+    }
+  ]
+}
+```
+
+### Automatic Mode
+Immediately replies to requests using a template-based response without waiting for workflow completion.
+
+**How it works:**
+1. Messages with reply subjects trigger an immediate response
+2. The response is generated from a template with dynamic data
+3. The workflow still processes the message for logging/side effects
+4. Useful for acknowledgments or static responses
+
+**Example:**
+```json
+{
+  "name": "NATS Acknowledger",
+  "type": "n8n-nodes-synadia.natsTrigger",
+  "parameters": {
+    "subject": "events.>",
+    "replyMode": "automatic",
+    "automaticReply": {
+      "responseTemplate": "{\n  \"acknowledged\": true,\n  \"timestamp\": \"{{new Date().toISOString()}}\",\n  \"receivedData\": \"{{$json.data}}\"\n}",
+      "includeRequestInOutput": true,
+      "errorResponse": "{\"success\": false, \"error\": \"Processing failed\"}"
+    }
+  }
+}
+```
+
+**Template Variables:**
+- `{{$json.data}}` - Access the request data
+- `{{$json.data.propertyName}}` - Access nested properties
+- `{{new Date().toISOString()}}` - Current timestamp
+- `{{$json}}` - Full request data object
 
 ## Message Formats
 
@@ -572,13 +691,10 @@ All trigger nodes include built-in sample data for easy testing and development.
 ```json
 {
   "subject": "api.users.get",
-  "request": {
-    "method": "getUser",
-    "params": {
-      "userId": "12345",
-      "includeDetails": true
-    },
-    "timestamp": 1703001234567
+  "data": {
+    "userId": "12345",
+    "action": "getUser",
+    "includeDetails": true
   },
   "headers": {
     "X-Request-ID": "sample-req-123",
@@ -659,6 +775,10 @@ Contributions are welcome! Please:
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/synadia/n8n-nodes-synadia/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/synadia/n8n-nodes-synadia/discussions)
+- **Issues**: [GitHub Issues](https://github.com/synadia-labs/n8n-nodes-synadia/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/synadia-labs/n8n-nodes-synadia/discussions)
 - **NATS Support**: [Synadia Support](https://synadia.com/support)
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

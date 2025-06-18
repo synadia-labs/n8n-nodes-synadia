@@ -6,10 +6,12 @@ import {
 	INodeExecutionData,
 	NodeOperationError,
 	NodeConnectionType,
+	ApplicationError,
 } from 'n8n-workflow';
-import { NatsConnection, Msg, StringCodec } from 'nats';
+import { NatsConnection, Msg, StringCodec } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
-import { encodeMessage, parseMessage, createNatsHeaders, validateSubject } from '../utils/NatsHelpers';
+import { encodeMessage, createNatsHeaders, validateSubject, parseNatsMessage } from '../utils/NatsHelpers';
+import { validateQueueGroup } from '../utils/ValidationHelpers';
 
 export class NatsServiceReply implements INodeType {
 	description: INodeTypeDescription = {
@@ -18,7 +20,7 @@ export class NatsServiceReply implements INodeType {
 		icon: 'file:../icons/nats.svg',
 		group: ['trigger'],
 		version: 1,
-		description: 'Responds to NATS request/reply messages as a service',
+		description: 'Act as a service that processes requests and sends replies',
 		subtitle: '={{$parameter["subject"]}}',
 		defaults: {
 			name: 'NATS Service Reply',
@@ -39,15 +41,17 @@ export class NatsServiceReply implements INodeType {
 				default: '',
 				required: true,
 				placeholder: 'api.users.get',
-				description: 'The subject to listen for requests on',
+				description: 'Service endpoint subject for incoming requests (no spaces allowed)',
+				hint: 'Clients will send requests to this subject',
 			},
 			{
 				displayName: 'Queue Group',
 				name: 'queueGroup',
 				type: 'string',
 				default: '',
-				placeholder: 'api-service',
-				description: 'Optional queue group for load balancing service instances',
+				placeholder: 'user-service',
+				description: 'Group name for load balancing multiple service instances',
+				hint: 'Only one instance in the group will handle each request',
 			},
 			{
 				displayName: 'Options',
@@ -115,28 +119,34 @@ export class NatsServiceReply implements INodeType {
 						typeOptions: {
 							rows: 4,
 						},
-						description: 'Default reply if workflow produces no output',
+						description: 'Fallback response when workflow produces no output',
+						placeholder: '{"success": true, "message": "Request processed"}',
+						hint: 'Used when reply field is missing or empty',
 					},
 					{
 						displayName: 'Max Messages',
 						name: 'maxMessages',
 						type: 'number',
 						default: 0,
-						description: 'Maximum number of messages to process (0 = unlimited)',
+						description: 'Stop after processing this many requests (0 = never stop)',
+						hint: 'Useful for testing or limited processing',
 					},
 					{
 						displayName: 'Reply Field',
 						name: 'replyField',
 						type: 'string',
 						default: 'reply',
-						description: 'The field in the output to use as reply data',
+						description: 'Output field containing the response data',
+						placeholder: 'response',
+						hint: 'If missing, entire output (minus internal fields) is sent',
 					},
 					{
 						displayName: 'Include Request In Reply',
 						name: 'includeRequest',
 						type: 'boolean',
 						default: false,
-						description: 'Whether to include the original request in the reply',
+						description: 'Whether to wrap response with original request data',
+						hint: 'Response format: {request: {...}, response: {...}}',
 					},
 				],
 			},
@@ -152,6 +162,19 @@ export class NatsServiceReply implements INodeType {
 		// Validate subject
 		validateSubject(subject);
 		
+		// Validate queue group if specified
+		if (queueGroup) {
+			validateQueueGroup(queueGroup);
+		}
+		
+		// Validate max messages
+		if (options.maxMessages !== undefined && options.maxMessages < 0) {
+			throw new ApplicationError('Max messages must be 0 or greater', {
+				level: 'warning',
+				tags: { nodeType: 'n8n-nodes-synadia.natsServiceReply' },
+			});
+		}
+		
 		let nc: NatsConnection;
 		let subscription: any;
 		let messageCount = 0;
@@ -159,6 +182,12 @@ export class NatsServiceReply implements INodeType {
 		
 		const processRequest = async (msg: Msg) => {
 			try {
+				// Check if this is a request (has reply subject)
+				if (!msg.reply) {
+					// Not a request, ignore
+					return;
+				}
+				
 				// Check max messages limit
 				if (options.maxMessages > 0 && messageCount >= options.maxMessages) {
 					if (subscription) {
@@ -168,26 +197,20 @@ export class NatsServiceReply implements INodeType {
 				}
 				messageCount++;
 				
-				// Parse request data
-				const requestData = parseMessage(msg.data, options.requestEncoding || 'auto');
-				
 				// Generate unique ID for this request
 				const requestId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 				
 				// Store the message for manual trigger function
 				pendingMessages.set(requestId, msg);
 				
-				// Emit the request data
-				const emitData = {
-					subject: msg.subject,
-					request: requestData,
-					headers: msg.headers ? Object.fromEntries(msg.headers) : {},
-					replyTo: msg.reply || '',
-					requestId,
-					timestamp: new Date().toISOString(),
-				};
+				// Use the same parseNatsMessage function as NatsTrigger
+				const parsedMessage = parseNatsMessage(msg);
 				
-				this.emit([this.helpers.returnJsonArray([emitData])]);
+				// Add the requestId to the parsed message
+				parsedMessage.json.requestId = requestId;
+				
+				// Emit the message in the same format as NatsTrigger
+				this.emit([[parsedMessage]]);
 				
 			} catch (error: any) {
 				this.logger.error('Error processing request:', error);
@@ -197,7 +220,7 @@ export class NatsServiceReply implements INodeType {
 						const errorReply = JSON.stringify({ error: error.message });
 						const sc = StringCodec();
 						msg.respond(sc.encode(errorReply));
-					} catch (e) {
+					} catch {
 						// Ignore reply errors
 					}
 				}
@@ -238,13 +261,10 @@ export class NatsServiceReply implements INodeType {
 			if (pendingMessages.size === 0) {
 				const sampleData = {
 					subject,
-					request: {
-						method: 'getUser',
-						params: {
-							userId: '12345',
-							includeDetails: true
-						},
-						timestamp: Date.now()
+					data: {
+						userId: '12345',
+						action: 'getUser',
+						includeDetails: true
 					},
 					headers: {
 						'X-Request-ID': 'sample-req-123',
@@ -278,7 +298,14 @@ export class NatsServiceReply implements INodeType {
 							replyData = item.json[replyField];
 						} else {
 							// Use entire output minus internal fields
-							const { requestId: _, subject, request, headers, replyTo, timestamp, ...cleanReply } = item.json;
+							const { requestId: _, ...cleanReply } = item.json;
+							// Remove internal fields
+							delete cleanReply.subject;
+							delete cleanReply.data;
+							delete cleanReply.headers;
+							delete cleanReply.replyTo;
+							delete cleanReply.timestamp;
+							delete cleanReply.seq;
 							
 							// Use clean reply or default reply
 							if (Object.keys(cleanReply).length === 0) {
@@ -296,9 +323,9 @@ export class NatsServiceReply implements INodeType {
 						}
 						
 						// Include request if option is set
-						if (options.includeRequest && item.json.request) {
+						if (options.includeRequest && item.json.data) {
 							replyData = {
-								request: item.json.request,
+								request: item.json.data,
 								response: replyData,
 							};
 						}
@@ -321,7 +348,7 @@ export class NatsServiceReply implements INodeType {
 								const errorReply = JSON.stringify({ error: error.message });
 								const sc = StringCodec();
 								msg.respond(sc.encode(errorReply));
-							} catch (e) {
+							} catch {
 								// Ignore reply errors
 							}
 						}

@@ -5,9 +5,12 @@ import {
 	INodeTypeDescription,
 	NodeOperationError,
 	NodeConnectionType,
+	ApplicationError,
 } from 'n8n-workflow';
-import { NatsConnection, ObjectStore } from 'nats';
+import { jetstream, Objm } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
+import { objectStoreOperationHandlers } from '../utils/operations/objectstore';
+import { validateBucketName, validateObjectName } from '../utils/ValidationHelpers';
 
 export class NatsObjectStore implements INodeType {
 	description: INodeTypeDescription = {
@@ -16,7 +19,7 @@ export class NatsObjectStore implements INodeType {
 		icon: 'file:../icons/nats.svg',
 		group: ['transform'],
 		version: 1,
-		description: 'Interact with NATS JetStream Object Store',
+		description: 'Store and retrieve objects (files, data) in NATS JetStream Object Store',
 		subtitle: '={{$parameter["operation"]}} - {{$parameter["bucket"]}}',
 		defaults: {
 			name: 'NATS Object Store',
@@ -34,51 +37,61 @@ export class NatsObjectStore implements INodeType {
 				displayName: 'Operation',
 				name: 'operation',
 				type: 'options',
+				noDataExpression: true,
 				options: [
 					{
 						name: 'Create Bucket',
 						value: 'createBucket',
-						description: 'Create a new object store bucket',
+						description: 'Create a new bucket for storing objects',
+						action: 'Create a new bucket for storing objects',
 					},
 					{
 						name: 'Delete Bucket',
 						value: 'deleteBucket',
 						description: 'Delete an object store bucket',
-					},
-					{
-						name: 'Put Object',
-						value: 'put',
-						description: 'Store an object in the bucket',
-					},
-					{
-						name: 'Get Object',
-						value: 'get',
-						description: 'Retrieve an object from the bucket',
+						action: 'Delete an object store bucket',
 					},
 					{
 						name: 'Delete Object',
 						value: 'delete',
 						description: 'Delete an object from the bucket',
+						action: 'Delete an object from the bucket',
 					},
 					{
 						name: 'Get Info',
 						value: 'info',
 						description: 'Get information about an object',
-					},
-					{
-						name: 'List Objects',
-						value: 'list',
-						description: 'List all objects in the bucket',
+						action: 'Get information about an object',
 					},
 					{
 						name: 'Get Link',
 						value: 'link',
 						description: 'Create a link to an object in another bucket',
+						action: 'Create a link to an object in another bucket',
+					},
+					{
+						name: 'Get Object',
+						value: 'get',
+						description: 'Download an object from the bucket',
+						action: 'Download an object from the bucket',
 					},
 					{
 						name: 'Get Status',
 						value: 'status',
 						description: 'Get status of an object store bucket',
+						action: 'Get status of an object store bucket',
+					},
+					{
+						name: 'List Objects',
+						value: 'list',
+						description: 'List all objects in the bucket',
+						action: 'List all objects in the bucket',
+					},
+					{
+						name: 'Put Object',
+						value: 'put',
+						description: 'Upload data or file to the bucket',
+						action: 'Upload data or file to the bucket',
 					},
 				],
 				default: 'get',
@@ -89,8 +102,9 @@ export class NatsObjectStore implements INodeType {
 				type: 'string',
 				default: '',
 				required: true,
-				placeholder: 'my-bucket',
-				description: 'The name of the object store bucket',
+				placeholder: 'my-files',
+				description: 'Name of the bucket (no spaces or dots allowed)',
+				hint: 'Use only letters, numbers, hyphens, and underscores',
 			},
 			{
 				displayName: 'Object Name',
@@ -103,8 +117,9 @@ export class NatsObjectStore implements INodeType {
 						operation: ['put', 'get', 'delete', 'info', 'link'],
 					},
 				},
-				placeholder: 'my-file.txt',
-				description: 'The name of the object',
+				placeholder: 'reports/2024/sales.pdf',
+				description: 'Name or path to the object (can include forward slashes for organization)',
+				hint: 'Example: images/logo.png or documents/report.pdf',
 			},
 			{
 				displayName: 'Data',
@@ -120,7 +135,8 @@ export class NatsObjectStore implements INodeType {
 				typeOptions: {
 					rows: 4,
 				},
-				description: 'The data to store',
+				description: 'Content to store in the object (text, JSON, or base64 for binary)',
+				hint: 'For files, use binary mode and provide base64 encoded data',
 			},
 			{
 				displayName: 'Link Source',
@@ -133,8 +149,9 @@ export class NatsObjectStore implements INodeType {
 						operation: ['link'],
 					},
 				},
-				placeholder: 'source-bucket/source-object',
-				description: 'The source object to link to (bucket/object format)',
+				placeholder: 'archive-bucket/reports/2023/annual.pdf',
+				description: 'Path to source object (format: bucket-name/object-path)',
+				hint: 'Creates a reference to an object in another bucket without copying data',
 			},
 			{
 				displayName: 'Options',
@@ -181,7 +198,8 @@ export class NatsObjectStore implements INodeType {
 								'/operation': ['createBucket', 'put'],
 							},
 						},
-						description: 'Description of the bucket or object',
+						description: 'Human-readable description for the bucket or object',
+						placeholder: 'Company financial reports archive',
 					},
 					{
 						displayName: 'Headers',
@@ -193,22 +211,24 @@ export class NatsObjectStore implements INodeType {
 								'/operation': ['put'],
 							},
 						},
-						description: 'Custom headers for the object',
+						description: 'Custom metadata headers as JSON (e.g., {"Content-Type": "application/pdf"})',
+						placeholder: '{"author": "John Doe", "department": "Sales"}',
 					},
 					{
 						displayName: 'Chunk Size',
 						name: 'chunkSize',
 						type: 'number',
-						default: 128 * 1024,
+						default: 131072,
 						displayOptions: {
 							show: {
 								'/operation': ['put', 'get'],
 							},
 						},
-						description: 'Chunk size for streaming operations',
+						description: 'Size of data chunks for streaming large files (in bytes)',
+						hint: 'Default 128KB. Increase for better performance with large files',
 					},
 					{
-						displayName: 'TTL (seconds)',
+						displayName: 'TTL (Seconds)',
 						name: 'ttl',
 						type: 'number',
 						default: 0,
@@ -217,7 +237,8 @@ export class NatsObjectStore implements INodeType {
 								'/operation': ['createBucket'],
 							},
 						},
-						description: 'Time to live for objects in seconds (0 = no expiry)',
+						description: 'Automatically delete objects after this many seconds (0 = never expire)',
+						hint: 'Useful for temporary files or cache data',
 					},
 					{
 						displayName: 'Max Bucket Size',
@@ -229,7 +250,8 @@ export class NatsObjectStore implements INodeType {
 								'/operation': ['createBucket'],
 							},
 						},
-						description: 'Maximum size of the bucket in bytes (-1 = unlimited)',
+						description: 'Maximum total size of all objects in the bucket in bytes',
+						hint: 'Use -1 for unlimited. Example: 1073741824 for 1GB',
 					},
 					{
 						displayName: 'Replicas',
@@ -241,7 +263,8 @@ export class NatsObjectStore implements INodeType {
 								'/operation': ['createBucket'],
 							},
 						},
-						description: 'Number of replicas for the bucket',
+						description: 'Number of data copies to maintain for redundancy',
+						hint: 'Higher values increase durability but use more storage',
 					},
 					{
 						displayName: 'Storage',
@@ -263,7 +286,8 @@ export class NatsObjectStore implements INodeType {
 								'/operation': ['createBucket'],
 							},
 						},
-						description: 'Storage backend for the bucket',
+						description: 'Where to store the data',
+						hint: 'File: persistent storage, Memory: faster but temporary',
 					},
 				],
 			},
@@ -275,11 +299,11 @@ export class NatsObjectStore implements INodeType {
 		const returnData: INodeExecutionData[] = [];
 		const credentials = await this.getCredentials('natsApi');
 		
-		let nc: NatsConnection;
+		let nc: any;
 		
 		try {
 			nc = await createNatsConnection(credentials, this);
-			const js = nc.jetstream();
+			const js = jetstream(nc);
 			
 			for (let i = 0; i < items.length; i++) {
 				try {
@@ -287,291 +311,71 @@ export class NatsObjectStore implements INodeType {
 					const bucket = this.getNodeParameter('bucket', i) as string;
 					const options = this.getNodeParameter('options', i, {}) as any;
 					
-					if (operation === 'createBucket') {
-						// Create a new object store bucket
-						const config: any = {
-							storage: options.storage || 'file',
-							replicas: options.replicas || 1,
-						};
-						
-						if (options.description) config.description = options.description;
-						if (options.ttl) config.ttl = options.ttl * 1000000000; // Convert to nanoseconds
-						if (options.maxBucketSize > 0) config.max_bytes = options.maxBucketSize;
-						
-						const os = await js.views.os(bucket, config);
-						const status = await os.status();
-						
-						returnData.push({
-							json: {
-								operation: 'createBucket',
-								bucket: bucket,
-								success: true,
-								status: {
-									bucket: status.bucket,
-									size: status.size,
-									metadata: (status as any).metadata,
-									objects: (status as any).chunks || 0,
-								},
-							},
-						});
-						
-					} else if (operation === 'deleteBucket') {
-						// Delete an object store bucket
-						const jsm = await js.jetstreamManager();
-						const success = await jsm.streams.delete(`OBJ_${bucket}`);
-						
-						returnData.push({
-							json: {
-								operation: 'deleteBucket',
-								bucket: bucket,
-								success: success,
-							},
-						});
-						
-					} else {
-						// Get the object store
-						const os = await js.views.os(bucket);
-						
-						switch (operation) {
-							case 'put': {
-								const name = this.getNodeParameter('name', i) as string;
-								const data = this.getNodeParameter('data', i) as string;
-								
-								let objectData: Uint8Array;
-								const dataType = options.dataType || 'string';
-								
-								if (dataType === 'binary') {
-									objectData = new TextEncoder().encode(Buffer.from(data, 'base64').toString());
-								} else if (dataType === 'json') {
-									const jsonData = typeof data === 'string' ? JSON.parse(data) : data;
-									objectData = new TextEncoder().encode(JSON.stringify(jsonData));
-								} else {
-									objectData = new TextEncoder().encode(data);
-								}
-								
-								const putOptions: any = {
-									headers: options.headers ? JSON.parse(options.headers) : undefined,
-									description: options.description,
-									chunkSize: options.chunkSize || 128 * 1024,
-								};
-								
-								// Create a readable stream from the data
-								const readable = new ReadableStream({
-									start(controller) {
-										controller.enqueue(objectData);
-										controller.close();
-									}
-								});
-								
-								const info = await os.put({ name, ...putOptions }, readable);
-								
-								returnData.push({
-									json: {
-										operation: 'put',
-										bucket,
-										name,
-										success: true,
-										info: {
-											name: info.name,
-											size: info.size,
-											chunks: info.chunks,
-											digest: info.digest,
-											mtime: info.mtime,
-										},
-									},
-								});
-								break;
-							}
-							
-							case 'get': {
-								const name = this.getNodeParameter('name', i) as string;
-								const result = await os.get(name);
-								
-								if (result === null) {
-									returnData.push({
-										json: {
-											operation: 'get',
-											bucket,
-											name,
-											found: false,
-										},
-									});
-								} else {
-									// Read the data
-									const chunks: Uint8Array[] = [];
-									for await (const chunk of result.data) {
-										chunks.push(chunk);
-									}
-									
-									// Combine chunks
-									const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-									const combined = new Uint8Array(totalLength);
-									let offset = 0;
-									for (const chunk of chunks) {
-										combined.set(chunk, offset);
-										offset += chunk.length;
-									}
-									
-									const stringData = new TextDecoder().decode(combined);
-									let data: any;
-									
-									try {
-										data = JSON.parse(stringData);
-									} catch {
-										data = stringData;
-									}
-									
-									returnData.push({
-										json: {
-											operation: 'get',
-											bucket,
-											name,
-											found: true,
-											data,
-											info: {
-												name: result.info.name,
-												size: result.info.size,
-												chunks: result.info.chunks,
-												digest: result.info.digest,
-												mtime: result.info.mtime,
-											},
-										},
-									});
-								}
-								break;
-							}
-							
-							case 'delete': {
-								const name = this.getNodeParameter('name', i) as string;
-								await os.delete(name);
-								
-								returnData.push({
-									json: {
-										operation: 'delete',
-										bucket,
-										name,
-										success: true,
-									},
-								});
-								break;
-							}
-							
-							case 'info': {
-								const name = this.getNodeParameter('name', i) as string;
-								const info = await os.info(name);
-								
-								if (info === null) {
-									returnData.push({
-										json: {
-											operation: 'info',
-											bucket,
-											name,
-											found: false,
-										},
-									});
-								} else {
-									returnData.push({
-										json: {
-											operation: 'info',
-											bucket,
-											name,
-											found: true,
-											info: {
-												name: info.name,
-												size: info.size,
-												chunks: info.chunks,
-												digest: info.digest,
-												mtime: info.mtime,
-												headers: info.headers,
-												options: info.options,
-											},
-										},
-									});
-								}
-								break;
-							}
-							
-							case 'link': {
-								const name = this.getNodeParameter('name', i) as string;
-								const linkSource = this.getNodeParameter('linkSource', i) as string;
-								const [sourceBucket, sourceObject] = linkSource.split('/');
-								
-								if (!sourceBucket || !sourceObject) {
-									throw new Error('Link source must be in format: bucket/object');
-								}
-								
-								const sourceOs = await js.views.os(sourceBucket);
-								const sourceInfo = await sourceOs.info(sourceObject);
-								
-								if (!sourceInfo) {
-									throw new Error('Source object not found');
-								}
-								
-								const info = await os.link(name, sourceInfo);
-								
-								returnData.push({
-									json: {
-										operation: 'link',
-										bucket,
-										name,
-										success: true,
-										linkSource,
-										info: {
-											name: info.name,
-											size: info.size,
-											chunks: info.chunks,
-											digest: info.digest,
-											mtime: info.mtime,
-										},
-									},
-								});
-								break;
-							}
-							
-							case 'list': {
-								const objects: any[] = [];
-								const list = await os.list();
-								
-								for await (const info of list) {
-									objects.push({
-										name: info.name,
-										size: info.size,
-										chunks: info.chunks,
-										digest: info.digest,
-										mtime: info.mtime,
-										isLink: info.options?.link !== undefined,
-									});
-								}
-								
-								returnData.push({
-									json: {
-										operation: 'list',
-										bucket,
-										objects,
-										count: objects.length,
-									},
-								});
-								break;
-							}
-							
-							case 'status': {
-								const status = await os.status();
-								
-								returnData.push({
-									json: {
-										operation: 'status',
-										bucket: status.bucket,
-										size: status.size,
-										objects: (status as any).chunks || 0,
-										bytes: (status as any).bytes || status.size || 0,
-										storage: (status as any).storage,
-										replicas: (status as any).replicas,
-									},
-								});
-								break;
-							}
-						}
+					// Validate bucket name
+					validateBucketName(bucket);
+					
+					const handler = objectStoreOperationHandlers[operation];
+					
+					if (!handler) {
+						throw new NodeOperationError(this.getNode(), `Unknown operation: ${operation}`);
 					}
+					
+					// Prepare parameters for the operation
+					const params: any = {
+						bucket,
+						options,
+						itemIndex: i,
+						name: this.getNodeParameter('name', i, '') as string,
+						data: this.getNodeParameter('data', i, '') as string,
+					};
+					
+					// Validate object name for operations that require it
+					if (['put', 'get', 'delete', 'info', 'link'].includes(operation) && params.name) {
+						validateObjectName(params.name);
+					}
+					
+					// Handle link operation parameters
+					if (operation === 'link') {
+						const linkSource = this.getNodeParameter('linkSource', i, '') as string;
+						if (!linkSource) {
+							throw new ApplicationError('Link source cannot be empty', {
+								level: 'warning',
+								tags: { nodeType: 'n8n-nodes-synadia.natsObjectStore' },
+							});
+						}
+						const parts = linkSource.split('/');
+						if (parts.length < 2) {
+							throw new ApplicationError('Link source must be in format: bucket-name/object-path', {
+								level: 'warning',
+								tags: { nodeType: 'n8n-nodes-synadia.natsObjectStore' },
+							});
+						}
+						const sourceBucket = parts[0];
+						const sourceName = parts.slice(1).join('/');
+						validateBucketName(sourceBucket);
+						validateObjectName(sourceName);
+						params.sourceBucket = sourceBucket;
+						params.sourceName = sourceName;
+					}
+					
+					let result;
+					
+					if (operation === 'createBucket' || operation === 'deleteBucket') {
+						// These operations need the connection directly
+						result = await handler.execute(nc, params);
+					} else if (operation === 'link') {
+						// Link operation needs both ObjectStore and NatsConnection
+						const objManager = new Objm(js);
+						const os = await objManager.open(bucket);
+						result = await handler.execute({ os, nc }, params);
+					} else {
+						// Other operations just need ObjectStore
+						const objManager = new Objm(js);
+						const os = await objManager.open(bucket);
+						result = await handler.execute(os, params);
+					}
+					
+					returnData.push({ json: result });
 					
 				} catch (error: any) {
 					if (this.continueOnFail()) {

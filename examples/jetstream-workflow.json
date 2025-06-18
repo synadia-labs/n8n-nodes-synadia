@@ -1,0 +1,182 @@
+{
+  "name": "NATS JetStream Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "subject": "orders.new",
+        "message": "={{JSON.stringify({\"orderId\": \"ORD-\" + Math.random().toString(36).substr(2, 9).toUpperCase(), \"customerName\": \"Alice Smith\", \"items\": [{\"product\": \"Widget\", \"quantity\": 2, \"price\": 29.99}], \"total\": 59.98, \"status\": \"pending\", \"timestamp\": $now.toISO()})}}",
+        "publishType": "jetstream",
+        "jetstreamOptions": {
+          "messageId": "={{\"order-\" + Date.now()}}",
+          "streamName": "ORDERS"
+        }
+      },
+      "id": "publish-js",
+      "name": "Publish to JetStream",
+      "type": "n8n-nodes-synadia.natsPublisher",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "credentials": {
+        "natsApi": {
+          "id": "1",
+          "name": "NATS Connection"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "subject": "orders.>",
+        "subscriptionType": "jetstream",
+        "streamName": "ORDERS",
+        "consumerType": "durable",
+        "consumerName": "order-processor",
+        "options": {
+          "deliverPolicy": "all",
+          "ackPolicy": "explicit",
+          "replayPolicy": "instant",
+          "description": "Process all orders from the beginning"
+        }
+      },
+      "id": "consume-js",
+      "name": "Consume from JetStream",
+      "type": "n8n-nodes-synadia.natsTrigger",
+      "typeVersion": 1,
+      "position": [240, 500],
+      "credentials": {
+        "natsApi": {
+          "id": "1",
+          "name": "NATS Connection"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.subject}}",
+              "value2": "orders.new"
+            }
+          ]
+        }
+      },
+      "id": "route-orders",
+      "name": "Route by Subject",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 500]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "processedAt",
+              "value": "={{$now.toISO()}}"
+            },
+            {
+              "name": "processorId",
+              "value": "order-processor-1"
+            }
+          ],
+          "number": [
+            {
+              "name": "sequence",
+              "value": "={{$json.seq}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "process-order",
+      "name": "Process Order",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [680, 480]
+    },
+    {
+      "parameters": {
+        "subject": "orders.processed",
+        "message": "={{JSON.stringify(Object.assign({}, $json.data, {processedAt: $json.processedAt, processorId: $json.processorId, originalSeq: $json.sequence}))}}",
+        "publishType": "jetstream",
+        "jetstreamOptions": {
+          "streamName": "ORDERS"
+        }
+      },
+      "id": "publish-processed",
+      "name": "Publish Processed",
+      "type": "n8n-nodes-synadia.natsPublisher",
+      "typeVersion": 1,
+      "position": [900, 480],
+      "credentials": {
+        "natsApi": {
+          "id": "1",
+          "name": "NATS Connection"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Publish to JetStream",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consume from JetStream": {
+      "main": [
+        [
+          {
+            "node": "Route by Subject",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Subject": {
+      "main": [
+        [
+          {
+            "node": "Process Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Process Order": {
+      "main": [
+        [
+          {
+            "node": "Publish Processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "jetstream-v1",
+  "id": "4",
+  "meta": {
+    "instanceId": "n8n-instance-id"
+  },
+  "tags": ["nats", "jetstream", "streaming", "example"]
+}

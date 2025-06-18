@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.3] - 2025-01-06
+
+### Added
+- NATS Service node - all-in-one request/response service
+- Template-based response generation with simple variable substitution
+- Support for static and dynamic responses without workflows
+
+### Fixed
+- NATS Service Reply now uses the same message structure as NATS Trigger
+- Request data is in the `data` field, not a separate `request` object
+- Aligns with NATS convention that requests are just messages with reply subjects
+
+### Improved
+- Documentation with examples for single-node services
+- README with clear distinction between Service and ServiceReply nodes
+- Consistent message structure across all NATS trigger nodes
+
 ## [0.2.2] - 2025-01-06
 
 ### Added

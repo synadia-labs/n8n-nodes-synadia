@@ -1,0 +1,420 @@
+import { NatsObjectStoreTrigger } from '../NatsObjectStoreTrigger.node';
+import { createNatsConnection, closeNatsConnection } from '../../utils/NatsConnection';
+import { ITriggerFunctions } from 'n8n-workflow';
+import { jetstream, consumerOpts } from '../../bundled/nats-bundled';
+
+jest.mock('../../utils/NatsConnection');
+jest.mock('../../bundled/nats-bundled');
+
+describe('NatsObjectStoreTrigger', () => {
+	let node: NatsObjectStoreTrigger;
+	let mockTriggerFunctions: ITriggerFunctions;
+	let mockNc: any;
+	let mockJs: any;
+	let mockSubscription: any;
+	let mockConsumerOpts: any;
+	let mockEmit: jest.Mock;
+	let mockGetNodeParameter: jest.Mock;
+
+	beforeEach(() => {
+		node = new NatsObjectStoreTrigger();
+		
+		// Setup mocks
+		mockSubscription = {
+			unsubscribe: jest.fn().mockResolvedValue(undefined),
+			[Symbol.asyncIterator]: jest.fn(),
+		};
+		
+		mockConsumerOpts = {
+			deliverNew: jest.fn().mockReturnThis(),
+			deliverAll: jest.fn().mockReturnThis(),
+			deliverLastPerSubject: jest.fn().mockReturnThis(),
+		};
+		
+		mockJs = {
+			subscribe: jest.fn().mockResolvedValue(mockSubscription),
+		};
+		
+		mockNc = {};
+		
+		mockEmit = jest.fn();
+		mockGetNodeParameter = jest.fn();
+		
+		mockTriggerFunctions = {
+			getNodeParameter: mockGetNodeParameter,
+			getCredentials: jest.fn().mockResolvedValue({
+				servers: 'nats://localhost:4222',
+			}),
+			emit: mockEmit,
+			helpers: {
+				returnJsonArray: jest.fn((data) => data.map((item: any) => ({ json: item }))),
+			},
+			getMode: jest.fn().mockReturnValue('trigger'),
+			getNode: jest.fn().mockReturnValue({}),
+			logger: {
+				error: jest.fn(),
+			},
+		} as any;
+		
+		(createNatsConnection as jest.Mock).mockResolvedValue(mockNc);
+		(closeNatsConnection as jest.Mock).mockResolvedValue(undefined);
+		(jetstream as jest.Mock).mockReturnValue(mockJs);
+		(consumerOpts as jest.Mock).mockReturnValue(mockConsumerOpts);
+	});
+
+	afterEach(() => {
+		jest.clearAllMocks();
+	});
+
+	describe('trigger', () => {
+		it('should watch object store changes', async () => {
+			mockGetNodeParameter.mockImplementation((param: string) => {
+				switch (param) {
+					case 'bucket': return 'test-bucket';
+					case 'options': return {};
+					default: return '';
+				}
+			});
+			
+			// Mock the message with object store metadata format
+			const mockMsg = {
+				subject: '$O.test-bucket.M.test.txt',
+				data: new TextEncoder().encode(''),
+				headers: {
+					get: jest.fn((key) => {
+						if (key === 'X-Nats-Operation') return 'PUT';
+						if (key === 'X-Nats-Object-Size') return '100';
+						if (key === 'X-Nats-Object-Chunks') return '1';
+						if (key === 'X-Nats-Object-Digest') return 'SHA-256=abc123';
+						if (key === 'X-Nats-Object-Mtime') return '2023-10-01T12:00:00.000Z';
+						return undefined;
+					}),
+				},
+				ack: jest.fn(),
+			};
+			
+			// Setup async iterator
+			const mockAsyncIterator = {
+				[Symbol.asyncIterator]: jest.fn().mockReturnValue({
+					next: jest.fn()
+						.mockResolvedValueOnce({ done: false, value: mockMsg })
+						.mockResolvedValueOnce({ done: true }),
+				}),
+			};
+			mockSubscription[Symbol.asyncIterator] = mockAsyncIterator[Symbol.asyncIterator];
+			
+			// Start the trigger
+			const triggerPromise = node.trigger.call(mockTriggerFunctions);
+			
+			// Let the async operations run
+			await new Promise(resolve => setTimeout(resolve, 10));
+			
+			// Verify connections and setup
+			expect(createNatsConnection).toHaveBeenCalled();
+			expect(jetstream).toHaveBeenCalledWith(mockNc);
+			expect(consumerOpts).toHaveBeenCalled();
+			expect(mockConsumerOpts.deliverLastPerSubject).toHaveBeenCalled();
+			expect(mockJs.subscribe).toHaveBeenCalledWith('$O.test-bucket.M.>', mockConsumerOpts);
+			
+			// Verify emitted data
+			expect(mockEmit).toHaveBeenCalledWith([expect.arrayContaining([
+				expect.objectContaining({
+					json: expect.objectContaining({
+						bucket: 'test-bucket',
+						operation: 'put',
+						object: expect.objectContaining({
+							name: 'test.txt',
+							size: 100,
+							chunks: 1,
+							digest: 'SHA-256=abc123',
+							mtime: '2023-10-01T12:00:00.000Z',
+							deleted: false,
+						}),
+						timestamp: expect.any(String),
+					}),
+				}),
+			])]);
+			
+			// Call close function
+			const triggerResponse = await triggerPromise;
+			if (triggerResponse && typeof triggerResponse === 'object' && 'closeFunction' in triggerResponse) {
+				await (triggerResponse as any).closeFunction();
+			}
+			
+			expect(mockSubscription.unsubscribe).toHaveBeenCalled();
+			expect(closeNatsConnection).toHaveBeenCalledWith(mockNc);
+		});
+
+		it('should handle updates only option', async () => {
+			mockGetNodeParameter.mockImplementation((param: string) => {
+				switch (param) {
+					case 'bucket': return 'test-bucket';
+					case 'options': return { updatesOnly: true };
+					default: return '';
+				}
+			});
+			
+			// Setup empty iterator (no messages)
+			const mockAsyncIterator = {
+				[Symbol.asyncIterator]: jest.fn().mockReturnValue({
+					next: jest.fn().mockResolvedValue({ done: true }),
+				}),
+			};
+			mockSubscription[Symbol.asyncIterator] = mockAsyncIterator[Symbol.asyncIterator];
+			
+			const triggerPromise = node.trigger.call(mockTriggerFunctions);
+			await new Promise(resolve => setTimeout(resolve, 10));
+			
+			expect(consumerOpts).toHaveBeenCalled();
+			expect(mockConsumerOpts.deliverNew).toHaveBeenCalled();
+			expect(mockConsumerOpts.deliverLastPerSubject).not.toHaveBeenCalled();
+			
+			const triggerResponse = await triggerPromise;
+			if (triggerResponse && typeof triggerResponse === 'object' && 'closeFunction' in triggerResponse) {
+				await (triggerResponse as any).closeFunction();
+			}
+		});
+
+		it('should handle subscription errors', async () => {
+			mockGetNodeParameter.mockImplementation((param: string) => {
+				switch (param) {
+					case 'bucket': return 'test-bucket';
+					case 'options': return {};
+					default: return '';
+				}
+			});
+			
+			// Make subscription throw an error
+			const errorAsyncIterator = {
+				[Symbol.asyncIterator]: jest.fn().mockReturnValue({
+					next: jest.fn().mockRejectedValue(new Error('Subscription error')),
+				}),
+			};
+			mockSubscription[Symbol.asyncIterator] = errorAsyncIterator[Symbol.asyncIterator];
+			
+			const triggerPromise = node.trigger.call(mockTriggerFunctions);
+			await new Promise(resolve => setTimeout(resolve, 10));
+			
+			expect(mockTriggerFunctions.logger.error).toHaveBeenCalledWith('Object store watcher error:', expect.objectContaining({ error: expect.any(Error) }));
+			
+			const triggerResponse = await triggerPromise;
+			if (triggerResponse && typeof triggerResponse === 'object' && 'closeFunction' in triggerResponse) {
+				await (triggerResponse as any).closeFunction();
+			}
+		});
+
+		it('should handle connection errors', async () => {
+			mockGetNodeParameter.mockImplementation((param: string) => {
+				switch (param) {
+					case 'bucket': return 'test-bucket';
+					case 'options': return {};
+					default: return '';
+				}
+			});
+			
+			(createNatsConnection as jest.Mock).mockRejectedValue(new Error('Connection failed'));
+			
+			await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow('Failed to start object store watcher: Connection failed');
+		});
+
+		it('should filter messages by name pattern', async () => {
+			mockGetNodeParameter.mockImplementation((param: string) => {
+				switch (param) {
+					case 'bucket': return 'test-bucket';
+					case 'options': return { nameFilter: '*.jpg' };
+					default: return '';
+				}
+			});
+			
+			// Create messages for different file types
+			const jpgMsg = {
+				subject: '$O.test-bucket.M.image.jpg',
+				data: new TextEncoder().encode(''),
+				headers: {
+					get: jest.fn((key) => {
+						if (key === 'X-Nats-Operation') return 'PUT';
+						if (key === 'X-Nats-Object-Size') return '1024';
+						return undefined;
+					}),
+				},
+				ack: jest.fn(),
+			};
+			
+			const txtMsg = {
+				subject: '$O.test-bucket.M.document.txt',
+				data: new TextEncoder().encode(''),
+				headers: {
+					get: jest.fn((key) => {
+						if (key === 'X-Nats-Operation') return 'PUT';
+						if (key === 'X-Nats-Object-Size') return '512';
+						return undefined;
+					}),
+				},
+				ack: jest.fn(),
+			};
+			
+			// Setup async iterator with both messages
+			const filterAsyncIterator = {
+				[Symbol.asyncIterator]: jest.fn().mockReturnValue({
+					next: jest.fn()
+						.mockResolvedValueOnce({ done: false, value: jpgMsg })
+						.mockResolvedValueOnce({ done: false, value: txtMsg })
+						.mockResolvedValueOnce({ done: true }),
+				}),
+			};
+			mockSubscription[Symbol.asyncIterator] = filterAsyncIterator[Symbol.asyncIterator];
+			
+			const triggerPromise = node.trigger.call(mockTriggerFunctions);
+			await new Promise(resolve => setTimeout(resolve, 10));
+			
+			// Should only emit the .jpg file
+			expect(mockEmit).toHaveBeenCalledTimes(1);
+			expect(mockEmit).toHaveBeenCalledWith([expect.arrayContaining([
+				expect.objectContaining({
+					json: expect.objectContaining({
+						bucket: 'test-bucket',
+						operation: 'put',
+						object: expect.objectContaining({
+							name: 'image.jpg',
+							size: 1024,
+						}),
+					}),
+				}),
+			])]);
+			
+			// Verify both messages were acknowledged
+			expect(jpgMsg.ack).toHaveBeenCalled();
+			expect(txtMsg.ack).toHaveBeenCalled();
+			
+			const triggerResponse = await triggerPromise;
+			if (triggerResponse && typeof triggerResponse === 'object' && 'closeFunction' in triggerResponse) {
+				await (triggerResponse as any).closeFunction();
+			}
+		});
+
+		it('should handle delete operations', async () => {
+			mockGetNodeParameter.mockImplementation((param: string) => {
+				switch (param) {
+					case 'bucket': return 'test-bucket';
+					case 'options': return { includeDeletes: true };
+					default: return '';
+				}
+			});
+			
+			// Mock delete message
+			const mockDeleteMsg = {
+				subject: '$O.test-bucket.M.deleted.txt',
+				data: new TextEncoder().encode(''),
+				headers: {
+					get: jest.fn((key) => {
+						if (key === 'X-Nats-Operation') return 'DELETE';
+						if (key === 'X-Nats-Object-Size') return '0';
+						if (key === 'X-Nats-Object-Chunks') return '0';
+						if (key === 'X-Nats-Object-Digest') return '';
+						if (key === 'X-Nats-Object-Mtime') return '2023-10-01T12:00:00.000Z';
+						return undefined;
+					}),
+				},
+				ack: jest.fn(),
+			};
+			
+			// Setup async iterator with delete message
+			const deleteAsyncIterator = {
+				[Symbol.asyncIterator]: jest.fn().mockReturnValue({
+					next: jest.fn()
+						.mockResolvedValueOnce({ done: false, value: mockDeleteMsg })
+						.mockResolvedValueOnce({ done: true }),
+				}),
+			};
+			mockSubscription[Symbol.asyncIterator] = deleteAsyncIterator[Symbol.asyncIterator];
+			
+			const triggerPromise = node.trigger.call(mockTriggerFunctions);
+			await new Promise(resolve => setTimeout(resolve, 10));
+			
+			expect(mockEmit).toHaveBeenCalledWith([expect.arrayContaining([
+				expect.objectContaining({
+					json: expect.objectContaining({
+						bucket: 'test-bucket',
+						operation: 'delete',
+						object: expect.objectContaining({
+							name: 'deleted.txt',
+							size: 0,
+							chunks: 0,
+							digest: '',
+							mtime: '2023-10-01T12:00:00.000Z',
+							deleted: true,
+						}),
+						timestamp: expect.any(String),
+					}),
+				}),
+			])]);
+			
+			const triggerResponse = await triggerPromise;
+			if (triggerResponse && typeof triggerResponse === 'object' && 'closeFunction' in triggerResponse) {
+				await (triggerResponse as any).closeFunction();
+			}
+		});
+	});
+
+	describe('manualTriggerFunction', () => {
+		it('should return sample data in manual mode', async () => {
+			const manualMockTriggerFunctions = {
+				...mockTriggerFunctions,
+				getMode: jest.fn().mockReturnValue('manual'),
+				emit: jest.fn(),
+				getNodeParameter: jest.fn((param: string) => {
+					if (param === 'bucket') return 'test-bucket';
+					return {};
+				}),
+			};
+
+			const triggerResponse = await node.trigger.call(manualMockTriggerFunctions);
+			
+			// Call the manual trigger function
+			if (triggerResponse && typeof triggerResponse === 'object' && 'manualTriggerFunction' in triggerResponse) {
+				await (triggerResponse as any).manualTriggerFunction();
+			}
+
+			expect(manualMockTriggerFunctions.emit).toHaveBeenCalledWith([expect.arrayContaining([
+				expect.objectContaining({
+					json: expect.objectContaining({
+						bucket: 'test-bucket',
+						operation: 'put',
+						object: expect.objectContaining({
+							name: 'reports/2024/sales-report.pdf',
+							size: 2457600,
+							chunks: 20,
+							digest: 'SHA-256=47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=',
+							mtime: expect.any(String),
+							deleted: false,
+						}),
+						timestamp: expect.any(String),
+					}),
+				}),
+			])]);
+		});
+	});
+
+	describe('node description', () => {
+		it('should have correct metadata', () => {
+			expect(node.description.displayName).toBe('NATS Object Store Trigger');
+			expect(node.description.name).toBe('natsObjectStoreTrigger');
+			expect(node.description.version).toBe(1);
+			expect(node.description.credentials).toEqual([{
+				name: 'natsApi',
+				required: true,
+			}]);
+		});
+
+		it('should have correct properties', () => {
+			const bucketProp = node.description.properties.find(p => p.name === 'bucket');
+			expect(bucketProp).toBeDefined();
+			expect(bucketProp?.type).toBe('string');
+			expect(bucketProp?.required).toBe(true);
+
+			const optionsProp = node.description.properties.find(p => p.name === 'options');
+			expect(optionsProp).toBeDefined();
+			expect(optionsProp?.type).toBe('collection');
+		});
+	});
+});

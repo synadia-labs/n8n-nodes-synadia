@@ -6,8 +6,19 @@ const n8nNodesBase = require('eslint-plugin-n8n-nodes-base');
 module.exports = [
   js.configs.recommended,
   {
+    // Global ignores
+    ignores: [
+      'dist/**/*',
+      'node_modules/**/*',
+      'coverage/**/*',
+      'src/bundled/nats-bundled.js',
+      '**/*.test.ts',
+      '**/*.spec.ts',
+      'src/index.ts'
+    ],
+  },
+  {
     files: ['src/**/*.ts'],
-    ignores: ['**/*.test.ts', '**/*.spec.ts', 'dist/**/*', 'src/index.ts'],
     languageOptions: {
       parser: typescriptParser,
       parserOptions: {
@@ -52,7 +63,7 @@ module.exports = [
       'no-unused-vars': 'off', // Use TypeScript's version
       
       // Disable N8N rules that conflict with our setup
-      'n8n-nodes-base/community-package-json-license-not-default': 'off', // We use ISC
+      'n8n-nodes-base/community-package-json-license-not-default': 'off', // We use MIT
       'n8n-nodes-base/node-dirname-against-convention': 'off', // Our structure is fine
       'n8n-nodes-base/node-class-description-inputs-wrong-regular-node': 'off', // TypeScript requires NodeConnectionType
       'n8n-nodes-base/node-class-description-outputs-wrong': 'off', // TypeScript requires NodeConnectionType

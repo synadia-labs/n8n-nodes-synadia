@@ -6,8 +6,9 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection, consumerOpts } from 'nats';
+import { NatsConnection, consumerOpts, jetstream } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
+import { validateBucketName } from '../utils/ValidationHelpers';
 
 export class NatsObjectStoreTrigger implements INodeType {
 	description: INodeTypeDescription = {
@@ -16,7 +17,7 @@ export class NatsObjectStoreTrigger implements INodeType {
 		icon: 'file:../icons/nats.svg',
 		group: ['trigger'],
 		version: 1,
-		description: 'Triggers when changes occur in a NATS Object Store bucket',
+		description: 'Receive notifications when objects are added, updated, or deleted in a bucket',
 		subtitle: '={{$parameter["bucket"]}}',
 		defaults: {
 			name: 'NATS Object Store Trigger',
@@ -36,8 +37,9 @@ export class NatsObjectStoreTrigger implements INodeType {
 				type: 'string',
 				default: '',
 				required: true,
-				placeholder: 'my-bucket',
-				description: 'The name of the object store bucket to watch',
+				placeholder: 'my-files',
+				description: 'Name of the bucket to monitor for changes (no spaces or dots allowed)',
+				hint: 'Use only letters, numbers, hyphens, and underscores',
 			},
 			{
 				displayName: 'Options',
@@ -51,29 +53,32 @@ export class NatsObjectStoreTrigger implements INodeType {
 						name: 'includeDeletes',
 						type: 'boolean',
 						default: true,
-						description: 'Whether to trigger on delete operations',
+						description: 'Whether to trigger when objects are deleted from the bucket',
 					},
 					{
 						displayName: 'Include History',
 						name: 'includeHistory',
 						type: 'boolean',
 						default: false,
-						description: 'Whether to include all historical objects on startup',
+						description: 'Whether to process all existing objects when the trigger starts',
+						hint: 'Useful for initial data processing or migration',
 					},
 					{
 						displayName: 'Updates Only',
 						name: 'updatesOnly',
 						type: 'boolean',
 						default: false,
-						description: 'Whether to only receive updates (no initial values)',
+						description: 'Whether to only process new changes, skip existing objects',
+						hint: 'Start monitoring from now, ignore current bucket contents',
 					},
 					{
 						displayName: 'Name Filter',
 						name: 'nameFilter',
 						type: 'string',
 						default: '',
-						placeholder: '*.jpg',
-						description: 'Filter objects by name pattern (supports * wildcard)',
+						placeholder: 'images/*.jpg',
+						description: 'Only process objects matching this pattern (* = any characters)',
+						hint: 'Examples: *.pdf, reports/2024/*, backup-*.zip',
 					},
 				],
 			},
@@ -85,16 +90,19 @@ export class NatsObjectStoreTrigger implements INodeType {
 		const bucket = this.getNodeParameter('bucket') as string;
 		const options = this.getNodeParameter('options', {}) as any;
 		
+		// Validate bucket name
+		validateBucketName(bucket);
+		
 		let nc: NatsConnection;
 		let subscription: any;
 		
 		const startWatcher = async () => {
 			try {
 				nc = await createNatsConnection(credentials, this);
-				const js = nc.jetstream();
+				const js = jetstream(nc);
 				
 				// Object Store uses the underlying stream events
-				const streamName = `OBJ_${bucket}`;
+				const _streamName = `OBJ_${bucket}`;
 				
 				// Create consumer options
 				const opts = consumerOpts();
@@ -109,7 +117,8 @@ export class NatsObjectStoreTrigger implements INodeType {
 				
 				// Subscribe to the object store stream
 				const subject = `$O.${bucket}.M.>`;
-				subscription = await js.subscribe(subject, opts);
+				// For now, cast to any to work around API differences
+				subscription = await (js as any).subscribe(subject, opts);
 				
 				// Process messages
 				(async () => {

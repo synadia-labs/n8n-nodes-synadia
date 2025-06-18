@@ -1,19 +1,21 @@
 {
   "name": "n8n-nodes-synadia",
-  "version": "0.2.2",
+  "version": "0.3.0-rc.1",
   "description": "Synadia NATS nodes for n8n workflow automation",
   "main": "dist/index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/synadia/n8n-nodes-synadia.git"
+    "url": "https://github.com/synadia-labs/n8n-nodes-synadia.git"
   },
   "bugs": {
-    "url": "https://github.com/synadia/n8n-nodes-synadia/issues"
+    "url": "https://github.com/synadia-labs/n8n-nodes-synadia/issues"
   },
-  "homepage": "https://github.com/synadia/n8n-nodes-synadia#readme",
+  "homepage": "https://github.com/synadia-labs/n8n-nodes-synadia#readme",
   "scripts": {
-    "build": "tsc && npm run copy:icons",
+    "build": "npm run build:nats && tsc && npm run copy:icons && npm run copy:bundled",
+    "build:nats": "node esbuild.config.mjs",
     "copy:icons": "cp -r src/icons dist/",
+    "copy:bundled": "mkdir -p dist/bundled && cp src/bundled/nats-bundled.js dist/bundled/",
     "dev": "tsc --watch",
     "lint": "eslint src --ext .ts",
     "lint:n8n": "eslint 'src/**/*.ts' --ignore-pattern '**/*.test.ts' --ignore-pattern '**/*.spec.ts'",
@@ -30,7 +32,7 @@
     "automation"
   ],
   "author": "Synadia",
-  "license": "ISC",
+  "license": "MIT",
   "type": "commonjs",
   "files": [
     "dist/**/*"
@@ -48,24 +50,37 @@
       "dist/nodes/NatsObjectStore.node.js",
       "dist/nodes/NatsObjectStoreTrigger.node.js",
       "dist/nodes/NatsRequestReply.node.js",
-      "dist/nodes/NatsServiceReply.node.js"
+      "dist/nodes/NatsServiceReply.node.js",
+      "dist/nodes/NatsService.node.js"
     ]
   },
   "dependencies": {
-    "n8n-core": "^1.14.1",
-    "n8n-workflow": "^1.82.0",
-    "nats": "^2.29.3"
+    "n8n-core": "^1.82.0",
+    "n8n-workflow": "^1.82.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.28.0",
+    "@nats-io/jetstream": "^3.0.2",
+    "@nats-io/kv": "^3.0.2",
+    "@nats-io/nats-core": "^3.0.2",
+    "@nats-io/obj": "^3.0.2",
+    "@rollup/plugin-commonjs": "^28.0.5",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-replace": "^6.0.2",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^12.1.2",
     "@types/jest": "^29.5.14",
     "@types/node": "^24.0.1",
     "@typescript-eslint/eslint-plugin": "^8.34.0",
     "@typescript-eslint/parser": "^8.34.0",
+    "esbuild": "^0.25.5",
     "eslint": "^9.28.0",
     "eslint-plugin-n8n-nodes-base": "^1.16.3",
     "jest": "^30.0.0",
     "n8n-node-dev": "^0.100.0",
+    "nats": "^2.29.3",
+    "rollup": "^4.43.0",
     "ts-jest": "^29.4.0",
     "typescript": "^5.8.3"
   }

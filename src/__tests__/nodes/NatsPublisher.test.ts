@@ -1,15 +1,28 @@
 import { NatsPublisher } from '../../nodes/NatsPublisher.node';
 import { IExecuteFunctions, INodeExecutionData, NodeOperationError } from 'n8n-workflow';
 import * as NatsConnection from '../../utils/NatsConnection';
-import { NatsConnection as NC } from 'nats';
+import { StringCodec, headers, jetstream } from '../../bundled/nats-bundled';
 
 // Mock dependencies
 jest.mock('../../utils/NatsConnection');
+jest.mock('../../bundled/nats-bundled', () => ({
+	jetstream: jest.fn(),
+	jetstreamManager: jest.fn(),
+	StringCodec: jest.fn(() => ({
+		encode: jest.fn((str) => new TextEncoder().encode(str)),
+		decode: jest.fn((data) => new TextDecoder().decode(data)),
+	})),
+	headers: jest.fn(() => ({
+		append: jest.fn(),
+		set: jest.fn(),
+		get: jest.fn(),
+	})),
+}));
 
 describe('NatsPublisher', () => {
   let node: NatsPublisher;
   let mockExecuteFunctions: IExecuteFunctions;
-  let mockNatsConnection: NC;
+  let mockNatsConnection: any;
   let mockGetNodeParameter: jest.Mock;
   let mockGetInputData: jest.Mock;
   let mockContinueOnFail: jest.Mock;
@@ -21,14 +34,7 @@ describe('NatsPublisher', () => {
     mockNatsConnection = {
       publish: jest.fn(),
       flush: jest.fn().mockResolvedValue(undefined),
-      jetstream: jest.fn().mockReturnValue({
-        publish: jest.fn().mockResolvedValue({
-          stream: 'test-stream',
-          seq: 123,
-          duplicate: false,
-        }),
-      }),
-    } as unknown as NC;
+    } as any;
 
     // Mock execute functions
     mockGetNodeParameter = jest.fn();
@@ -90,8 +96,8 @@ describe('NatsPublisher', () => {
     });
 
     it('should include headers when provided', async () => {
-      const mockHeaders = { append: jest.fn(), headers: new Map() };
-      jest.spyOn(require('nats'), 'headers').mockReturnValue(mockHeaders);
+      const mockHeaders = { append: jest.fn(), set: jest.fn(), get: jest.fn() };
+      (headers as jest.Mock).mockReturnValue(mockHeaders);
 
       mockGetNodeParameter
         .mockReturnValueOnce('core')
@@ -130,6 +136,15 @@ describe('NatsPublisher', () => {
 
   describe('JetStream Publishing', () => {
     it('should publish message to JetStream', async () => {
+      const mockJs = { 
+        publish: jest.fn().mockResolvedValue({
+          stream: 'test-stream',
+          seq: 123,
+          duplicate: false,
+        })
+      };
+      (jetstream as jest.Mock).mockReturnValue(mockJs);
+
       mockGetNodeParameter
         .mockReturnValueOnce('jetstream') // publishType
         .mockReturnValueOnce('test.subject') // subject
@@ -138,8 +153,7 @@ describe('NatsPublisher', () => {
 
       const result = await node.execute.call(mockExecuteFunctions);
 
-      const js = mockNatsConnection.jetstream();
-      expect(js.publish).toHaveBeenCalledWith(
+      expect(mockJs.publish).toHaveBeenCalledWith(
         'test.subject',
         expect.any(Uint8Array),
         expect.objectContaining({ timeout: 10000 })
@@ -155,6 +169,15 @@ describe('NatsPublisher', () => {
     });
 
     it('should handle message ID for deduplication', async () => {
+      const mockJs = { 
+        publish: jest.fn().mockResolvedValue({
+          stream: 'test-stream',
+          seq: 123,
+          duplicate: false,
+        })
+      };
+      (jetstream as jest.Mock).mockReturnValue(mockJs);
+
       mockGetNodeParameter
         .mockReturnValueOnce('jetstream')
         .mockReturnValueOnce('test.subject')
@@ -163,8 +186,7 @@ describe('NatsPublisher', () => {
 
       await node.execute.call(mockExecuteFunctions);
 
-      const js = mockNatsConnection.jetstream();
-      expect(js.publish).toHaveBeenCalledWith(
+      expect(mockJs.publish).toHaveBeenCalledWith(
         'test.subject',
         expect.any(Uint8Array),
         expect.objectContaining({ msgID: 'unique-123' })
@@ -172,6 +194,15 @@ describe('NatsPublisher', () => {
     });
 
     it('should handle optimistic concurrency controls', async () => {
+      const mockJs = { 
+        publish: jest.fn().mockResolvedValue({
+          stream: 'test-stream',
+          seq: 123,
+          duplicate: false,
+        })
+      };
+      (jetstream as jest.Mock).mockReturnValue(mockJs);
+
       mockGetNodeParameter
         .mockReturnValueOnce('jetstream')
         .mockReturnValueOnce('test.subject')
@@ -183,8 +214,7 @@ describe('NatsPublisher', () => {
 
       await node.execute.call(mockExecuteFunctions);
 
-      const js = mockNatsConnection.jetstream();
-      expect(js.publish).toHaveBeenCalledWith(
+      expect(mockJs.publish).toHaveBeenCalledWith(
         'test.subject',
         expect.any(Uint8Array),
         expect.objectContaining({ 

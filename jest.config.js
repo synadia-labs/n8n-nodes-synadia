@@ -11,6 +11,9 @@ module.exports = {
     '!src/**/*.d.ts',
     '!src/index.ts',
     '!src/**/__tests__/**',
+    '!src/bundled/**',
+    '!src/credentials/**',
+    '!src/icons/**',
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
@@ -19,4 +22,6 @@ module.exports = {
   },
   setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
   testPathIgnorePatterns: ['/node_modules/', 'setup.ts'],
+  // Integration tests may take longer
+  testTimeout: 30000,
 };

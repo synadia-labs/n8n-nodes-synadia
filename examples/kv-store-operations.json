@@ -1,0 +1,160 @@
+{
+  "name": "NATS KV Store Operations",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "createBucket",
+        "bucket": "config-store",
+        "options": {
+          "description": "Application configuration storage",
+          "history": 10,
+          "ttl": 3600
+        }
+      },
+      "id": "create-bucket",
+      "name": "Create KV Bucket",
+      "type": "n8n-nodes-synadia.natsKv",
+      "typeVersion": 1,
+      "position": [460, 200],
+      "credentials": {
+        "natsApi": {
+          "id": "1",
+          "name": "NATS Connection"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "put",
+        "bucket": "config-store",
+        "key": "app.settings.theme",
+        "value": "={{JSON.stringify({\"mode\": \"dark\", \"primaryColor\": \"#1976d2\", \"fontSize\": 14})}}",
+        "options": {
+          "valueType": "json"
+        }
+      },
+      "id": "put-value",
+      "name": "Store Config",
+      "type": "n8n-nodes-synadia.natsKv",
+      "typeVersion": 1,
+      "position": [680, 200],
+      "credentials": {
+        "natsApi": {
+          "id": "1",
+          "name": "NATS Connection"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "bucket": "config-store",
+        "key": "app.settings.theme"
+      },
+      "id": "get-value",
+      "name": "Retrieve Config",
+      "type": "n8n-nodes-synadia.natsKv",
+      "typeVersion": 1,
+      "position": [900, 200],
+      "credentials": {
+        "natsApi": {
+          "id": "1",
+          "name": "NATS Connection"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "bucket": "config-store"
+      },
+      "id": "list-keys",
+      "name": "List All Keys",
+      "type": "n8n-nodes-synadia.natsKv",
+      "typeVersion": 1,
+      "position": [680, 400],
+      "credentials": {
+        "natsApi": {
+          "id": "1",
+          "name": "NATS Connection"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "bucket": "config-store",
+        "watchType": "all",
+        "options": {
+          "includeHistory": false
+        }
+      },
+      "id": "watch-changes",
+      "name": "Watch for Changes",
+      "type": "n8n-nodes-synadia.natsKvTrigger",
+      "typeVersion": 1,
+      "position": [460, 600],
+      "credentials": {
+        "natsApi": {
+          "id": "1",
+          "name": "NATS Connection"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Create KV Bucket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create KV Bucket": {
+      "main": [
+        [
+          {
+            "node": "Store Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Config": {
+      "main": [
+        [
+          {
+            "node": "Retrieve Config",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "List All Keys",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "kv-example-v1",
+  "id": "2",
+  "meta": {
+    "instanceId": "n8n-instance-id"
+  },
+  "tags": ["nats", "kv-store", "example"]
+}

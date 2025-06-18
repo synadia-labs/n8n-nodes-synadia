@@ -1,5 +1,5 @@
-import { ICredentialDataDecryptedObject, IExecuteFunctions, ILoadOptionsFunctions, ITriggerFunctions } from 'n8n-workflow';
-import { connect, NatsConnection, ConnectionOptions, jwtAuthenticator, nkeyAuthenticator } from 'nats';
+import { ICredentialDataDecryptedObject, IExecuteFunctions, ILoadOptionsFunctions, ITriggerFunctions, ApplicationError, NodeApiError } from 'n8n-workflow';
+import { connect, NatsConnection, ConnectionOptions, jwtAuthenticator, nkeyAuthenticator } from '../bundled/nats-bundled';
 
 export type NatsCredentials = {
 	connectionType: 'url' | 'credentials' | 'token' | 'nkey' | 'jwt' | 'credsFile';
@@ -68,20 +68,27 @@ export async function createNatsConnection(
 			break;
 		case 'credsFile':
 			if (creds.credsFile) {
-				// Parse the credentials file content
+				// Parse the credentials file content with improved regex
 				const credsContent = creds.credsFile;
-				const jwtMatch = credsContent.match(/-----BEGIN NATS USER JWT-----\n([\s\S]*?)\n------END NATS USER JWT------/);
-				const seedMatch = credsContent.match(/-----BEGIN USER NKEY SEED-----\n([\s\S]*?)\n------END USER NKEY SEED------/);
+				
+				// Very flexible regex that handles any whitespace between sections
+				const jwtMatch = credsContent.match(/-----BEGIN NATS USER JWT-----\s*([\s\S]*?)\s*------END NATS USER JWT------/);
+				const seedMatch = credsContent.match(/-----BEGIN USER NKEY SEED-----\s*([\s\S]*?)\s*------END USER NKEY SEED------/);
 				
 				if (jwtMatch && seedMatch) {
-					const jwt = jwtMatch[1].trim();
-					const seed = seedMatch[1].trim();
+					// Extract and clean the JWT and seed - remove ALL whitespace and newlines
+					const jwt = jwtMatch[1].replace(/\s/g, '');
+					const seed = seedMatch[1].replace(/\s/g, '');
+					
 					connectionOptions.authenticator = jwtAuthenticator(
 						jwt,
 						new TextEncoder().encode(seed)
 					);
 				} else {
-					throw new Error('Invalid credentials file format. Please paste the entire .creds file content.');
+					throw new ApplicationError('Invalid credentials file format. Please paste the entire .creds file content.', {
+						level: 'warning',
+						tags: { nodeType: 'n8n-nodes-synadia.nats' },
+					});
 				}
 			}
 			break;
@@ -100,7 +107,19 @@ export async function createNatsConnection(
 		const nc = await connect(connectionOptions);
 		return nc;
 	} catch (error: any) {
-		throw new Error(`Failed to connect to NATS: ${error.message}`);
+		// For connection errors, we use NodeApiError when we have a context with getNode method
+		if (_context && 'getNode' in _context) {
+			throw new NodeApiError(_context.getNode(), error, {
+				message: `Failed to connect to NATS: ${error.message}`,
+			});
+		} else {
+			// Fallback to ApplicationError when no node context is available
+			throw new ApplicationError(`Failed to connect to NATS: ${error.message}`, {
+				level: 'error',
+				tags: { nodeType: 'n8n-nodes-synadia.nats' },
+				cause: error,
+			});
+		}
 	}
 }
 
