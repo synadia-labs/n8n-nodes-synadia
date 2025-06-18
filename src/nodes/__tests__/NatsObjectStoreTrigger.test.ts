@@ -1,7 +1,7 @@
 import { NatsObjectStoreTrigger } from '../NatsObjectStoreTrigger.node';
 import { createNatsConnection, closeNatsConnection } from '../../utils/NatsConnection';
 import { ITriggerFunctions } from 'n8n-workflow';
-import { jetstream, consumerOpts } from '../../bundled/nats-bundled';
+import { jetstream, consumerOpts, jetstreamManager } from '../../bundled/nats-bundled';
 
 jest.mock('../../utils/NatsConnection');
 jest.mock('../../bundled/nats-bundled');
@@ -11,10 +11,12 @@ describe('NatsObjectStoreTrigger', () => {
 	let mockTriggerFunctions: ITriggerFunctions;
 	let mockNc: any;
 	let mockJs: any;
+	let mockJsm: any;
 	let mockSubscription: any;
 	let mockConsumerOpts: any;
 	let mockEmit: jest.Mock;
 	let mockGetNodeParameter: jest.Mock;
+	let mockMessageIterator: any;
 
 	beforeEach(() => {
 		node = new NatsObjectStoreTrigger();
@@ -31,14 +33,36 @@ describe('NatsObjectStoreTrigger', () => {
 			deliverLastPerSubject: jest.fn().mockReturnThis(),
 		};
 		
+		let mockMessageIterator: any;
+		const mockConsumer = {
+			consume: jest.fn(() => {
+				return Promise.resolve(mockMessageIterator);
+			}),
+			delete: jest.fn().mockResolvedValue(undefined),
+		};
+		
+		mockJsm = {
+			consumers: {
+				add: jest.fn().mockResolvedValue({
+					stream_name: 'OBJ_test-bucket',
+					name: 'test-consumer',
+				}),
+			},
+		};
+		
 		mockJs = {
 			subscribe: jest.fn().mockResolvedValue(mockSubscription),
+			consumers: {
+				get: jest.fn().mockResolvedValue(mockConsumer),
+			},
 		};
 		
 		mockNc = {};
 		
 		mockEmit = jest.fn();
 		mockGetNodeParameter = jest.fn();
+		
+		(jetstreamManager as jest.Mock).mockImplementation(() => Promise.resolve(mockJsm));
 		
 		mockTriggerFunctions = {
 			getNodeParameter: mockGetNodeParameter,
@@ -93,28 +117,32 @@ describe('NatsObjectStoreTrigger', () => {
 				ack: jest.fn(),
 			};
 			
-			// Setup async iterator
-			const mockAsyncIterator = {
-				[Symbol.asyncIterator]: jest.fn().mockReturnValue({
+			// Setup message iterator
+			mockMessageIterator = {
+				[Symbol.asyncIterator]: () => ({
 					next: jest.fn()
 						.mockResolvedValueOnce({ done: false, value: mockMsg })
-						.mockResolvedValueOnce({ done: true }),
+						.mockResolvedValue({ done: true }),
 				}),
 			};
-			mockSubscription[Symbol.asyncIterator] = mockAsyncIterator[Symbol.asyncIterator];
 			
 			// Start the trigger
 			const triggerPromise = node.trigger.call(mockTriggerFunctions);
 			
 			// Let the async operations run
-			await new Promise(resolve => setTimeout(resolve, 10));
+			await new Promise(resolve => setTimeout(resolve, 100));
 			
 			// Verify connections and setup
 			expect(createNatsConnection).toHaveBeenCalled();
 			expect(jetstream).toHaveBeenCalledWith(mockNc);
-			expect(consumerOpts).toHaveBeenCalled();
-			expect(mockConsumerOpts.deliverLastPerSubject).toHaveBeenCalled();
-			expect(mockJs.subscribe).toHaveBeenCalledWith('$O.test-bucket.M.>', mockConsumerOpts);
+			expect(jetstreamManager).toHaveBeenCalledWith(mockNc);
+			
+			// Access the consumers.add mock directly
+			expect(mockJsm.consumers.add).toHaveBeenCalledWith('OBJ_test-bucket', expect.objectContaining({
+				filter_subject: '$O.test-bucket.M.>',
+				ack_policy: 'explicit',
+				deliver_policy: 'last_per_subject',
+			}));
 			
 			// Verify emitted data
 			expect(mockEmit).toHaveBeenCalledWith([expect.arrayContaining([
@@ -165,9 +193,14 @@ describe('NatsObjectStoreTrigger', () => {
 			const triggerPromise = node.trigger.call(mockTriggerFunctions);
 			await new Promise(resolve => setTimeout(resolve, 10));
 			
-			expect(consumerOpts).toHaveBeenCalled();
-			expect(mockConsumerOpts.deliverNew).toHaveBeenCalled();
-			expect(mockConsumerOpts.deliverLastPerSubject).not.toHaveBeenCalled();
+			expect(jetstreamManager).toHaveBeenCalledWith(mockNc);
+			
+			const mockJsm = (jetstreamManager as jest.Mock).mock.results[0].value;
+			expect(mockJsm.consumers.add).toHaveBeenCalledWith('OBJ_test-bucket', expect.objectContaining({
+				filter_subject: '$O.test-bucket.M.>',
+				ack_policy: 'explicit',
+				deliver_policy: 'new',
+			}));
 			
 			const triggerResponse = await triggerPromise;
 			if (triggerResponse && typeof triggerResponse === 'object' && 'closeFunction' in triggerResponse) {

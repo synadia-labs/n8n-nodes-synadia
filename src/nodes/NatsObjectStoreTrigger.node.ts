@@ -6,7 +6,7 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection, consumerOpts, jetstream } from '../bundled/nats-bundled';
+import { NatsConnection, consumerOpts, jetstream, jetstreamManager } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { validateBucketName } from '../utils/ValidationHelpers';
 
@@ -102,27 +102,37 @@ export class NatsObjectStoreTrigger implements INodeType {
 				const js = jetstream(nc);
 				
 				// Object Store uses the underlying stream events
-				const _streamName = `OBJ_${bucket}`;
+				const streamName = `OBJ_${bucket}`;
 				
-				// Create consumer options
-				const opts = consumerOpts();
+				// Create ephemeral consumer configuration
+				const consumerConfig: any = {
+					filter_subject: `$O.${bucket}.M.>`,
+					ack_policy: 'explicit',
+				};
 				
+				// Configure delivery policy
 				if (options.updatesOnly) {
-					opts.deliverNew();
+					consumerConfig.deliver_policy = 'new';
 				} else if (options.includeHistory) {
-					opts.deliverAll();
+					consumerConfig.deliver_policy = 'all';
 				} else {
-					opts.deliverLastPerSubject();
+					consumerConfig.deliver_policy = 'last_per_subject';
 				}
 				
-				// Subscribe to the object store stream
-				const subject = `$O.${bucket}.M.>`;
-				// For now, cast to any to work around API differences
-				subscription = await (js as any).subscribe(subject, opts);
+				// Get JetStream manager and create ephemeral consumer
+				const jsm = await jetstreamManager(nc);
+				const consumerInfo = await jsm.consumers.add(streamName, consumerConfig);
+				
+				// Get consumer reference
+				const consumer = await js.consumers.get(consumerInfo.stream_name, consumerInfo.name);
+				
+				// Store consumer for cleanup
+				subscription = consumer as any;
 				
 				// Process messages
 				(async () => {
-					for await (const msg of subscription) {
+					const messageIterator = await consumer.consume();
+					for await (const msg of messageIterator) {
 						try {
 							// Parse the subject to get object name
 							const parts = msg.subject.split('.');
@@ -185,8 +195,13 @@ export class NatsObjectStoreTrigger implements INodeType {
 		
 		async function closeFunction() {
 			try {
-				if (subscription) {
-					await subscription.unsubscribe();
+				// Delete ephemeral consumer
+				if (subscription && subscription.delete) {
+					try {
+						await subscription.delete();
+					} catch (err) {
+						// Consumer might already be deleted
+					}
 				}
 				if (nc) {
 					await closeNatsConnection(nc);
