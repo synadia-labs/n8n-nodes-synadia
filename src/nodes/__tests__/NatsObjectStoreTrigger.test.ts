@@ -17,6 +17,7 @@ describe('NatsObjectStoreTrigger', () => {
 	let mockEmit: jest.Mock;
 	let mockGetNodeParameter: jest.Mock;
 	let mockMessageIterator: any;
+	let mockConsumer: any;
 
 	beforeEach(() => {
 		node = new NatsObjectStoreTrigger();
@@ -33,8 +34,14 @@ describe('NatsObjectStoreTrigger', () => {
 			deliverLastPerSubject: jest.fn().mockReturnThis(),
 		};
 		
-		let mockMessageIterator: any;
-		const mockConsumer = {
+		// Initialize mockMessageIterator before using it
+		mockMessageIterator = {
+			[Symbol.asyncIterator]: () => ({
+				next: jest.fn().mockResolvedValue({ done: true }),
+			}),
+		};
+		
+		mockConsumer = {
 			consume: jest.fn(() => {
 				return Promise.resolve(mockMessageIterator);
 			}),
@@ -130,7 +137,7 @@ describe('NatsObjectStoreTrigger', () => {
 			const triggerPromise = node.trigger.call(mockTriggerFunctions);
 			
 			// Let the async operations run
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise(resolve => setTimeout(resolve, 200));
 			
 			// Verify connections and setup
 			expect(createNatsConnection).toHaveBeenCalled();
@@ -169,7 +176,7 @@ describe('NatsObjectStoreTrigger', () => {
 				await (triggerResponse as any).closeFunction();
 			}
 			
-			expect(mockSubscription.unsubscribe).toHaveBeenCalled();
+			expect(mockConsumer.delete).toHaveBeenCalled();
 			expect(closeNatsConnection).toHaveBeenCalledWith(mockNc);
 		});
 
@@ -183,19 +190,18 @@ describe('NatsObjectStoreTrigger', () => {
 			});
 			
 			// Setup empty iterator (no messages)
-			const mockAsyncIterator = {
-				[Symbol.asyncIterator]: jest.fn().mockReturnValue({
+			mockMessageIterator = {
+				[Symbol.asyncIterator]: () => ({
 					next: jest.fn().mockResolvedValue({ done: true }),
 				}),
 			};
-			mockSubscription[Symbol.asyncIterator] = mockAsyncIterator[Symbol.asyncIterator];
 			
 			const triggerPromise = node.trigger.call(mockTriggerFunctions);
-			await new Promise(resolve => setTimeout(resolve, 10));
+			await new Promise(resolve => setTimeout(resolve, 100));
 			
 			expect(jetstreamManager).toHaveBeenCalledWith(mockNc);
 			
-			const mockJsm = (jetstreamManager as jest.Mock).mock.results[0].value;
+			// Verify consumer was created with correct options
 			expect(mockJsm.consumers.add).toHaveBeenCalledWith('OBJ_test-bucket', expect.objectContaining({
 				filter_subject: '$O.test-bucket.M.>',
 				ack_policy: 'explicit',
@@ -217,16 +223,15 @@ describe('NatsObjectStoreTrigger', () => {
 				}
 			});
 			
-			// Make subscription throw an error
-			const errorAsyncIterator = {
-				[Symbol.asyncIterator]: jest.fn().mockReturnValue({
+			// Make message iterator throw an error
+			mockMessageIterator = {
+				[Symbol.asyncIterator]: () => ({
 					next: jest.fn().mockRejectedValue(new Error('Subscription error')),
 				}),
 			};
-			mockSubscription[Symbol.asyncIterator] = errorAsyncIterator[Symbol.asyncIterator];
 			
 			const triggerPromise = node.trigger.call(mockTriggerFunctions);
-			await new Promise(resolve => setTimeout(resolve, 10));
+			await new Promise(resolve => setTimeout(resolve, 100));
 			
 			expect(mockTriggerFunctions.logger.error).toHaveBeenCalledWith('Object store watcher error:', expect.objectContaining({ error: expect.any(Error) }));
 			
@@ -286,19 +291,18 @@ describe('NatsObjectStoreTrigger', () => {
 				ack: jest.fn(),
 			};
 			
-			// Setup async iterator with both messages
-			const filterAsyncIterator = {
-				[Symbol.asyncIterator]: jest.fn().mockReturnValue({
+			// Setup message iterator with both messages
+			mockMessageIterator = {
+				[Symbol.asyncIterator]: () => ({
 					next: jest.fn()
 						.mockResolvedValueOnce({ done: false, value: jpgMsg })
 						.mockResolvedValueOnce({ done: false, value: txtMsg })
-						.mockResolvedValueOnce({ done: true }),
+						.mockResolvedValue({ done: true }),
 				}),
 			};
-			mockSubscription[Symbol.asyncIterator] = filterAsyncIterator[Symbol.asyncIterator];
 			
 			const triggerPromise = node.trigger.call(mockTriggerFunctions);
-			await new Promise(resolve => setTimeout(resolve, 10));
+			await new Promise(resolve => setTimeout(resolve, 100));
 			
 			// Should only emit the .jpg file
 			expect(mockEmit).toHaveBeenCalledTimes(1);
@@ -351,18 +355,17 @@ describe('NatsObjectStoreTrigger', () => {
 				ack: jest.fn(),
 			};
 			
-			// Setup async iterator with delete message
-			const deleteAsyncIterator = {
-				[Symbol.asyncIterator]: jest.fn().mockReturnValue({
+			// Setup message iterator with delete message
+			mockMessageIterator = {
+				[Symbol.asyncIterator]: () => ({
 					next: jest.fn()
 						.mockResolvedValueOnce({ done: false, value: mockDeleteMsg })
-						.mockResolvedValueOnce({ done: true }),
+						.mockResolvedValue({ done: true }),
 				}),
 			};
-			mockSubscription[Symbol.asyncIterator] = deleteAsyncIterator[Symbol.asyncIterator];
 			
 			const triggerPromise = node.trigger.call(mockTriggerFunctions);
-			await new Promise(resolve => setTimeout(resolve, 10));
+			await new Promise(resolve => setTimeout(resolve, 100));
 			
 			expect(mockEmit).toHaveBeenCalledWith([expect.arrayContaining([
 				expect.objectContaining({

@@ -24,6 +24,8 @@ describe('NATS Nodes Integration Tests', () => {
 	let mockSubscription: any;
 	let mockKvWatcher: any;
 	let mockObjectWatcher: any;
+	let mockMessageIterator: any;
+	let mockConsumer: any;
 	let sc: any;
 
 	// Mock node execution context
@@ -169,15 +171,16 @@ describe('NATS Nodes Integration Tests', () => {
 			destroy: jest.fn().mockResolvedValue(undefined),
 		};
 
-		// Mock JetStream consumer
-		const mockConsumer = {
-			consume: jest.fn().mockResolvedValue({
-				[Symbol.asyncIterator]: jest.fn().mockReturnValue({
-					next: jest.fn().mockResolvedValue({ done: true }),
-				}),
-				stop: jest.fn(),
+		// Mock JetStream consumer with message iterator
+		mockMessageIterator = {
+			[Symbol.asyncIterator]: () => ({
+				next: jest.fn().mockResolvedValue({ done: true }),
 			}),
-			delete: jest.fn(),
+		};
+		
+		mockConsumer = {
+			consume: jest.fn(() => Promise.resolve(mockMessageIterator)),
+			delete: jest.fn().mockResolvedValue(undefined),
 		};
 
 		// Mock JetStream
@@ -660,9 +663,11 @@ describe('NATS Nodes Integration Tests', () => {
 				headers: {
 					get: jest.fn((key) => {
 						const headers: Record<string, string> = {
+							'X-Nats-Operation': 'PUT',
 							'X-Nats-Object-Size': '1024',
 							'X-Nats-Object-Chunks': '1',
 							'X-Nats-Object-Digest': 'sha256-abc123',
+							'X-Nats-Object-Mtime': new Date().toISOString(),
 						};
 						return headers[key];
 					}),
@@ -670,15 +675,19 @@ describe('NATS Nodes Integration Tests', () => {
 				ack: jest.fn(),
 			};
 
-			mockSubscription[Symbol.asyncIterator] = jest.fn().mockReturnValue({
-				next: jest.fn()
-					.mockResolvedValueOnce({ done: false, value: objChange })
-					.mockResolvedValue({ done: true }),
-			});
+			// Update the message iterator to return our object change
+			mockMessageIterator = {
+				[Symbol.asyncIterator]: () => ({
+					next: jest.fn()
+						.mockResolvedValueOnce({ done: false, value: objChange })
+						.mockResolvedValue({ done: true }),
+				}),
+			};
+			mockConsumer.consume.mockResolvedValue(mockMessageIterator);
 
 			// Start watcher
 			await objTrigger.trigger.call(watcherFunctions);
-			await new Promise(resolve => setTimeout(resolve, 50));
+			await new Promise(resolve => setTimeout(resolve, 100));
 
 			// Verify change was emitted
 			expect(watcherFunctions.emit).toHaveBeenCalledWith([

@@ -8,7 +8,7 @@ import {
 	NodeConnectionType,
 	INodeExecutionData,
 } from 'n8n-workflow';
-import { NatsConnection, Subscription, consumerOpts, Msg, jetstream, jetstreamManager } from '../bundled/nats-bundled';
+import { NatsConnection, Subscription, Msg, jetstream, jetstreamManager } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { parseNatsMessage, validateSubject } from '../utils/NatsHelpers';
 import { createReplyHandler, ManualReplyHandler } from '../utils/reply';
@@ -421,7 +421,7 @@ export class NatsTrigger implements INodeType {
 					// JetStream consumer - delete ephemeral consumer
 					try {
 						await subscription.delete();
-					} catch (err) {
+					} catch {
 						// Ignore errors as consumer may already be cleaned up
 					}
 				}

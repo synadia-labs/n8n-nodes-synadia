@@ -6,7 +6,7 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection, consumerOpts, jetstream, jetstreamManager } from '../bundled/nats-bundled';
+import { NatsConnection, jetstream, jetstreamManager } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { validateBucketName } from '../utils/ValidationHelpers';
 
@@ -199,7 +199,7 @@ export class NatsObjectStoreTrigger implements INodeType {
 				if (subscription && subscription.delete) {
 					try {
 						await subscription.delete();
-					} catch (err) {
+					} catch {
 						// Consumer might already be deleted
 					}
 				}
