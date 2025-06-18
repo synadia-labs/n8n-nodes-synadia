@@ -11,7 +11,7 @@
     },
     {
       "parameters": {
-        "subject": "api.users.get",
+        "subject": "api.users.service",
         "queueGroup": "user-service",
         "options": {
           "replyField": "userData",
@@ -33,7 +33,7 @@
     },
     {
       "parameters": {
-        "subject": "api.users.get",
+        "subject": "api.users.service",
         "requestData": "={{JSON.stringify({\"userId\": \"123\", \"includeDetails\": true})}}",
         "options": {
           "timeout": 5000,
@@ -54,22 +54,21 @@
     },
     {
       "parameters": {
-        "functionCode": "// Simulate database lookup\nconst userId = $json.data.userId;\nconst includeDetails = $json.data.includeDetails;\n\n// Mock user data\nconst userData = {\n  id: userId,\n  name: \"John Doe\",\n  email: \"john.doe@example.com\",\n  createdAt: \"2024-01-15T10:30:00Z\"\n};\n\n// Add details if requested\nif (includeDetails) {\n  userData.details = {\n    lastLogin: \"2024-03-15T14:22:00Z\",\n    preferences: {\n      theme: \"dark\",\n      notifications: true\n    },\n    role: \"admin\"\n  };\n}\n\nreturn {\n  userData,\n  request: $json\n};"
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Simulate database lookup\nconst userId = $json.data.userId;\nconst includeDetails = $json.data.includeDetails;\n\n// Mock user data\nconst userData = {\n  id: userId,\n  name: \"John Doe\",\n  email: \"john.doe@example.com\",\n  createdAt: \"2024-01-15T10:30:00Z\"\n};\n\n// Add details if requested\nif (includeDetails) {\n  userData.details = {\n    lastLogin: \"2024-03-15T14:22:00Z\",\n    preferences: {\n      theme: \"dark\",\n      notifications: true\n    },\n    role: \"admin\"\n  };\n}\n\nreturn {\n  userData,\n  request: $json\n};"
       },
       "id": "process-request",
       "name": "Process User Request",
       "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [460, 500]
     },
     {
       "parameters": {
         "subject": "api.echo",
+        "queueGroup": "echo-services",
         "responseData": "{\\n  \\\"echo\\\": \\\"{{$json.data}}\\\",\\n  \\\"timestamp\\\": \\\"{{new Date().toISOString()}}\\\",\\n  \\\"serviceId\\\": \\\"echo-service-1\\\"\\n}",
-        "options": {
-          "queueGroup": "echo-services",
-          "maxMessages": 100
-        }
+        "options": {}
       },
       "id": "simple-service",
       "name": "Echo Service",

@@ -317,7 +317,6 @@ To connect to Synadia Cloud:
         "subscriptionType": "jetstream",
         "subject": "events.>",
         "streamName": "EVENTS",
-        "consumerType": "ephemeral",
         "options": {
           "deliverPolicy": "new",
           "manualAck": false
@@ -338,7 +337,8 @@ To connect to Synadia Cloud:
       "type": "n8n-nodes-synadia.natsTrigger",
       "parameters": {
         "subject": "work.items",
-        "queueGroup": "workers"
+        "queueGroup": "workers",
+        "options": {}
       }
     }
   ]
@@ -357,7 +357,8 @@ To connect to Synadia Cloud:
         "operation": "put",
         "bucket": "config",
         "key": "app.settings",
-        "value": "={{ JSON.stringify($json) }}"
+        "value": "={{JSON.stringify($json)}}",
+        "options": {}
       }
     }
   ]
@@ -396,7 +397,7 @@ To connect to Synadia Cloud:
       "parameters": {
         "operation": "put",
         "bucket": "documents",
-        "name": "report-{{ $now.toISOString() }}.pdf",
+        "name": "report-{{ $now.toFormat('yyyy-MM-dd') }}.pdf",
         "data": "={{ $binary.data }}",
         "options": {
           "dataType": "binary"
@@ -404,6 +405,21 @@ To connect to Synadia Cloud:
       }
     }
   ]
+}
+```
+
+**Note**: The example above stores binary data. For JSON data, you can use:
+```json
+{
+  "name": "Store JSON Document",
+  "type": "n8n-nodes-synadia.natsObjectStore",
+  "parameters": {
+    "operation": "put",
+    "bucket": "documents",
+    "name": "=report-{{ $json.timestamp.toDateTime().format('yyyy-LL-dd') }}.json",
+    "data": "={{ $json.toJsonString() }}",
+    "options": {}
+  }
 }
 ```
 
@@ -437,7 +453,7 @@ To connect to Synadia Cloud:
       "name": "User Service",
       "type": "n8n-nodes-synadia.natsServiceReply",
       "parameters": {
-        "subject": "api.users.get",
+        "subject": "api.users.service",
         "queueGroup": "user-service",
         "options": {
           "replyField": "userData",
@@ -449,7 +465,8 @@ To connect to Synadia Cloud:
       "name": "Get User Data",
       "type": "n8n-nodes-base.code",
       "parameters": {
-        "code": "return { userData: { id: $json.request.userId, name: 'John Doe' } };"
+        "mode": "runOnceForEachItem",
+        "jsCode": "return { userData: { id: $json.data.userId, name: 'John Doe' } };"
       }
     }
   ]
@@ -466,7 +483,8 @@ To connect to Synadia Cloud:
       "type": "n8n-nodes-synadia.natsService",
       "parameters": {
         "subject": "api.echo",
-        "responseData": "{\n  \"success\": true,\n  \"echo\": \"{{$json.request}}\",\n  \"timestamp\": \"{{new Date().toISOString()}}\"\n}"
+        "responseData": "{\n  \"success\": true,\n  \"echo\": \"{{$json.data}}\",\n  \"timestamp\": \"{{new Date().toISOString()}}\"\n}",
+        "options": {}
       }
     }
   ]

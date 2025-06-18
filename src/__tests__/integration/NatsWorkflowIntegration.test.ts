@@ -169,6 +169,17 @@ describe('NATS Nodes Integration Tests', () => {
 			destroy: jest.fn().mockResolvedValue(undefined),
 		};
 
+		// Mock JetStream consumer
+		const mockConsumer = {
+			consume: jest.fn().mockResolvedValue({
+				[Symbol.asyncIterator]: jest.fn().mockReturnValue({
+					next: jest.fn().mockResolvedValue({ done: true }),
+				}),
+				stop: jest.fn(),
+			}),
+			delete: jest.fn(),
+		};
+
 		// Mock JetStream
 		mockJs = {
 			views: {
@@ -177,6 +188,9 @@ describe('NATS Nodes Integration Tests', () => {
 			},
 			subscribe: jest.fn().mockResolvedValue(mockSubscription),
 			publish: jest.fn().mockResolvedValue({ seq: 1 }),
+			consumers: {
+				get: jest.fn().mockResolvedValue(mockConsumer),
+			},
 		};
 
 		// Mock NATS connection
@@ -204,7 +218,10 @@ describe('NATS Nodes Integration Tests', () => {
 				info: jest.fn().mockResolvedValue({ config: { name: 'TEST' } }),
 			},
 			consumers: {
-				add: jest.fn().mockResolvedValue({ name: 'test-consumer' }),
+				add: jest.fn().mockResolvedValue({
+					stream_name: 'EVENTS',
+					name: 'ephemeral-consumer-123',
+				}),
 				delete: jest.fn().mockResolvedValue(true),
 			},
 		});
@@ -453,11 +470,19 @@ describe('NATS Nodes Integration Tests', () => {
 				ack: jest.fn(),
 			};
 
-
-			mockSubscription[Symbol.asyncIterator] = jest.fn().mockReturnValue({
-				next: jest.fn()
-					.mockResolvedValueOnce({ done: false, value: jsMessage })
-					.mockResolvedValue({ done: true }),
+			// Update the mock consumer to return messages
+			const mockMessageIterator = {
+				[Symbol.asyncIterator]: jest.fn().mockReturnValue({
+					next: jest.fn()
+						.mockResolvedValueOnce({ done: false, value: jsMessage })
+						.mockResolvedValue({ done: true }),
+				}),
+				stop: jest.fn(),
+			};
+			
+			mockJs.consumers.get = jest.fn().mockResolvedValue({
+				consume: jest.fn().mockResolvedValue(mockMessageIterator),
+				delete: jest.fn(),
 			});
 
 			// Start trigger

@@ -13,7 +13,7 @@
       "parameters": {
         "operation": "createBucket",
         "bucket": "documents",
-        "bucketOptions": {
+        "options": {
           "description": "Document storage bucket",
           "storage": "file",
           "replicas": 1
@@ -53,12 +53,11 @@
       "parameters": {
         "operation": "put",
         "bucket": "documents",
-        "name": "reports/2024/{{$now.format('yyyy-MM-dd')}}-daily-report.md",
+        "name": "=reports/2024/{{$now.format('yyyy-MM-dd')}}-daily-report.md",
         "data": "={{$json.content}}",
         "options": {
           "dataType": "string",
-          "description": "Daily report",
-          "contentType": "text/markdown"
+          "description": "Daily report"
         }
       },
       "id": "store-file",
@@ -76,7 +75,8 @@
     {
       "parameters": {
         "operation": "list",
-        "bucket": "documents"
+        "bucket": "documents",
+        "options": {}
       },
       "id": "list-files",
       "name": "List All Files",
@@ -94,7 +94,8 @@
       "parameters": {
         "operation": "info",
         "bucket": "documents",
-        "name": "={{$json.name}}"
+        "name": "={{$json.name}}",
+        "options": {}
       },
       "id": "get-info",
       "name": "Get File Info",
@@ -134,7 +135,8 @@
         "operation": "link",
         "bucket": "documents",
         "name": "reports/latest.md",
-        "linkSource": "documents/{{$json.object.name}}"
+        "linkSource": "documents/{{$json.object.name}}",
+        "options": {}
       },
       "id": "create-link",
       "name": "Link to Latest",

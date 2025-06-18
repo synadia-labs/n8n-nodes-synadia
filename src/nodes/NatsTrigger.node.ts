@@ -8,7 +8,7 @@ import {
 	NodeConnectionType,
 	INodeExecutionData,
 } from 'n8n-workflow';
-import { NatsConnection, Subscription, consumerOpts, Msg, jetstream } from '../bundled/nats-bundled';
+import { NatsConnection, Subscription, consumerOpts, Msg, jetstream, jetstreamManager } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { parseNatsMessage, validateSubject } from '../utils/NatsHelpers';
 import { createReplyHandler, ManualReplyHandler } from '../utils/reply';
@@ -402,13 +402,31 @@ export class NatsTrigger implements INodeType {
 		validateSubject(subject);
 
 		let nc: NatsConnection;
-		let subscription: Subscription;
+		let subscription: Subscription | any;
+		let messageIterator: any;
 		const replyHandler = createReplyHandler(replyMode);
 
 		const closeFunction = async () => {
-			if (subscription) {
-				await subscription.drain();
+			// Stop message iteration if JetStream consumer
+			if (messageIterator && messageIterator.stop) {
+				await messageIterator.stop();
 			}
+			
+			// Handle subscription cleanup
+			if (subscription) {
+				if (subscription.drain) {
+					// Core NATS subscription
+					await subscription.drain();
+				} else if (subscription.delete) {
+					// JetStream consumer - delete ephemeral consumer
+					try {
+						await subscription.delete();
+					} catch (err) {
+						// Ignore errors as consumer may already be cleaned up
+					}
+				}
+			}
+			
 			if (nc) {
 				await closeNatsConnection(nc);
 			}
@@ -563,45 +581,53 @@ export class NatsTrigger implements INodeType {
 					})();
 
 				} else {
-					// Create ephemeral consumer
-					const opts = consumerOpts();
-					
+					// Create ephemeral consumer configuration
+					const consumerConfig: any = {
+						filter_subject: subject,
+						ack_policy: options.manualAck ? 'explicit' : 'all',
+					};
+
 					// Configure delivery policy
 					switch (options.deliverPolicy) {
 						case 'all':
-							opts.deliverAll();
+							consumerConfig.deliver_policy = 'all';
 							break;
 						case 'last':
-							opts.deliverLast();
+							consumerConfig.deliver_policy = 'last';
 							break;
 						case 'new':
-							opts.deliverNew();
+							consumerConfig.deliver_policy = 'new';
 							break;
 						case 'startSequence':
-							opts.startSequence(options.startSequence as number);
+							consumerConfig.deliver_policy = 'by_start_sequence';
+							consumerConfig.opt_start_seq = options.startSequence as number;
 							break;
 						case 'startTime':
-							opts.startTime(new Date(options.startTime as string));
+							consumerConfig.deliver_policy = 'by_start_time';
+							consumerConfig.opt_start_time = new Date(options.startTime as string).toISOString();
 							break;
 					}
 
 					if (options.ackWait) {
-						opts.ackWait(options.ackWait as number);
+						consumerConfig.ack_wait = (options.ackWait as number) * 1_000_000; // Convert to nanoseconds
 					}
 
 					if (options.maxDeliver) {
-						opts.maxDeliver(options.maxDeliver as number);
+						consumerConfig.max_deliver = options.maxDeliver as number;
 					}
 
-					if (options.manualAck) {
-						opts.manualAck();
-					}
-
-					// For now, cast to any to work around API differences
-					const sub = await (js as any).subscribe(subject, opts);
+					// Get JetStream manager and create ephemeral consumer
+					const jsm = await jetstreamManager(nc);
+					// Use the streamName parameter that was already read above
+					const consumerInfo = await jsm.consumers.add(streamName || subject.split('.')[0].toUpperCase(), consumerConfig);
 					
+					// Get consumer reference
+					const consumer = await js.consumers.get(consumerInfo.stream_name, consumerInfo.name);
+					
+					// Start consuming messages
 					(async () => {
-						for await (const msg of sub) {
+						messageIterator = await consumer.consume();
+						for await (const msg of messageIterator) {
 							await processMessage(msg as any);
 							if (!options.manualAck) {
 								msg.ack();
@@ -609,7 +635,8 @@ export class NatsTrigger implements INodeType {
 						}
 					})();
 
-					subscription = sub as any;
+					// Store consumer for cleanup
+					subscription = consumer as any;
 				}
 			}
 

@@ -178,25 +178,37 @@ describe('NatsTrigger', () => {
 
   describe('JetStream Subscription', () => {
     it('should create ephemeral consumer', async () => {
-      const mockConsumerOpts = {
-        deliverNew: jest.fn(),
-        ackWait: jest.fn(),
-        maxDeliver: jest.fn(),
-        manualAck: jest.fn(),
-      };
-      
-      const mockJsSubscription = {
+      const mockMessageIterator = {
         [Symbol.asyncIterator]: jest.fn().mockReturnValue({
           async next() { return { done: true }; },
         }),
+        stop: jest.fn(),
       };
 
-      (consumerOpts as jest.Mock).mockReturnValue(mockConsumerOpts);
-      
-      const mockJs = {
-        subscribe: jest.fn().mockResolvedValue(mockJsSubscription)
+      const mockConsumer = {
+        consume: jest.fn().mockResolvedValue(mockMessageIterator),
+        delete: jest.fn(),
       };
+
+      const mockConsumerInfo = {
+        stream_name: 'TEST-STREAM',
+        name: 'ephemeral-consumer-123',
+      };
+
+      const mockJsm = {
+        consumers: {
+          add: jest.fn().mockResolvedValue(mockConsumerInfo),
+        },
+      };
+
+      const mockJs = {
+        consumers: {
+          get: jest.fn().mockResolvedValue(mockConsumer),
+        },
+      };
+
       (jetstream as jest.Mock).mockReturnValue(mockJs);
+      (require('../../bundled/nats-bundled').jetstreamManager as jest.Mock).mockResolvedValue(mockJsm);
 
       mockGetNodeParameter
         .mockReturnValueOnce('jetstream') // subscriptionType
@@ -215,10 +227,15 @@ describe('NatsTrigger', () => {
 
       await node.trigger.call(mockTriggerFunctions);
 
-      expect(mockJs.subscribe).toHaveBeenCalledWith('test.subject', mockConsumerOpts);
-      expect(mockConsumerOpts.deliverNew).toHaveBeenCalled();
-      expect(mockConsumerOpts.ackWait).toHaveBeenCalledWith(30000);
-      expect(mockConsumerOpts.maxDeliver).toHaveBeenCalledWith(3);
+      expect(mockJsm.consumers.add).toHaveBeenCalledWith('test-stream', {
+        filter_subject: 'test.subject',
+        ack_policy: 'all',
+        deliver_policy: 'new',
+        ack_wait: 30000000000, // nanoseconds
+        max_deliver: 3,
+      });
+      expect(mockJs.consumers.get).toHaveBeenCalledWith('TEST-STREAM', 'ephemeral-consumer-123');
+      expect(mockConsumer.consume).toHaveBeenCalled();
     });
 
     it('should use durable consumer', async () => {
@@ -256,31 +273,47 @@ describe('NatsTrigger', () => {
 
     it('should handle different delivery policies', async () => {
       const testCases = [
-        { policy: 'all', method: 'deliverAll' },
-        { policy: 'last', method: 'deliverLast' },
-        { policy: 'new', method: 'deliverNew' },
-        { policy: 'startSequence', method: 'startSequence', param: 100 },
-        { policy: 'startTime', method: 'startTime', param: '2023-01-01T00:00:00Z' },
+        { policy: 'all', expectedConfig: { deliver_policy: 'all' } },
+        { policy: 'last', expectedConfig: { deliver_policy: 'last' } },
+        { policy: 'new', expectedConfig: { deliver_policy: 'new' } },
+        { policy: 'startSequence', param: 100, expectedConfig: { deliver_policy: 'by_start_sequence', opt_start_seq: 100 } },
+        { policy: 'startTime', param: '2023-01-01T00:00:00Z', expectedConfig: { deliver_policy: 'by_start_time', opt_start_time: '2023-01-01T00:00:00.000Z' } },
       ];
 
       for (const testCase of testCases) {
         jest.clearAllMocks();
         
-        const mockConsumerOpts = {
-          [testCase.method]: jest.fn(),
-        };
-        
-        (consumerOpts as jest.Mock).mockReturnValue(mockConsumerOpts);
-        
-        const mockJs = {
-          publish: jest.fn(),
-          subscribe: jest.fn().mockResolvedValue({
+        const mockMessageIterator = {
           [Symbol.asyncIterator]: jest.fn().mockReturnValue({
             async next() { return { done: true }; },
           }),
-        })
+          stop: jest.fn(),
         };
+
+        const mockConsumer = {
+          consume: jest.fn().mockResolvedValue(mockMessageIterator),
+          delete: jest.fn(),
+        };
+
+        const mockConsumerInfo = {
+          stream_name: 'TEST-STREAM',
+          name: 'ephemeral-consumer-123',
+        };
+
+        const mockJsm = {
+          consumers: {
+            add: jest.fn().mockResolvedValue(mockConsumerInfo),
+          },
+        };
+
+        const mockJs = {
+          consumers: {
+            get: jest.fn().mockResolvedValue(mockConsumer),
+          },
+        };
+
         (jetstream as jest.Mock).mockReturnValue(mockJs);
+        (require('../../bundled/nats-bundled').jetstreamManager as jest.Mock).mockResolvedValue(mockJsm);
 
         const options: any = { deliverPolicy: testCase.policy };
         if (testCase.param !== undefined) {
@@ -303,17 +336,15 @@ describe('NatsTrigger', () => {
 
         await node.trigger.call(mockTriggerFunctions);
 
-        if (testCase.param !== undefined) {
-          if (testCase.policy === 'startTime') {
-            expect(mockConsumerOpts[testCase.method]).toHaveBeenCalledWith(
-              expect.any(Date)
-            );
-          } else {
-            expect(mockConsumerOpts[testCase.method]).toHaveBeenCalledWith(testCase.param);
-          }
-        } else {
-          expect(mockConsumerOpts[testCase.method]).toHaveBeenCalled();
-        }
+        const expectedConsumerConfig = {
+          filter_subject: 'test.subject',
+          ack_policy: 'all',
+          ...testCase.expectedConfig,
+        };
+
+        expect(mockJsm.consumers.add).toHaveBeenCalledWith('test-stream', expectedConsumerConfig);
+        expect(mockJs.consumers.get).toHaveBeenCalledWith('TEST-STREAM', 'ephemeral-consumer-123');
+        expect(mockConsumer.consume).toHaveBeenCalled();
       }
     });
   });

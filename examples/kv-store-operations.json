@@ -57,7 +57,8 @@
       "parameters": {
         "operation": "get",
         "bucket": "config-store",
-        "key": "app.settings.theme"
+        "key": "app.settings.theme",
+        "options": {}
       },
       "id": "get-value",
       "name": "Retrieve Config",
@@ -74,7 +75,8 @@
     {
       "parameters": {
         "operation": "list",
-        "bucket": "config-store"
+        "bucket": "config-store",
+        "options": {}
       },
       "id": "list-keys",
       "name": "List All Keys",

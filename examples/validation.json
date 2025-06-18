@@ -1,0 +1,226 @@
+{
+  "name": "Validation",
+  "nodes": [
+    {
+      "parameters": {
+        "subscriptionType": "jetstream",
+        "subject": "events.>",
+        "streamName": "EVENTS",
+        "options": {
+          "deliverPolicy": "new",
+          "manualAck": false
+        }
+      },
+      "type": "n8n-nodes-synadia.natsTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "a63ede6a-7280-42c0-9853-f7551d839cd6",
+      "name": "JS With Ack",
+      "credentials": {
+        "natsApi": {
+          "id": "35wHCUHWQX5zJIgY",
+          "name": "Synadia Cloud"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "subject": "work.items",
+        "queueGroup": "workers",
+        "options": {}
+      },
+      "type": "n8n-nodes-synadia.natsTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -200
+      ],
+      "id": "52c44287-0614-444f-9825-ada68dbe16ce",
+      "name": "QueueGroup Sub",
+      "credentials": {
+        "natsApi": {
+          "id": "35wHCUHWQX5zJIgY",
+          "name": "Synadia Cloud"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "put",
+        "bucket": "config",
+        "key": "app.settings",
+        "value": "={{JSON.stringify($json)}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-synadia.natsKv",
+      "typeVersion": 1,
+      "position": [
+        220,
+        0
+      ],
+      "id": "06ba131a-d7e3-4782-99df-6d0ad13c39c3",
+      "name": "KV Put",
+      "credentials": {
+        "natsApi": {
+          "id": "35wHCUHWQX5zJIgY",
+          "name": "Synadia Cloud"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "bucket": "config",
+        "watchType": "pattern",
+        "pattern": "app.*",
+        "options": {
+          "includeDeletes": true
+        }
+      },
+      "type": "n8n-nodes-synadia.natsKvTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        240
+      ],
+      "id": "8e989afb-fe59-4ec2-a62c-5b2611e1de5e",
+      "name": "KV Change",
+      "credentials": {
+        "natsApi": {
+          "id": "35wHCUHWQX5zJIgY",
+          "name": "Synadia Cloud"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "put",
+        "bucket": "documents",
+        "name": "=report-{{ $json.timestamp.toDateTime().format('yyyy-LL-dd') }}.pdf",
+        "data": "={{ $json.toJsonString() }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-synadia.natsObjectStore",
+      "typeVersion": 1,
+      "position": [
+        220,
+        240
+      ],
+      "id": "85dabc94-5e26-4b99-b7c2-41866436a5e1",
+      "name": "OBJ File Upload",
+      "credentials": {
+        "natsApi": {
+          "id": "35wHCUHWQX5zJIgY",
+          "name": "Synadia Cloud"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "subject": "api.process",
+        "options": {}
+      },
+      "type": "n8n-nodes-synadia.natsService",
+      "typeVersion": 1,
+      "position": [
+        0,
+        480
+      ],
+      "id": "3133fc4d-d61a-45d3-bd5b-1a64d6762de9",
+      "name": "Simple Service",
+      "credentials": {
+        "natsApi": {
+          "id": "35wHCUHWQX5zJIgY",
+          "name": "Synadia Cloud"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "subject": "api.users.service",
+        "queueGroup": "user-service",
+        "options": {
+          "replyField": "userData",
+          "includeRequest": true
+        }
+      },
+      "type": "n8n-nodes-synadia.natsServiceReply",
+      "typeVersion": 1,
+      "position": [
+        0,
+        820
+      ],
+      "id": "6d8a1e2a-5192-48df-8616-fffc6f3957e7",
+      "name": "Service Flow",
+      "credentials": {
+        "natsApi": {
+          "id": "35wHCUHWQX5zJIgY",
+          "name": "Synadia Cloud"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return { userData: { id: $json.data.userId, name: 'John Doe' } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        820
+      ],
+      "id": "b3bea1a3-677e-4d6a-bcb0-d4d24f225553",
+      "name": "Code"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "JS With Ack": {
+      "main": [
+        [
+          {
+            "node": "KV Put",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "KV Change": {
+      "main": [
+        [
+          {
+            "node": "OBJ File Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Service Flow": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c52232d0-80ad-4d9a-8790-e0589057df6b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "39801ff9e0cc1d8855336210c38102d28e6d09919295529603e4ae0224df0921"
+  },
+  "id": "Uk6yVfmOcEnvT5aL",
+  "tags": []
+}

@@ -12,7 +12,8 @@
     {
       "parameters": {
         "subject": "test.messages",
-        "message": "={{JSON.stringify({\"timestamp\": $now.toISO(), \"message\": \"Hello from n8n!\", \"workflow\": \"Basic Pub/Sub\"})}}"
+        "message": "={{JSON.stringify({\"timestamp\": $now.toISO(), \"message\": \"Hello from n8n!\", \"workflow\": \"Basic Pub/Sub\"})}}",
+        "options": {}
       },
       "id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
       "name": "Publish to NATS",
@@ -28,7 +29,8 @@
     },
     {
       "parameters": {
-        "subject": "test.messages"
+        "subject": "test.messages",
+        "options": {}
       },
       "id": "f1e2d3c4-b5a6-4958-8b7c-6d5e4f3a2b1c",
       "name": "Subscribe to NATS",
