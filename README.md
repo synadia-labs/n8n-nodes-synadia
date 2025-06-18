@@ -2,6 +2,30 @@
 
 Official [Synadia](https://synadia.com) nodes for [n8n](https://n8n.io), providing seamless integration with [NATS](https://nats.io) messaging system. Built and maintained by the creators of NATS, these nodes support both Core NATS and JetStream functionality for reliable workflow automation.
 
+## ⚠️ Important Disclaimers
+
+### AI-Assisted Development
+This codebase was developed with the assistance of AI tools, under the supervision and improvement of experienced developers. While we've ensured code quality through thorough review, testing, and manual improvements, users should be aware of the AI-assisted nature of this project.
+
+### n8n Community Node Status
+**This package is currently a community node and has NOT yet been verified by n8n.**
+
+**What this means for you:**
+- 🔓 **Security**: Community nodes are not reviewed by n8n for security vulnerabilities
+- ⚡ **Performance**: No performance optimization review by n8n team
+- 🐛 **Stability**: Potential bugs or issues may not have been caught by n8n's review process
+- 🔄 **Updates**: Breaking changes may occur without n8n's compatibility testing
+- 🚫 **Support**: n8n does not provide official support for community nodes
+
+**Before using in production:**
+- Review the source code for security concerns
+- Test thoroughly in a development environment
+- Monitor for any unusual behavior
+- Keep backups of your workflows
+- Be prepared to handle potential breaking changes
+
+For the official n8n verification process and what it entails, see the [n8n community nodes documentation](https://docs.n8n.io/integrations/community-nodes/).
+
 ## Features
 
 - 🚀 **Core NATS** - Publish/Subscribe messaging
@@ -239,8 +263,8 @@ All-in-one service that receives requests and automatically sends responses with
 
 The NATS credential supports multiple authentication methods:
 
-1. **URL Only** - Simple connection without authentication
-2. **Username/Password** - Basic authentication
+1. **URL** - Simple connection without authentication
+2. **Credentials** - Username/Password authentication
 3. **Token** - Token-based authentication
 4. **NKey** - Ed25519 based authentication
 5. **JWT** - JWT with NKey signing
@@ -552,7 +576,7 @@ Immediately replies to requests using a template-based response without waiting 
 
 - Node.js 18+
 - TypeScript 5+
-- n8n 1.0+
+- n8n 1.82.0+
 
 ### Setup
 
@@ -621,13 +645,13 @@ All trigger nodes include built-in sample data for easy testing and development.
   "subject": "orders.new",
   "data": {
     "message": "Sample NATS message",
-    "timestamp": 1703001234567,
+    "timestamp": "<current_unix_timestamp>",
     "source": "manual-trigger"
   },
   "headers": {
     "X-Sample-Header": "sample-value"
   },
-  "timestamp": "2023-12-19T10:20:30.000Z"
+  "timestamp": "<current_iso_timestamp>"
 }
 ```
 
@@ -647,7 +671,7 @@ All trigger nodes include built-in sample data for easy testing and development.
     "Nats-Sequence": "42"
   },
   "seq": 42,
-  "timestamp": "2023-12-19T10:20:30.000Z"
+  "timestamp": "<current_iso_timestamp>"
 }
 ```
 
@@ -660,13 +684,13 @@ All trigger nodes include built-in sample data for easy testing and development.
     "theme": "dark",
     "language": "en",
     "notifications": true,
-    "lastUpdated": "2023-12-19T10:20:30.000Z"
+    "lastUpdated": "<current_iso_timestamp>"
   },
   "revision": 5,
-  "created": "2023-12-18T10:20:30.000Z",
+  "created": "<24_hours_ago_iso_timestamp>",
   "operation": "PUT",
   "delta": 2,
-  "timestamp": "2023-12-19T10:20:30.000Z"
+  "timestamp": "<current_iso_timestamp>"
 }
 ```
 
@@ -680,10 +704,10 @@ All trigger nodes include built-in sample data for easy testing and development.
     "size": 2457600,
     "chunks": 20,
     "digest": "SHA-256=47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
-    "mtime": "2023-12-19T10:20:30.000Z",
+    "mtime": "<current_iso_timestamp>",
     "deleted": false
   },
-  "timestamp": "2023-12-19T10:20:30.000Z"
+  "timestamp": "<current_iso_timestamp>"
 }
 ```
 
@@ -702,7 +726,35 @@ All trigger nodes include built-in sample data for easy testing and development.
   },
   "replyTo": "_INBOX.sample.reply",
   "requestId": "sample-request-id",
-  "timestamp": "2023-12-19T10:20:30.000Z"
+  "timestamp": "<current_iso_timestamp>"
+}
+```
+
+#### NATS Service
+```json
+{
+  "subject": "api.echo",
+  "data": {
+    "userId": "12345",
+    "action": "getUser",
+    "includeDetails": true
+  },
+  "replyTo": "_INBOX.sample.reply",
+  "timestamp": "<current_iso_timestamp>",
+  "sentRequest": {
+    "userId": "12345",
+    "action": "getUser",
+    "includeDetails": true
+  },
+  "sentResponse": {
+    "success": true,
+    "echo": {
+      "userId": "12345",
+      "action": "getUser",
+      "includeDetails": true
+    },
+    "timestamp": "<current_iso_timestamp>"
+  }
 }
 ```
 
@@ -721,6 +773,8 @@ All trigger nodes include built-in sample data for easy testing and development.
 3. **Conditional Logic**: Test IF nodes and switches with sample data
 4. **Transformations**: Build and test data transformations offline
 5. **Error Handling**: Plan for edge cases by examining the structure
+
+**Note**: The sample data uses dynamic timestamps, shown as `<current_iso_timestamp>` in the examples above. When you execute a trigger node manually, you'll see actual timestamps like `"2024-01-15T10:30:45.123Z"`.
 
 ## Troubleshooting
 
