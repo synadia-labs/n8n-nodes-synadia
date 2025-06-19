@@ -1,13 +1,10 @@
 import { IExecuteFunctions, ITriggerFunctions, INodeExecutionData, INode } from 'n8n-workflow';
-import { NatsTrigger } from '../../nodes/NatsTrigger.node';
+import { NatsSubscriber } from '../../nodes/NatsSubscriber.node';
 import { NatsPublisher } from '../../nodes/NatsPublisher.node';
-import { NatsRequestReply } from '../../nodes/NatsRequestReply.node';
-import { NatsServiceReply } from '../../nodes/NatsServiceReply.node';
-import { NatsService } from '../../nodes/NatsService.node';
 import { NatsKv } from '../../nodes/NatsKv.node';
-import { NatsKvTrigger } from '../../nodes/NatsKvTrigger.node';
+import { NatsKvWatcher } from '../../nodes/NatsKvWatcher.node';
 import { NatsObjectStore } from '../../nodes/NatsObjectStore.node';
-import { NatsObjectStoreTrigger } from '../../nodes/NatsObjectStoreTrigger.node';
+import { NatsObjectStoreWatcher } from '../../nodes/NatsObjectStoreWatcher.node';
 import * as NatsConnection from '../../utils/NatsConnection';
 import { connect, headers as createHeaders, StringCodec, jetstream, jetstreamManager, Kvm as kv, Objm as objectstore, DeliverPolicy, consumerOpts } from '../../bundled/nats-bundled';
 
@@ -279,7 +276,7 @@ describe('NATS Nodes Integration Tests', () => {
 		it('should successfully publish and receive messages', async () => {
 			// Create nodes
 			const publisher = new NatsPublisher();
-			const trigger = new NatsTrigger();
+			const trigger = new NatsSubscriber();
 
 			// Setup trigger to receive messages
 			const triggerFunctions = createMockTriggerFunctions({
@@ -343,7 +340,7 @@ describe('NATS Nodes Integration Tests', () => {
 		});
 
 		it('should handle queue groups correctly', async () => {
-			const trigger = new NatsTrigger();
+			const trigger = new NatsSubscriber();
 			const triggerFunctions = createMockTriggerFunctions({
 				subject: 'work.queue',
 				subscriptionType: 'core',
@@ -360,6 +357,11 @@ describe('NATS Nodes Integration Tests', () => {
 		});
 	});
 
+	/*
+	 * Commented out - these nodes have been removed as redundant
+	 * Users can achieve request/reply patterns with NatsSubscriber + NatsPublisher
+	 */
+	/*
 	describe('Request/Reply Workflow', () => {
 		it('should handle request/reply pattern end-to-end', async () => {
 			// Create nodes
@@ -449,7 +451,7 @@ describe('NATS Nodes Integration Tests', () => {
 	describe('JetStream Workflow', () => {
 		it('should publish and consume from JetStream', async () => {
 			const publisher = new NatsPublisher();
-			const trigger = new NatsTrigger();
+			const trigger = new NatsSubscriber();
 
 			// Setup JetStream trigger
 			const triggerFunctions = createMockTriggerFunctions({
@@ -534,7 +536,7 @@ describe('NATS Nodes Integration Tests', () => {
 	describe('Key-Value Store Workflow', () => {
 		it('should perform KV operations and watch for changes', async () => {
 			const kvNode = new NatsKv();
-			const kvTrigger = new NatsKvTrigger();
+			const kvTrigger = new NatsKvWatcher();
 
 			// Test KV put operation
 			const putFunctions = createMockExecuteFunctions({
@@ -616,7 +618,7 @@ describe('NATS Nodes Integration Tests', () => {
 	describe('Object Store Workflow', () => {
 		it('should handle object storage operations', async () => {
 			const objStore = new NatsObjectStore();
-			const objTrigger = new NatsObjectStoreTrigger();
+			const objTrigger = new NatsObjectStoreWatcher();
 
 			// Test put object
 			const putFunctions = createMockExecuteFunctions({
@@ -731,7 +733,7 @@ describe('NATS Nodes Integration Tests', () => {
 				new Error('Connection refused')
 			);
 
-			const trigger = new NatsTrigger();
+			const trigger = new NatsSubscriber();
 			const triggerFunctions = createMockTriggerFunctions({
 				subject: 'test.subject',
 				subscriptionType: 'core',
@@ -742,7 +744,7 @@ describe('NATS Nodes Integration Tests', () => {
 		});
 
 		it('should handle malformed messages', async () => {
-			const trigger = new NatsTrigger();
+			const trigger = new NatsSubscriber();
 			const triggerFunctions = createMockTriggerFunctions({
 				subject: 'test.subject',
 				subscriptionType: 'core',
@@ -789,6 +791,7 @@ describe('NATS Nodes Integration Tests', () => {
 				.rejects.toThrow('Request timed out');
 		});
 	});
+	*/
 
 	describe('Authentication and Security', () => {
 		it('should handle different authentication methods', async () => {
@@ -803,7 +806,7 @@ describe('NATS Nodes Integration Tests', () => {
 			for (const auth of authMethods) {
 				jest.clearAllMocks();
 				
-				const trigger = new NatsTrigger();
+				const trigger = new NatsSubscriber();
 				const triggerFunctions = createMockTriggerFunctions({
 					subject: 'test.subject',
 					subscriptionType: 'core',
@@ -829,7 +832,7 @@ describe('NATS Nodes Integration Tests', () => {
 
 	describe('Performance and Scalability', () => {
 		it('should handle high message throughput', async () => {
-			const trigger = new NatsTrigger();
+			const trigger = new NatsSubscriber();
 			const triggerFunctions = createMockTriggerFunctions({
 				subject: 'high.throughput.>',
 				subscriptionType: 'core',
@@ -887,11 +890,9 @@ describe('NATS Nodes Integration Tests', () => {
 	describe('Manual Testing Helpers', () => {
 		it('should provide realistic sample data for all triggers', async () => {
 			const triggers = [
-				{ node: new NatsTrigger(), params: { subject: 'test', subscriptionType: 'core' } },
-				{ node: new NatsServiceReply(), params: { subject: 'api.test', replyOptions: {} } },
-				{ node: new NatsService(), params: { subject: 'api.service', responseData: '{}', options: {} } },
-				{ node: new NatsKvTrigger(), params: { bucket: 'test-bucket', options: {} } },
-				{ node: new NatsObjectStoreTrigger(), params: { bucket: 'test-bucket', options: {} } },
+				{ node: new NatsSubscriber(), params: { subject: 'test', subscriptionType: 'core' } },
+				{ node: new NatsKvWatcher(), params: { bucket: 'test-bucket', options: {} } },
+				{ node: new NatsObjectStoreWatcher(), params: { bucket: 'test-bucket', options: {} } },
 			];
 
 			for (const { node, params } of triggers) {

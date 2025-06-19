@@ -1,25 +1,19 @@
 import { INodeType } from 'n8n-workflow';
-import { NatsTrigger } from '../../nodes/NatsTrigger.node';
+import { NatsSubscriber } from '../../nodes/NatsSubscriber.node';
 import { NatsPublisher } from '../../nodes/NatsPublisher.node';
 import { NatsKv } from '../../nodes/NatsKv.node';
 import { NatsObjectStore } from '../../nodes/NatsObjectStore.node';
-import { NatsRequestReply } from '../../nodes/NatsRequestReply.node';
-import { NatsServiceReply } from '../../nodes/NatsServiceReply.node';
-import { NatsService } from '../../nodes/NatsService.node';
-import { NatsKvTrigger } from '../../nodes/NatsKvTrigger.node';
-import { NatsObjectStoreTrigger } from '../../nodes/NatsObjectStoreTrigger.node';
+import { NatsKvWatcher } from '../../nodes/NatsKvWatcher.node';
+import { NatsObjectStoreWatcher } from '../../nodes/NatsObjectStoreWatcher.node';
 
 describe('n8n Node Behavior Tests', () => {
 	const nodes: Array<{ name: string; instance: INodeType; isTrigger: boolean }> = [
-		{ name: 'NatsTrigger', instance: new NatsTrigger(), isTrigger: true },
+		{ name: 'NatsSubscriber', instance: new NatsSubscriber(), isTrigger: true },
 		{ name: 'NatsPublisher', instance: new NatsPublisher(), isTrigger: false },
 		{ name: 'NatsKv', instance: new NatsKv(), isTrigger: false },
 		{ name: 'NatsObjectStore', instance: new NatsObjectStore(), isTrigger: false },
-		{ name: 'NatsRequestReply', instance: new NatsRequestReply(), isTrigger: false },
-		{ name: 'NatsServiceReply', instance: new NatsServiceReply(), isTrigger: true },
-		{ name: 'NatsService', instance: new NatsService(), isTrigger: true },
-		{ name: 'NatsKvTrigger', instance: new NatsKvTrigger(), isTrigger: true },
-		{ name: 'NatsObjectStoreTrigger', instance: new NatsObjectStoreTrigger(), isTrigger: true },
+		{ name: 'NatsKvWatcher', instance: new NatsKvWatcher(), isTrigger: true },
+		{ name: 'NatsObjectStoreWatcher', instance: new NatsObjectStoreWatcher(), isTrigger: true },
 	];
 
 	describe('Node Description Validation', () => {
@@ -91,11 +85,9 @@ describe('n8n Node Behavior Tests', () => {
 
 	describe('Manual Trigger Functions', () => {
 		const triggerNodes = [
-			{ name: 'NatsTrigger', instance: new NatsTrigger() },
-			{ name: 'NatsServiceReply', instance: new NatsServiceReply() },
-			{ name: 'NatsService', instance: new NatsService() },
-			{ name: 'NatsKvTrigger', instance: new NatsKvTrigger() },
-			{ name: 'NatsObjectStoreTrigger', instance: new NatsObjectStoreTrigger() },
+			{ name: 'NatsSubscriber', instance: new NatsSubscriber() },
+			{ name: 'NatsKvWatcher', instance: new NatsKvWatcher() },
+			{ name: 'NatsObjectStoreWatcher', instance: new NatsObjectStoreWatcher() },
 		];
 
 		triggerNodes.forEach(({ name }) => {

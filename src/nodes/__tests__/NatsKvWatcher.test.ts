@@ -1,5 +1,5 @@
 import { ITriggerFunctions } from 'n8n-workflow';
-import { NatsKvTrigger } from '../NatsKvTrigger.node';
+import { NatsKvWatcher } from '../NatsKvWatcher.node';
 import * as NatsConnection from '../../utils/NatsConnection';
 import { jetstream, Kvm } from '../../bundled/nats-bundled';
 
@@ -9,8 +9,8 @@ jest.mock('../../bundled/nats-bundled', () => ({
 	Kvm: jest.fn(),
 }));
 
-describe('NatsKvTrigger Node', () => {
-	let node: NatsKvTrigger;
+describe('NatsKvWatcher Node', () => {
+	let node: NatsKvWatcher;
 	let mockTriggerFunctions: ITriggerFunctions;
 	let mockNc: any;
 	let mockJs: any;
@@ -22,7 +22,7 @@ describe('NatsKvTrigger Node', () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
 		
-		node = new NatsKvTrigger();
+		node = new NatsKvWatcher();
 		mockEmit = jest.fn();
 		
 		// Mock watcher as async iterator

@@ -11,17 +11,17 @@ import { NatsConnection, jetstream, Kvm } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { validateBucketName, validateKeyName } from '../utils/ValidationHelpers';
 
-export class NatsKvTrigger implements INodeType {
+export class NatsKvWatcher implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'NATS KV Trigger',
-		name: 'natsKvTrigger',
+		displayName: 'NATS KV Watcher',
+		name: 'natsKvWatcher',
 		icon: 'file:../icons/nats.svg',
 		group: ['trigger'],
 		version: 1,
-		description: 'Triggers when changes occur in a NATS KV bucket',
+		description: 'Watch for changes in NATS KV buckets and trigger workflows',
 		subtitle: '={{$parameter["bucket"]}} - {{$parameter["operation"]}}',
 		defaults: {
-			name: 'NATS KV Trigger',
+			name: 'NATS KV Watcher',
 		},
 		inputs: [],
 		outputs: [NodeConnectionType.Main],

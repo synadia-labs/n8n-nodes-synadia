@@ -10,17 +10,17 @@ import { NatsConnection, jetstream, jetstreamManager } from '../bundled/nats-bun
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { validateBucketName } from '../utils/ValidationHelpers';
 
-export class NatsObjectStoreTrigger implements INodeType {
+export class NatsObjectStoreWatcher implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'NATS Object Store Trigger',
-		name: 'natsObjectStoreTrigger',
+		displayName: 'NATS Object Store Watcher',
+		name: 'natsObjectStoreWatcher',
 		icon: 'file:../icons/nats.svg',
 		group: ['trigger'],
 		version: 1,
-		description: 'Receive notifications when objects are added, updated, or deleted in a bucket',
+		description: 'Watch for object changes in NATS Object Store buckets and trigger workflows',
 		subtitle: '={{$parameter["bucket"]}}',
 		defaults: {
-			name: 'NATS Object Store Trigger',
+			name: 'NATS Object Store Watcher',
 		},
 		inputs: [],
 		outputs: [NodeConnectionType.Main],

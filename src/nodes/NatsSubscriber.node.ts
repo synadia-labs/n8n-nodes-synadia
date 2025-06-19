@@ -14,17 +14,17 @@ import { parseNatsMessage, validateSubject } from '../utils/NatsHelpers';
 import { createReplyHandler, ManualReplyHandler } from '../utils/reply';
 import { validateQueueGroup, validateStreamName, validateConsumerName, validateTimeout } from '../utils/ValidationHelpers';
 
-export class NatsTrigger implements INodeType {
+export class NatsSubscriber implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'NATS Trigger',
-		name: 'natsTrigger',
+		displayName: 'NATS Subscriber',
+		name: 'natsSubscriber',
 		icon: 'file:../icons/nats.svg',
 		group: ['trigger'],
 		version: 1,
-		description: 'Start workflows when messages arrive on NATS subjects',
+		description: 'Subscribe to NATS subjects and trigger workflows on messages',
 		subtitle: '={{$parameter["subject"]}}',
 		defaults: {
-			name: 'NATS Trigger',
+			name: 'NATS Subscriber',
 		},
 		inputs: [],
 		outputs: [NodeConnectionType.Main],
@@ -653,7 +653,7 @@ export class NatsTrigger implements INodeType {
 			return response;
 
 		} catch (error: any) {
-			throw new ApplicationError(`Failed to setup NATS trigger: ${error.message}`);
+			throw new ApplicationError(`Failed to setup NATS subscriber: ${error.message}`);
 		}
 	}
 }
