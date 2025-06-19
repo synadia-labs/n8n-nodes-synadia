@@ -207,7 +207,7 @@ export class NatsObjectStoreWatcher implements INodeType {
 					await closeNatsConnection(nc);
 				}
 			} catch (error) {
-				console.error('Error closing object store trigger:', error);
+				// Error already handled, connection cleanup attempted
 			}
 		}
 		

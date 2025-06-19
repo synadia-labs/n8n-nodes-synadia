@@ -305,7 +305,7 @@ export class NatsKvWatcher implements INodeType {
 					await closeNatsConnection(nc);
 				}
 			} catch (error) {
-				console.error('Error closing KV trigger:', error);
+				// Error already handled, connection cleanup attempted
 			}
 		}
 		
