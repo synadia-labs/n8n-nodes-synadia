@@ -52,7 +52,7 @@
         "operation": "put",
         "bucket": "config",
         "key": "app.settings",
-        "value": "={{JSON.stringify($json)}}",
+        "value": "{{JSON.stringify($json)}}",
         "options": {}
       },
       "type": "n8n-nodes-synadia.natsKv",
@@ -99,7 +99,7 @@
         "operation": "put",
         "bucket": "documents",
         "name": "=report-{{ $json.timestamp.toDateTime().format('yyyy-LL-dd') }}.pdf",
-        "data": "={{ $json.toJsonString() }}",
+        "data": "{{ $json.toJsonString() }}",
         "options": {}
       },
       "type": "n8n-nodes-synadia.natsObjectStore",

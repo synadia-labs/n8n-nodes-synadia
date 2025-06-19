@@ -22,7 +22,7 @@ export class NatsSubscriber implements INodeType {
 		group: ['trigger'],
 		version: 1,
 		description: 'Subscribe to NATS subjects and trigger workflows on messages',
-		subtitle: '={{$parameter["subject"]}}',
+		subtitle: '{{$parameter["subject"]}}',
 		defaults: {
 			name: 'NATS Subscriber',
 		},

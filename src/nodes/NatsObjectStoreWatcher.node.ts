@@ -18,7 +18,7 @@ export class NatsObjectStoreWatcher implements INodeType {
 		group: ['trigger'],
 		version: 1,
 		description: 'Watch for object changes in NATS Object Store buckets and trigger workflows',
-		subtitle: '={{$parameter["bucket"]}}',
+		subtitle: '{{$parameter["bucket"]}}',
 		defaults: {
 			name: 'NATS Object Store Watcher',
 		},
@@ -193,6 +193,9 @@ export class NatsObjectStoreWatcher implements INodeType {
 		
 		await startWatcher();
 		
+		// Capture logger reference for use in closeFunction
+		const logger = this.logger;
+		
 		async function closeFunction() {
 			try {
 				// Delete ephemeral consumer
@@ -206,8 +209,13 @@ export class NatsObjectStoreWatcher implements INodeType {
 				if (nc) {
 					await closeNatsConnection(nc);
 				}
-			} catch (error) {
-				// Error already handled, connection cleanup attempted
+			} catch (error: any) {
+				// Log error but don't throw - connection may already be closed
+				// This is expected behavior during shutdown
+				if (error.message && !error.message.includes('closed')) {
+					// Only log unexpected errors
+					logger.error('Error closing object store watcher:', error);
+				}
 			}
 		}
 		

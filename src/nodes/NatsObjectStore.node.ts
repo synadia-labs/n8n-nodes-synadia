@@ -20,7 +20,7 @@ export class NatsObjectStore implements INodeType {
 		group: ['transform'],
 		version: 1,
 		description: 'Store and retrieve objects (files, data) in NATS JetStream Object Store',
-		subtitle: '={{$parameter["operation"]}} - {{$parameter["bucket"]}}',
+		subtitle: '{{$parameter["operation"]}} - {{$parameter["bucket"]}}',
 		defaults: {
 			name: 'NATS Object Store',
 		},

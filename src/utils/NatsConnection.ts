@@ -128,6 +128,11 @@ export async function closeNatsConnection(nc: NatsConnection): Promise<void> {
 		await nc.drain();
 		await nc.close();
 	} catch (error: any) {
-		// Connection close error - connection may already be closed
+		// Log error but don't throw - connection may already be closed
+		// This is expected behavior during shutdown
+		if (error.message && !error.message.includes('closed')) {
+			// Only log unexpected errors
+			console.error('Error closing NATS connection:', error);
+		}
 	}
 }

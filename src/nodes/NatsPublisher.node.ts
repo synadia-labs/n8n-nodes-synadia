@@ -19,7 +19,7 @@ export class NatsPublisher implements INodeType {
 		group: ['output'],
 		version: 1,
 		description: 'Send messages to NATS subjects or JetStream streams',
-		subtitle: '={{$parameter["subject"]}}',
+		subtitle: '{{$parameter["subject"]}}',
 		defaults: {
 			name: 'NATS Publisher',
 		},
@@ -67,7 +67,7 @@ export class NatsPublisher implements INodeType {
 				typeOptions: {
 					rows: 4,
 				},
-				default: '={{ $json }}',
+				default: '{{ $json }}',
 				description: 'Message content to publish',
 				hint: 'Supports expressions like {{ $json }} to use input data',
 			},

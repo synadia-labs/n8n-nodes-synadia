@@ -240,7 +240,7 @@ To connect to Synadia Cloud:
       "type": "n8n-nodes-synadia.natsPublisher",
       "parameters": {
         "subject": "orders.new",
-        "message": "={{ JSON.stringify($json) }}"
+        "message": "{{ JSON.stringify($json) }}"
       }
     }
   ]
@@ -299,7 +299,7 @@ To connect to Synadia Cloud:
         "operation": "put",
         "bucket": "config",
         "key": "app.settings",
-        "value": "={{JSON.stringify($json)}}",
+        "value": "{{JSON.stringify($json)}}",
         "options": {}
       }
     }
@@ -340,7 +340,7 @@ To connect to Synadia Cloud:
         "operation": "put",
         "bucket": "documents",
         "name": "report-{{ $now.toFormat('yyyy-MM-dd') }}.pdf",
-        "data": "={{ $binary.data }}",
+        "data": "{{ $binary.data }}",
         "options": {
           "dataType": "binary"
         }
@@ -359,7 +359,7 @@ To connect to Synadia Cloud:
     "operation": "put",
     "bucket": "documents",
     "name": "=report-{{ $json.timestamp.toDateTime().format('yyyy-LL-dd') }}.json",
-    "data": "={{ $json.toJsonString() }}",
+    "data": "{{ $json.toJsonString() }}",
     "options": {}
   }
 }

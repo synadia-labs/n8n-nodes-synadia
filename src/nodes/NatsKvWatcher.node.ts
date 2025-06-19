@@ -19,7 +19,7 @@ export class NatsKvWatcher implements INodeType {
 		group: ['trigger'],
 		version: 1,
 		description: 'Watch for changes in NATS KV buckets and trigger workflows',
-		subtitle: '={{$parameter["bucket"]}} - {{$parameter["operation"]}}',
+		subtitle: '{{$parameter["bucket"]}} - {{$parameter["operation"]}}',
 		defaults: {
 			name: 'NATS KV Watcher',
 		},
@@ -295,6 +295,9 @@ export class NatsKvWatcher implements INodeType {
 		
 		await startWatcher();
 		
+		// Capture logger reference for use in closeFunction
+		const logger = this.logger;
+		
 		async function closeFunction() {
 			try {
 				if (watcher) {
@@ -304,8 +307,13 @@ export class NatsKvWatcher implements INodeType {
 				if (nc) {
 					await closeNatsConnection(nc);
 				}
-			} catch (error) {
-				// Error already handled, connection cleanup attempted
+			} catch (error: any) {
+				// Log error but don't throw - connection may already be closed
+				// This is expected behavior during shutdown
+				if (error.message && !error.message.includes('closed')) {
+					// Only log unexpected errors
+					logger.error('Error closing KV watcher:', error);
+				}
 			}
 		}
 		

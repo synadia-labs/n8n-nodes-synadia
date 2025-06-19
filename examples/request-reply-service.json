@@ -35,7 +35,7 @@
     {
       "parameters": {
         "subject": "api.users.service",
-        "message": "={{JSON.stringify({\"userId\": \"123\", \"includeDetails\": true})}}",
+        "message": "{{JSON.stringify({\"userId\": \"123\", \"includeDetails\": true})}}",
         "options": {
           "publishType": "request",
           "timeout": 5000,

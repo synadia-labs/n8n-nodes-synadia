@@ -53,8 +53,8 @@
       "parameters": {
         "operation": "put",
         "bucket": "documents",
-        "name": "=reports/2024/{{$now.format('yyyy-MM-dd')}}-daily-report.md",
-        "data": "={{$json.content}}",
+        "name": "reports/2024/{{$now.format('yyyy-MM-dd')}}-daily-report.md",
+        "data": "{{$json.content}}",
         "options": {
           "dataType": "string",
           "description": "Daily report"
@@ -94,7 +94,7 @@
       "parameters": {
         "operation": "info",
         "bucket": "documents",
-        "name": "={{$json.name}}",
+        "name": "{{$json.name}}",
         "options": {}
       },
       "id": "get-info",
