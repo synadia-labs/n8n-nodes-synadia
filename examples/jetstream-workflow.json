@@ -42,7 +42,7 @@
       },
       "id": "consume-js",
       "name": "Consume from JetStream",
-      "type": "n8n-nodes-synadia.natsTrigger",
+      "type": "n8n-nodes-synadia.natsSubscriber",
       "typeVersion": 1,
       "position": [240, 500],
       "credentials": {

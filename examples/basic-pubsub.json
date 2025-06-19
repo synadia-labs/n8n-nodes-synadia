@@ -34,7 +34,7 @@
       },
       "id": "f1e2d3c4-b5a6-4958-8b7c-6d5e4f3a2b1c",
       "name": "Subscribe to NATS",
-      "type": "n8n-nodes-synadia.natsTrigger",
+      "type": "n8n-nodes-synadia.natsSubscriber",
       "typeVersion": 1,
       "position": [680, 300],
       "credentials": {

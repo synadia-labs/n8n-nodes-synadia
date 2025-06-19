@@ -100,7 +100,7 @@
       },
       "id": "watch-changes",
       "name": "Watch for Changes",
-      "type": "n8n-nodes-synadia.natsKvTrigger",
+      "type": "n8n-nodes-synadia.natsKvWatcher",
       "typeVersion": 1,
       "position": [460, 600],
       "credentials": {

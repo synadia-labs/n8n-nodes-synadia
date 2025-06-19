@@ -120,7 +120,7 @@
       },
       "id": "watch-files",
       "name": "Watch for File Changes",
-      "type": "n8n-nodes-synadia.natsObjectStoreTrigger",
+      "type": "n8n-nodes-synadia.natsObjectStoreWatcher",
       "typeVersion": 1,
       "position": [460, 600],
       "credentials": {
