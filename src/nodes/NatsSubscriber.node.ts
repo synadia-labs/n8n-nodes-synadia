@@ -428,7 +428,7 @@ export class NatsSubscriber implements INodeType {
 			}
 			
 			if (nc) {
-				await closeNatsConnection(nc);
+				await closeNatsConnection(nc, this.logger);
 			}
 			if (replyHandler.cleanup) {
 				replyHandler.cleanup();
@@ -523,7 +523,7 @@ export class NatsSubscriber implements INodeType {
 		};
 
 		try {
-			nc = await createNatsConnection(credentials, this);
+			nc = await createNatsConnection(credentials, this.logger, this);
 
 			if (subscriptionType === 'core') {
 				// Core NATS subscription

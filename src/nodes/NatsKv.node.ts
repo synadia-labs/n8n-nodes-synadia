@@ -320,7 +320,7 @@ export class NatsKv implements INodeType {
 		let nc: any;
 		
 		try {
-			nc = await createNatsConnection(credentials, this);
+			nc = await createNatsConnection(credentials, this.logger, this);
 			const js = jetstream(nc);
 			
 			for (let i = 0; i < items.length; i++) {
@@ -627,7 +627,7 @@ export class NatsKv implements INodeType {
 			});
 		} finally {
 			if (nc!) {
-				await closeNatsConnection(nc);
+				await closeNatsConnection(nc, this.logger);
 			}
 		}
 		

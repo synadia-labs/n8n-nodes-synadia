@@ -120,6 +120,12 @@ describe('NatsObjectStore', () => {
 			},
 			continueOnFail: jest.fn().mockReturnValue(false),
 			getNode: jest.fn().mockReturnValue({}),
+			logger: {
+				error: jest.fn(),
+				warn: jest.fn(),
+				info: jest.fn(),
+				debug: jest.fn(),
+			},
 		} as any;
 	});
 
@@ -157,7 +163,7 @@ describe('NatsObjectStore', () => {
 					status: { bucket: 'test-bucket', size: 0, objects: 0 },
 				},
 			}]]);
-			expect(closeNatsConnection).toHaveBeenCalledWith(mockNc);
+			expect(closeNatsConnection).toHaveBeenCalledWith(mockNc, expect.any(Object));
 		});
 
 		it('should delete a bucket', async () => {

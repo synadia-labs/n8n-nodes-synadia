@@ -177,7 +177,7 @@ describe('NatsObjectStoreWatcher', () => {
 			}
 			
 			expect(mockConsumer.delete).toHaveBeenCalled();
-			expect(closeNatsConnection).toHaveBeenCalledWith(mockNc);
+			expect(closeNatsConnection).toHaveBeenCalledWith(mockNc, expect.any(Object));
 		});
 
 		it('should handle updates only option', async () => {

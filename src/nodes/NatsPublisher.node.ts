@@ -212,7 +212,7 @@ export class NatsPublisher implements INodeType {
 		let nc: NatsConnection;
 		
 		try {
-			nc = await createNatsConnection(credentials, this);
+			nc = await createNatsConnection(credentials, this.logger, this);
 			const publishType = this.getNodeParameter('publishType', 0) as string;
 			
 			for (let i = 0; i < items.length; i++) {
@@ -339,7 +339,7 @@ export class NatsPublisher implements INodeType {
 			throw new NodeOperationError(this.getNode(), `NATS publish failed: ${error.message}`);
 		} finally {
 			if (nc!) {
-				await closeNatsConnection(nc);
+				await closeNatsConnection(nc, this.logger);
 			}
 		}
 		

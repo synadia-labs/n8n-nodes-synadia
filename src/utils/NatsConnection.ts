@@ -26,6 +26,7 @@ export type NatsCredentials = {
 
 export async function createNatsConnection(
 	credentials: ICredentialDataDecryptedObject,
+	logger: any,
 	_context?: IExecuteFunctions | ITriggerFunctions | ILoadOptionsFunctions,
 ): Promise<NatsConnection> {
 	const creds = credentials as unknown as NatsCredentials;
@@ -123,7 +124,7 @@ export async function createNatsConnection(
 	}
 }
 
-export async function closeNatsConnection(nc: NatsConnection): Promise<void> {
+export async function closeNatsConnection(nc: NatsConnection, logger: any): Promise<void> {
 	try {
 		await nc.drain();
 		await nc.close();
@@ -132,7 +133,7 @@ export async function closeNatsConnection(nc: NatsConnection): Promise<void> {
 		// This is expected behavior during shutdown
 		if (error.message && !error.message.includes('closed')) {
 			// Only log unexpected errors
-			console.error('Error closing NATS connection:', error);
+			logger.error('Error closing NATS connection:', { error });
 		}
 	}
 }

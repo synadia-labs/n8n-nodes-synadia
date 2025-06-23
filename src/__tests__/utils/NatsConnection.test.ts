@@ -15,6 +15,13 @@ describe('NatsConnection', () => {
     close: jest.fn(),
   } as any;
 
+  const mockLogger = {
+    error: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     (connect as jest.Mock).mockResolvedValue(mockNatsConnection);
@@ -27,7 +34,7 @@ describe('NatsConnection', () => {
         servers: 'nats://localhost:4222',
       };
 
-      const nc = await createNatsConnection(credentials);
+      const nc = await createNatsConnection(credentials, mockLogger);
 
       expect(connect).toHaveBeenCalledWith({
         servers: ['nats://localhost:4222'],
@@ -46,7 +53,7 @@ describe('NatsConnection', () => {
         servers: 'nats://server1:4222, nats://server2:4222',
       };
 
-      await createNatsConnection(credentials);
+      await createNatsConnection(credentials, mockLogger);
 
       expect(connect).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -63,7 +70,7 @@ describe('NatsConnection', () => {
         password: 'testpass',
       };
 
-      await createNatsConnection(credentials);
+      await createNatsConnection(credentials, mockLogger);
 
       expect(connect).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -80,7 +87,7 @@ describe('NatsConnection', () => {
         token: 'mytoken',
       };
 
-      await createNatsConnection(credentials);
+      await createNatsConnection(credentials, mockLogger);
 
       expect(connect).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -99,7 +106,7 @@ describe('NatsConnection', () => {
         nkeySeed: 'SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY',
       };
 
-      await createNatsConnection(credentials);
+      await createNatsConnection(credentials, mockLogger);
 
       expect(nkeyAuthenticator).toHaveBeenCalled();
       expect(connect).toHaveBeenCalledWith(
@@ -120,7 +127,7 @@ describe('NatsConnection', () => {
         jwtNkey: 'SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY',
       };
 
-      await createNatsConnection(credentials);
+      await createNatsConnection(credentials, mockLogger);
 
       expect(jwtAuthenticator).toHaveBeenCalled();
       expect(connect).toHaveBeenCalledWith(
@@ -142,7 +149,7 @@ describe('NatsConnection', () => {
         },
       };
 
-      await createNatsConnection(credentials);
+      await createNatsConnection(credentials, mockLogger);
 
       expect(connect).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -168,7 +175,7 @@ describe('NatsConnection', () => {
         },
       };
 
-      await createNatsConnection(credentials);
+      await createNatsConnection(credentials, mockLogger);
 
       expect(connect).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -190,7 +197,7 @@ describe('NatsConnection', () => {
         servers: 'nats://localhost:4222',
       };
 
-      await expect(createNatsConnection(credentials)).rejects.toThrow(
+      await expect(createNatsConnection(credentials, mockLogger)).rejects.toThrow(
         'Failed to connect to NATS: Connection failed'
       );
     });
@@ -201,21 +208,20 @@ describe('NatsConnection', () => {
       mockNatsConnection.drain = jest.fn().mockResolvedValue(undefined);
       mockNatsConnection.close = jest.fn().mockResolvedValue(undefined);
 
-      await closeNatsConnection(mockNatsConnection);
+      await closeNatsConnection(mockNatsConnection, mockLogger);
 
       expect(mockNatsConnection.drain).toHaveBeenCalled();
       expect(mockNatsConnection.close).toHaveBeenCalled();
     });
 
     it('should handle errors gracefully', async () => {
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
       mockNatsConnection.drain = jest.fn().mockRejectedValue(new Error('Drain failed'));
 
-      await closeNatsConnection(mockNatsConnection);
+      await closeNatsConnection(mockNatsConnection, mockLogger);
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect(mockLogger.error).toHaveBeenCalledWith(
         'Error closing NATS connection:',
-        expect.any(Error)
+        { error: expect.any(Error) }
       );
     });
   });

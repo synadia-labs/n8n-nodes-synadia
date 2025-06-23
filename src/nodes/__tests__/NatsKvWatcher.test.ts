@@ -363,7 +363,7 @@ describe('NatsKvWatcher Node', () => {
 			
 			if (closeFunction) await closeFunction();
 			
-			expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(mockNc);
+			expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(mockNc, expect.any(Object));
 		});
 		
 		it('should validate bucket name', async () => {

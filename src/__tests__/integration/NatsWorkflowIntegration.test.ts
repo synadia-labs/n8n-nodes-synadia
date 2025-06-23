@@ -389,6 +389,7 @@ describe('NATS Nodes Integration Tests', () => {
 						serverUrls: 'nats://localhost:4222',
 						...auth,
 					}),
+					expect.any(Object),
 					expect.anything()
 				);
 			}

@@ -77,6 +77,12 @@ describe('NatsSubscriber', () => {
       helpers: {
         returnJsonArray: jest.fn((data) => data),
       },
+      logger: {
+        error: jest.fn(),
+        warn: jest.fn(),
+        info: jest.fn(),
+        debug: jest.fn(),
+      },
     } as unknown as ITriggerFunctions;
 
     // Mock createNatsConnection
@@ -389,7 +395,7 @@ describe('NatsSubscriber', () => {
       await response.closeFunction!();
 
       expect(mockSubscription.drain).toHaveBeenCalled();
-      expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(mockNatsConnection);
+      expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(mockNatsConnection, expect.any(Object));
     });
   });
 

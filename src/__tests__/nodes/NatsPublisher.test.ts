@@ -47,6 +47,12 @@ describe('NatsPublisher', () => {
       getNodeParameter: mockGetNodeParameter,
       getNode: jest.fn().mockReturnValue({}),
       continueOnFail: mockContinueOnFail,
+      logger: {
+        error: jest.fn(),
+        warn: jest.fn(),
+        info: jest.fn(),
+        debug: jest.fn(),
+      },
     } as unknown as IExecuteFunctions;
 
     // Mock createNatsConnection
@@ -297,7 +303,7 @@ describe('NatsPublisher', () => {
         .mockReturnValueOnce({});
 
       await expect(node.execute.call(mockExecuteFunctions)).rejects.toThrow();
-      expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(mockNatsConnection);
+      expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(mockNatsConnection, expect.any(Object));
     });
   });
 

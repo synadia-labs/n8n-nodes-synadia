@@ -208,7 +208,7 @@ export class NatsKvWatcher implements INodeType {
 		
 		const startWatcher = async () => {
 			try {
-				nc = await createNatsConnection(credentials, this);
+				nc = await createNatsConnection(credentials, this.logger, this);
 				const js = jetstream(nc);
 				const kvManager = new Kvm(js);
 				
@@ -305,7 +305,7 @@ export class NatsKvWatcher implements INodeType {
 					// It will be cleaned up when the connection closes
 				}
 				if (nc) {
-					await closeNatsConnection(nc);
+					await closeNatsConnection(nc, logger);
 				}
 			} catch (error: any) {
 				// Log error but don't throw - connection may already be closed

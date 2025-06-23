@@ -370,7 +370,7 @@ describe('NatsKv Node', () => {
 			
 			await node.execute.call(mockExecuteFunctions);
 			
-			expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(mockNc);
+			expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(mockNc, expect.any(Object));
 		});
 	});
 });

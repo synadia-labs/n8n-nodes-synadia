@@ -98,7 +98,7 @@ export class NatsObjectStoreWatcher implements INodeType {
 		
 		const startWatcher = async () => {
 			try {
-				nc = await createNatsConnection(credentials, this);
+				nc = await createNatsConnection(credentials, this.logger, this);
 				const js = jetstream(nc);
 				
 				// Object Store uses the underlying stream events
@@ -207,7 +207,7 @@ export class NatsObjectStoreWatcher implements INodeType {
 					}
 				}
 				if (nc) {
-					await closeNatsConnection(nc);
+					await closeNatsConnection(nc, logger);
 				}
 			} catch (error: any) {
 				// Log error but don't throw - connection may already be closed
