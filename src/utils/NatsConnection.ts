@@ -1,4 +1,4 @@
-import { ICredentialDataDecryptedObject, IExecuteFunctions, ILoadOptionsFunctions, ITriggerFunctions, ApplicationError, NodeApiError } from 'n8n-workflow';
+import { ICredentialDataDecryptedObject, IExecuteFunctions, ILoadOptionsFunctions, ITriggerFunctions, ApplicationError, NodeApiError, Logger } from 'n8n-workflow';
 import { connect, NatsConnection, ConnectionOptions, jwtAuthenticator, nkeyAuthenticator } from '../bundled/nats-bundled';
 
 export type NatsCredentials = {
@@ -26,7 +26,7 @@ export type NatsCredentials = {
 
 export async function createNatsConnection(
 	credentials: ICredentialDataDecryptedObject,
-	logger: any,
+	logger: Logger,
 	_context?: IExecuteFunctions | ITriggerFunctions | ILoadOptionsFunctions,
 ): Promise<NatsConnection> {
 	const creds = credentials as unknown as NatsCredentials;
@@ -124,7 +124,7 @@ export async function createNatsConnection(
 	}
 }
 
-export async function closeNatsConnection(nc: NatsConnection, logger: any): Promise<void> {
+export async function closeNatsConnection(nc: NatsConnection, logger: Logger): Promise<void> {
 	try {
 		await nc.drain();
 		await nc.close();

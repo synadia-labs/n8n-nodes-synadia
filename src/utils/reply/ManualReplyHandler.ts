@@ -1,6 +1,6 @@
 import { ReplyHandler, ReplyHandlerContext } from './ReplyHandler';
 import { Msg, StringCodec } from '../../bundled/nats-bundled';
-import { INodeExecutionData } from 'n8n-workflow';
+import { INodeExecutionData, Logger } from 'n8n-workflow';
 import { encodeMessage, createNatsHeaders } from '../NatsHelpers';
 
 export class ManualReplyHandler extends ReplyHandler {
@@ -25,7 +25,7 @@ export class ManualReplyHandler extends ReplyHandler {
 		this.pendingMessages.set(requestId, msg);
 	}
 	
-	async sendReply(items: INodeExecutionData[], replyOptions: any, logger?: any): Promise<void> {
+	async sendReply(items: INodeExecutionData[], replyOptions: any, logger?: Logger): Promise<void> {
 		// Process each item
 		for (const item of items) {
 			const requestId = item.json.requestId as string;
