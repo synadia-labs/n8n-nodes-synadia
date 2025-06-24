@@ -407,6 +407,9 @@ export class NatsSubscriber implements INodeType {
 		let messageIterator: any;
 		const replyHandler = createReplyHandler(replyMode);
 
+		// Create NodeLogger once for the entire trigger lifecycle
+		const nodeLogger = new NodeLogger(this.logger, this.getNode());
+
 		const closeFunction = async () => {
 			// Stop message iteration if JetStream consumer
 			if (messageIterator && messageIterator.stop) {
@@ -429,7 +432,7 @@ export class NatsSubscriber implements INodeType {
 			}
 			
 			if (nc) {
-				await closeNatsConnection(nc, new NodeLogger(this.logger, this.getNode()));
+				await closeNatsConnection(nc, nodeLogger);
 			}
 			if (replyHandler.cleanup) {
 				replyHandler.cleanup();
@@ -524,7 +527,6 @@ export class NatsSubscriber implements INodeType {
 		};
 
 		try {
-			const nodeLogger = new NodeLogger(this.logger, this.getNode());
 			nc = await createNatsConnection(credentials, nodeLogger);
 
 			if (subscriptionType === 'core') {

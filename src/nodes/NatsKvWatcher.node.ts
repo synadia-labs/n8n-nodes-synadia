@@ -180,6 +180,9 @@ export class NatsKvWatcher implements INodeType {
 		let nc: NatsConnection;
 		let watcher: any;
 		
+		// Create NodeLogger once for the entire trigger lifecycle
+		const nodeLogger = new NodeLogger(this.logger, this.getNode());
+		
 		const emitData = (entry: any) => {
 			if (!options.includeDeletes && entry.operation === 'DEL') {
 				return;
@@ -209,7 +212,6 @@ export class NatsKvWatcher implements INodeType {
 		
 		const startWatcher = async () => {
 			try {
-				const nodeLogger = new NodeLogger(this.logger, this.getNode());
 				nc = await createNatsConnection(credentials, nodeLogger);
 				const js = jetstream(nc);
 				const kvManager = new Kvm(js);
@@ -296,11 +298,6 @@ export class NatsKvWatcher implements INodeType {
 		};
 		
 		await startWatcher();
-		
-		// Capture logger and node references for use in closeFunction
-		const logger = this.logger;
-		const node = this.getNode();
-		const nodeLogger = new NodeLogger(logger, node);
 		
 		async function closeFunction() {
 			try {

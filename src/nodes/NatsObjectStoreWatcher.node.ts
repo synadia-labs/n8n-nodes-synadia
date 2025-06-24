@@ -97,9 +97,11 @@ export class NatsObjectStoreWatcher implements INodeType {
 		let nc: NatsConnection;
 		let subscription: any;
 		
+		// Create NodeLogger once for the entire trigger lifecycle
+		const nodeLogger = new NodeLogger(this.logger, this.getNode());
+		
 		const startWatcher = async () => {
 			try {
-				const nodeLogger = new NodeLogger(this.logger, this.getNode());
 				nc = await createNatsConnection(credentials, nodeLogger);
 				const js = jetstream(nc);
 				
@@ -194,11 +196,6 @@ export class NatsObjectStoreWatcher implements INodeType {
 		};
 		
 		await startWatcher();
-		
-		// Capture logger and node references for use in closeFunction
-		const logger = this.logger;
-		const node = this.getNode();
-		const nodeLogger = new NodeLogger(logger, node);
 		
 		async function closeFunction() {
 			try {

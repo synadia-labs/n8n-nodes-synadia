@@ -302,8 +302,10 @@ export class NatsObjectStore implements INodeType {
 		
 		let nc: any;
 		
+		// Create NodeLogger once for the entire execution
+		const nodeLogger = new NodeLogger(this.logger, this.getNode());
+		
 		try {
-			const nodeLogger = new NodeLogger(this.logger, this.getNode());
 			nc = await createNatsConnection(credentials, nodeLogger);
 			const js = jetstream(nc);
 			
@@ -399,7 +401,7 @@ export class NatsObjectStore implements INodeType {
 			throw new NodeOperationError(this.getNode(), `NATS Object Store operation failed: ${error.message}`);
 		} finally {
 			if (nc!) {
-				await closeNatsConnection(nc, new NodeLogger(this.logger, this.getNode()));
+				await closeNatsConnection(nc, nodeLogger);
 			}
 		}
 		

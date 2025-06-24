@@ -212,8 +212,10 @@ export class NatsPublisher implements INodeType {
 		
 		let nc: NatsConnection;
 		
+		// Create NodeLogger once for the entire execution
+		const nodeLogger = new NodeLogger(this.logger, this.getNode());
+		
 		try {
-			const nodeLogger = new NodeLogger(this.logger, this.getNode());
 			nc = await createNatsConnection(credentials, nodeLogger);
 			const publishType = this.getNodeParameter('publishType', 0) as string;
 			
@@ -341,7 +343,7 @@ export class NatsPublisher implements INodeType {
 			throw new NodeOperationError(this.getNode(), `NATS publish failed: ${error.message}`);
 		} finally {
 			if (nc!) {
-				await closeNatsConnection(nc, new NodeLogger(this.logger, this.getNode()));
+				await closeNatsConnection(nc, nodeLogger);
 			}
 		}
 		
