@@ -389,14 +389,7 @@ describe('NATS Nodes Integration Tests', () => {
 						serverUrls: 'nats://localhost:4222',
 						...auth,
 					}),
-					expect.any(Object),
-					expect.objectContaining({
-						id: expect.any(String),
-						name: expect.any(String),
-						type: expect.any(String),
-						position: expect.any(Array),
-						typeVersion: expect.any(Number),
-					})
+					expect.any(Object)
 				);
 			}
 		});

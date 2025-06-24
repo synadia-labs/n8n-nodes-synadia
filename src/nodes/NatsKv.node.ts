@@ -10,6 +10,7 @@ import {
 import { jetstream, jetstreamManager, Kvm } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { validateBucketName, validateKeyName, validateNumberRange } from '../utils/ValidationHelpers';
+import { NodeLogger } from '../utils/NodeLogger';
 
 export class NatsKv implements INodeType {
 	description: INodeTypeDescription = {
@@ -320,7 +321,8 @@ export class NatsKv implements INodeType {
 		let nc: any;
 		
 		try {
-			nc = await createNatsConnection(credentials, this.logger, this.getNode());
+			const nodeLogger = new NodeLogger(this.logger, this.getNode());
+			nc = await createNatsConnection(credentials, nodeLogger);
 			const js = jetstream(nc);
 			
 			for (let i = 0; i < items.length; i++) {
@@ -627,7 +629,7 @@ export class NatsKv implements INodeType {
 			});
 		} finally {
 			if (nc!) {
-				await closeNatsConnection(nc, this.logger);
+				await closeNatsConnection(nc, new NodeLogger(this.logger, this.getNode()));
 			}
 		}
 		

@@ -9,6 +9,7 @@ import {
 import { NatsConnection, jetstream, jetstreamManager } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { validateBucketName } from '../utils/ValidationHelpers';
+import { NodeLogger } from '../utils/NodeLogger';
 
 export class NatsObjectStoreWatcher implements INodeType {
 	description: INodeTypeDescription = {
@@ -98,7 +99,8 @@ export class NatsObjectStoreWatcher implements INodeType {
 		
 		const startWatcher = async () => {
 			try {
-				nc = await createNatsConnection(credentials, this.logger, this.getNode());
+				const nodeLogger = new NodeLogger(this.logger, this.getNode());
+				nc = await createNatsConnection(credentials, nodeLogger);
 				const js = jetstream(nc);
 				
 				// Object Store uses the underlying stream events
@@ -193,8 +195,9 @@ export class NatsObjectStoreWatcher implements INodeType {
 		
 		await startWatcher();
 		
-		// Capture logger reference for use in closeFunction
+		// Capture logger and node references for use in closeFunction
 		const logger = this.logger;
+		const node = this.getNode();
 		
 		async function closeFunction() {
 			try {
@@ -207,7 +210,7 @@ export class NatsObjectStoreWatcher implements INodeType {
 					}
 				}
 				if (nc) {
-					await closeNatsConnection(nc, logger);
+					await closeNatsConnection(nc, new NodeLogger(logger, node));
 				}
 			} catch (error: any) {
 				// Log error but don't throw - connection may already be closed

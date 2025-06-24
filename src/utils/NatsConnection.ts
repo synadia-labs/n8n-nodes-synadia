@@ -1,4 +1,5 @@
-import { ICredentialDataDecryptedObject, INode, ApplicationError, NodeApiError, Logger } from 'n8n-workflow';
+import { ICredentialDataDecryptedObject, ApplicationError, NodeApiError, Logger } from 'n8n-workflow';
+import { NodeLogger } from './NodeLogger';
 import { connect, NatsConnection, ConnectionOptions, jwtAuthenticator, nkeyAuthenticator } from '../bundled/nats-bundled';
 
 export type NatsCredentials = {
@@ -27,7 +28,6 @@ export type NatsCredentials = {
 export async function createNatsConnection(
 	credentials: ICredentialDataDecryptedObject,
 	logger: Logger,
-	node?: INode,
 ): Promise<NatsConnection> {
 	const creds = credentials as unknown as NatsCredentials;
 	const servers = creds.servers.split(',').map(s => s.trim());
@@ -108,9 +108,9 @@ export async function createNatsConnection(
 		const nc = await connect(connectionOptions);
 		return nc;
 	} catch (error: any) {
-		// For connection errors, we use NodeApiError when we have a node
-		if (node) {
-			throw new NodeApiError(node, error, {
+		// For connection errors, we use NodeApiError when we have a NodeLogger with node context
+		if (logger instanceof NodeLogger) {
+			throw new NodeApiError(logger.getNode(), error, {
 				message: `Failed to connect to NATS: ${error.message}`,
 			});
 		} else {

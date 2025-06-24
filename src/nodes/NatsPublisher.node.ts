@@ -9,6 +9,7 @@ import {
 import { NatsConnection, jetstream } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { encodeMessage, createNatsHeaders, validateSubject } from '../utils/NatsHelpers';
+import { NodeLogger } from '../utils/NodeLogger';
 import { validateStreamName, validateTimeout } from '../utils/ValidationHelpers';
 
 export class NatsPublisher implements INodeType {
@@ -212,7 +213,8 @@ export class NatsPublisher implements INodeType {
 		let nc: NatsConnection;
 		
 		try {
-			nc = await createNatsConnection(credentials, this.logger, this.getNode());
+			const nodeLogger = new NodeLogger(this.logger, this.getNode());
+			nc = await createNatsConnection(credentials, nodeLogger);
 			const publishType = this.getNodeParameter('publishType', 0) as string;
 			
 			for (let i = 0; i < items.length; i++) {
@@ -339,7 +341,7 @@ export class NatsPublisher implements INodeType {
 			throw new NodeOperationError(this.getNode(), `NATS publish failed: ${error.message}`);
 		} finally {
 			if (nc!) {
-				await closeNatsConnection(nc, this.logger);
+				await closeNatsConnection(nc, new NodeLogger(this.logger, this.getNode()));
 			}
 		}
 		

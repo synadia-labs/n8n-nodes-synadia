@@ -13,6 +13,7 @@ import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnecti
 import { parseNatsMessage, validateSubject } from '../utils/NatsHelpers';
 import { createReplyHandler, ManualReplyHandler } from '../utils/reply';
 import { validateQueueGroup, validateStreamName, validateConsumerName, validateTimeout } from '../utils/ValidationHelpers';
+import { NodeLogger } from '../utils/NodeLogger';
 
 export class NatsSubscriber implements INodeType {
 	description: INodeTypeDescription = {
@@ -428,7 +429,7 @@ export class NatsSubscriber implements INodeType {
 			}
 			
 			if (nc) {
-				await closeNatsConnection(nc, this.logger);
+				await closeNatsConnection(nc, new NodeLogger(this.logger, this.getNode()));
 			}
 			if (replyHandler.cleanup) {
 				replyHandler.cleanup();
@@ -523,7 +524,8 @@ export class NatsSubscriber implements INodeType {
 		};
 
 		try {
-			nc = await createNatsConnection(credentials, this.logger, this.getNode());
+			const nodeLogger = new NodeLogger(this.logger, this.getNode());
+			nc = await createNatsConnection(credentials, nodeLogger);
 
 			if (subscriptionType === 'core') {
 				// Core NATS subscription

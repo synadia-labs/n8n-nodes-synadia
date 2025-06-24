@@ -11,6 +11,7 @@ import { jetstream, Objm } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { objectStoreOperationHandlers } from '../utils/operations/objectstore';
 import { validateBucketName, validateObjectName } from '../utils/ValidationHelpers';
+import { NodeLogger } from '../utils/NodeLogger';
 
 export class NatsObjectStore implements INodeType {
 	description: INodeTypeDescription = {
@@ -302,7 +303,8 @@ export class NatsObjectStore implements INodeType {
 		let nc: any;
 		
 		try {
-			nc = await createNatsConnection(credentials, this.logger, this.getNode());
+			const nodeLogger = new NodeLogger(this.logger, this.getNode());
+			nc = await createNatsConnection(credentials, nodeLogger);
 			const js = jetstream(nc);
 			
 			for (let i = 0; i < items.length; i++) {
@@ -397,7 +399,7 @@ export class NatsObjectStore implements INodeType {
 			throw new NodeOperationError(this.getNode(), `NATS Object Store operation failed: ${error.message}`);
 		} finally {
 			if (nc!) {
-				await closeNatsConnection(nc, this.logger);
+				await closeNatsConnection(nc, new NodeLogger(this.logger, this.getNode()));
 			}
 		}
 		
