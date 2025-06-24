@@ -180,12 +180,12 @@ export class NatsObjectStoreWatcher implements INodeType {
 							
 							msg.ack();
 						} catch (error) {
-							this.logger.error('Error processing object store event:', { error });
+							nodeLogger.error('Error processing object store event:', { error });
 							msg.ack();
 						}
 					}
 				})().catch((error) => {
-					this.logger.error('Object store watcher error:', { error });
+					nodeLogger.error('Object store watcher error:', { error });
 				});
 				
 			} catch (error: any) {
@@ -198,6 +198,7 @@ export class NatsObjectStoreWatcher implements INodeType {
 		// Capture logger and node references for use in closeFunction
 		const logger = this.logger;
 		const node = this.getNode();
+		const nodeLogger = new NodeLogger(logger, node);
 		
 		async function closeFunction() {
 			try {
@@ -210,14 +211,14 @@ export class NatsObjectStoreWatcher implements INodeType {
 					}
 				}
 				if (nc) {
-					await closeNatsConnection(nc, new NodeLogger(logger, node));
+					await closeNatsConnection(nc, nodeLogger);
 				}
 			} catch (error: any) {
 				// Log error but don't throw - connection may already be closed
 				// This is expected behavior during shutdown
 				if (error.message && !error.message.includes('closed')) {
 					// Only log unexpected errors
-					logger.error('Error closing object store watcher:', error);
+					nodeLogger.error('Error closing object store watcher:', { error });
 				}
 			}
 		}

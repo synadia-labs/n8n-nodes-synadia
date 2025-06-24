@@ -349,7 +349,12 @@ describe('NatsKvWatcher Node', () => {
 			
 			expect(mockTriggerFunctions.logger.error).toHaveBeenCalledWith(
 				'KV watcher error:',
-				expect.any(Error)
+				expect.objectContaining({
+					error: expect.any(Error),
+					nodeId: 'test-node-id',
+					nodeName: 'Test Node',
+					nodeType: 'n8n-nodes-synadia.natsKvWatcher'
+				})
 			);
 			
 			if (closeFunction) await closeFunction();
