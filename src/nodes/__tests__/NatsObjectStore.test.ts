@@ -119,7 +119,13 @@ describe('NatsObjectStore', () => {
 				returnJsonArray: jest.fn((data) => data),
 			},
 			continueOnFail: jest.fn().mockReturnValue(false),
-			getNode: jest.fn().mockReturnValue({}),
+			getNode: jest.fn().mockReturnValue({
+				id: 'test-node-id',
+				name: 'Test Node',
+				type: 'n8n-nodes-synadia.natsObjectStore',
+				position: [0, 0],
+				typeVersion: 1,
+			}),
 			logger: {
 				error: jest.fn(),
 				warn: jest.fn(),

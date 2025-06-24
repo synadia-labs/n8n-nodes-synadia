@@ -81,7 +81,13 @@ describe('NatsObjectStoreWatcher', () => {
 				returnJsonArray: jest.fn((data) => data.map((item: any) => ({ json: item }))),
 			},
 			getMode: jest.fn().mockReturnValue('trigger'),
-			getNode: jest.fn().mockReturnValue({}),
+			getNode: jest.fn().mockReturnValue({
+				id: 'test-node-id',
+				name: 'Test Node',
+				type: 'n8n-nodes-synadia.natsObjectStoreWatcher',
+				position: [0, 0],
+				typeVersion: 1,
+			}),
 			logger: {
 				error: jest.fn(),
 			},

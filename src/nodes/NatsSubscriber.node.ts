@@ -523,7 +523,7 @@ export class NatsSubscriber implements INodeType {
 		};
 
 		try {
-			nc = await createNatsConnection(credentials, this.logger, this);
+			nc = await createNatsConnection(credentials, this.logger, this.getNode());
 
 			if (subscriptionType === 'core') {
 				// Core NATS subscription

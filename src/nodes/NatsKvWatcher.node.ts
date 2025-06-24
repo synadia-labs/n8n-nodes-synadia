@@ -208,7 +208,7 @@ export class NatsKvWatcher implements INodeType {
 		
 		const startWatcher = async () => {
 			try {
-				nc = await createNatsConnection(credentials, this.logger, this);
+				nc = await createNatsConnection(credentials, this.logger, this.getNode());
 				const js = jetstream(nc);
 				const kvManager = new Kvm(js);
 				

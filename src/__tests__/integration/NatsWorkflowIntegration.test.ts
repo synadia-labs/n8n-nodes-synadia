@@ -390,7 +390,13 @@ describe('NATS Nodes Integration Tests', () => {
 						...auth,
 					}),
 					expect.any(Object),
-					expect.anything()
+					expect.objectContaining({
+						id: expect.any(String),
+						name: expect.any(String),
+						type: expect.any(String),
+						position: expect.any(Array),
+						typeVersion: expect.any(Number),
+					})
 				);
 			}
 		});

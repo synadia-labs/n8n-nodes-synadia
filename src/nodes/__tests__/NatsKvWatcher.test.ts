@@ -58,7 +58,13 @@ describe('NatsKvWatcher Node', () => {
 		mockTriggerFunctions = {
 			getNodeParameter: jest.fn() as jest.MockedFunction<ITriggerFunctions['getNodeParameter']>,
 			getCredentials: jest.fn().mockResolvedValue({}),
-			getNode: jest.fn().mockReturnValue({}),
+			getNode: jest.fn().mockReturnValue({
+				id: 'test-node-id',
+				name: 'Test Node',
+				type: 'n8n-nodes-synadia.natsKvWatcher',
+				position: [0, 0],
+				typeVersion: 1,
+			}),
 			emit: mockEmit,
 			helpers: {
 				returnJsonArray: jest.fn((data) => data),

@@ -212,7 +212,7 @@ export class NatsPublisher implements INodeType {
 		let nc: NatsConnection;
 		
 		try {
-			nc = await createNatsConnection(credentials, this.logger, this);
+			nc = await createNatsConnection(credentials, this.logger, this.getNode());
 			const publishType = this.getNodeParameter('publishType', 0) as string;
 			
 			for (let i = 0; i < items.length; i++) {

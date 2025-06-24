@@ -98,7 +98,7 @@ export class NatsObjectStoreWatcher implements INodeType {
 		
 		const startWatcher = async () => {
 			try {
-				nc = await createNatsConnection(credentials, this.logger, this);
+				nc = await createNatsConnection(credentials, this.logger, this.getNode());
 				const js = jetstream(nc);
 				
 				// Object Store uses the underlying stream events

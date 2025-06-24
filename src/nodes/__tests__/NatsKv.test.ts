@@ -70,7 +70,13 @@ describe('NatsKv Node', () => {
 			getInputData: jest.fn().mockReturnValue([{ json: {} }]),
 			getNodeParameter: jest.fn() as jest.MockedFunction<IExecuteFunctions['getNodeParameter']>,
 			getCredentials: jest.fn().mockResolvedValue({}),
-			getNode: jest.fn().mockReturnValue({}),
+			getNode: jest.fn().mockReturnValue({
+				id: 'test-node-id',
+				name: 'Test Node',
+				type: 'n8n-nodes-synadia.natsKv',
+				position: [0, 0],
+				typeVersion: 1,
+			}),
 			helpers: {
 				returnJsonArray: jest.fn((data) => data),
 			},

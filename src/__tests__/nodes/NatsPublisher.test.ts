@@ -45,7 +45,13 @@ describe('NatsPublisher', () => {
       getInputData: mockGetInputData,
       getCredentials: jest.fn().mockResolvedValue({ connectionType: 'url', servers: 'nats://localhost:4222' }),
       getNodeParameter: mockGetNodeParameter,
-      getNode: jest.fn().mockReturnValue({}),
+      getNode: jest.fn().mockReturnValue({
+        id: 'test-node-id',
+        name: 'Test Node',
+        type: 'n8n-nodes-synadia.natsPublisher',
+        position: [0, 0],
+        typeVersion: 1,
+      }),
       continueOnFail: mockContinueOnFail,
       logger: {
         error: jest.fn(),

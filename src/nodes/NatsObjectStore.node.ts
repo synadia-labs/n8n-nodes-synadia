@@ -302,7 +302,7 @@ export class NatsObjectStore implements INodeType {
 		let nc: any;
 		
 		try {
-			nc = await createNatsConnection(credentials, this.logger, this);
+			nc = await createNatsConnection(credentials, this.logger, this.getNode());
 			const js = jetstream(nc);
 			
 			for (let i = 0; i < items.length; i++) {
