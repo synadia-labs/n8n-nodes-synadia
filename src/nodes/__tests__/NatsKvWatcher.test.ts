@@ -1,5 +1,5 @@
 import { ITriggerFunctions } from 'n8n-workflow';
-import { NatsKvTrigger } from '../NatsKvTrigger.node';
+import { NatsKvWatcher } from '../NatsKvWatcher.node';
 import * as NatsConnection from '../../utils/NatsConnection';
 import { jetstream, Kvm } from '../../bundled/nats-bundled';
 
@@ -9,8 +9,8 @@ jest.mock('../../bundled/nats-bundled', () => ({
 	Kvm: jest.fn(),
 }));
 
-describe('NatsKvTrigger Node', () => {
-	let node: NatsKvTrigger;
+describe('NatsKvWatcher Node', () => {
+	let node: NatsKvWatcher;
 	let mockTriggerFunctions: ITriggerFunctions;
 	let mockNc: any;
 	let mockJs: any;
@@ -22,7 +22,7 @@ describe('NatsKvTrigger Node', () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
 		
-		node = new NatsKvTrigger();
+		node = new NatsKvWatcher();
 		mockEmit = jest.fn();
 		
 		// Mock watcher as async iterator
@@ -58,7 +58,13 @@ describe('NatsKvTrigger Node', () => {
 		mockTriggerFunctions = {
 			getNodeParameter: jest.fn() as jest.MockedFunction<ITriggerFunctions['getNodeParameter']>,
 			getCredentials: jest.fn().mockResolvedValue({}),
-			getNode: jest.fn().mockReturnValue({}),
+			getNode: jest.fn().mockReturnValue({
+				id: 'test-node-id',
+				name: 'Test Node',
+				type: 'n8n-nodes-synadia.natsKvWatcher',
+				position: [0, 0],
+				typeVersion: 1,
+			}),
 			emit: mockEmit,
 			helpers: {
 				returnJsonArray: jest.fn((data) => data),
@@ -343,7 +349,12 @@ describe('NatsKvTrigger Node', () => {
 			
 			expect(mockTriggerFunctions.logger.error).toHaveBeenCalledWith(
 				'KV watcher error:',
-				expect.any(Error)
+				expect.objectContaining({
+					error: expect.any(Error),
+					nodeId: 'test-node-id',
+					nodeName: 'Test Node',
+					nodeType: 'n8n-nodes-synadia.natsKvWatcher'
+				})
 			);
 			
 			if (closeFunction) await closeFunction();
@@ -363,7 +374,7 @@ describe('NatsKvTrigger Node', () => {
 			
 			if (closeFunction) await closeFunction();
 			
-			expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(mockNc);
+			expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(mockNc, expect.any(Object));
 		});
 		
 		it('should validate bucket name', async () => {

@@ -11,6 +11,7 @@ import { jetstream, Objm } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { objectStoreOperationHandlers } from '../utils/operations/objectstore';
 import { validateBucketName, validateObjectName } from '../utils/ValidationHelpers';
+import { NodeLogger } from '../utils/NodeLogger';
 
 export class NatsObjectStore implements INodeType {
 	description: INodeTypeDescription = {
@@ -20,7 +21,7 @@ export class NatsObjectStore implements INodeType {
 		group: ['transform'],
 		version: 1,
 		description: 'Store and retrieve objects (files, data) in NATS JetStream Object Store',
-		subtitle: '={{$parameter["operation"]}} - {{$parameter["bucket"]}}',
+		subtitle: '{{$parameter["operation"]}} - {{$parameter["bucket"]}}',
 		defaults: {
 			name: 'NATS Object Store',
 		},
@@ -301,8 +302,11 @@ export class NatsObjectStore implements INodeType {
 		
 		let nc: any;
 		
+		// Create NodeLogger once for the entire execution
+		const nodeLogger = new NodeLogger(this.logger, this.getNode());
+		
 		try {
-			nc = await createNatsConnection(credentials, this);
+			nc = await createNatsConnection(credentials, nodeLogger);
 			const js = jetstream(nc);
 			
 			for (let i = 0; i < items.length; i++) {
@@ -397,7 +401,7 @@ export class NatsObjectStore implements INodeType {
 			throw new NodeOperationError(this.getNode(), `NATS Object Store operation failed: ${error.message}`);
 		} finally {
 			if (nc!) {
-				await closeNatsConnection(nc);
+				await closeNatsConnection(nc, nodeLogger);
 			}
 		}
 		

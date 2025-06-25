@@ -269,6 +269,9 @@ describe('ManualReplyHandler', () => {
 			const replyOptions = {};
 			const mockLogger = {
 				error: jest.fn(),
+				warn: jest.fn(),
+				info: jest.fn(),
+				debug: jest.fn(),
 			};
 
 			await handler.sendReply(items, replyOptions, mockLogger);

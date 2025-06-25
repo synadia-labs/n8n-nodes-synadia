@@ -1,4 +1,5 @@
-import { ICredentialDataDecryptedObject, IExecuteFunctions, ILoadOptionsFunctions, ITriggerFunctions, ApplicationError, NodeApiError } from 'n8n-workflow';
+import { ICredentialDataDecryptedObject, ApplicationError, NodeApiError, Logger } from 'n8n-workflow';
+import { NodeLogger } from './NodeLogger';
 import { connect, NatsConnection, ConnectionOptions, jwtAuthenticator, nkeyAuthenticator } from '../bundled/nats-bundled';
 
 export type NatsCredentials = {
@@ -26,7 +27,7 @@ export type NatsCredentials = {
 
 export async function createNatsConnection(
 	credentials: ICredentialDataDecryptedObject,
-	_context?: IExecuteFunctions | ITriggerFunctions | ILoadOptionsFunctions,
+	logger: Logger,
 ): Promise<NatsConnection> {
 	const creds = credentials as unknown as NatsCredentials;
 	const servers = creds.servers.split(',').map(s => s.trim());
@@ -107,9 +108,9 @@ export async function createNatsConnection(
 		const nc = await connect(connectionOptions);
 		return nc;
 	} catch (error: any) {
-		// For connection errors, we use NodeApiError when we have a context with getNode method
-		if (_context && 'getNode' in _context) {
-			throw new NodeApiError(_context.getNode(), error, {
+		// For connection errors, we use NodeApiError when we have a NodeLogger with node context
+		if (logger instanceof NodeLogger) {
+			throw new NodeApiError(logger.getNode(), error, {
 				message: `Failed to connect to NATS: ${error.message}`,
 			});
 		} else {
@@ -123,11 +124,16 @@ export async function createNatsConnection(
 	}
 }
 
-export async function closeNatsConnection(nc: NatsConnection): Promise<void> {
+export async function closeNatsConnection(nc: NatsConnection, logger: Logger): Promise<void> {
 	try {
 		await nc.drain();
 		await nc.close();
 	} catch (error: any) {
-		console.error('Error closing NATS connection:', error);
+		// Log error but don't throw - connection may already be closed
+		// This is expected behavior during shutdown
+		if (error.message && !error.message.includes('closed')) {
+			// Only log unexpected errors
+			logger.error('Error closing NATS connection:', { error });
+		}
 	}
 }

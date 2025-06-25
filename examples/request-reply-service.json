@@ -1,5 +1,5 @@
 {
-  "name": "NATS Request/Reply Service Pattern",
+  "name": "NATS Request/Reply Pattern with Subscriber",
   "nodes": [
     {
       "parameters": {},
@@ -13,15 +13,16 @@
       "parameters": {
         "subject": "api.users.service",
         "queueGroup": "user-service",
-        "options": {
+        "replyMode": "manual",
+        "replyOptions": {
           "replyField": "userData",
           "includeRequest": true,
           "defaultReply": "{\"error\": \"User not found\"}"
         }
       },
-      "id": "service-reply",
-      "name": "User Service",
-      "type": "n8n-nodes-synadia.natsServiceReply",
+      "id": "service-subscriber",
+      "name": "User Service Endpoint",
+      "type": "n8n-nodes-synadia.natsSubscriber",
       "typeVersion": 1,
       "position": [240, 500],
       "credentials": {
@@ -34,15 +35,16 @@
     {
       "parameters": {
         "subject": "api.users.service",
-        "requestData": "={{JSON.stringify({\"userId\": \"123\", \"includeDetails\": true})}}",
+        "message": "{{JSON.stringify({\"userId\": \"123\", \"includeDetails\": true})}}",
         "options": {
+          "publishType": "request",
           "timeout": 5000,
-          "requestEncoding": "json"
+          "messageEncoding": "json"
         }
       },
-      "id": "request-reply",
-      "name": "Call User Service",
-      "type": "n8n-nodes-synadia.natsRequestReply",
+      "id": "request-publisher",
+      "name": "Send User Request",
+      "type": "n8n-nodes-synadia.natsPublisher",
       "typeVersion": 1,
       "position": [460, 300],
       "credentials": {
@@ -67,12 +69,15 @@
       "parameters": {
         "subject": "api.echo",
         "queueGroup": "echo-services",
-        "responseData": "{\\n  \\\"echo\\\": \\\"{{$json.data}}\\\",\\n  \\\"timestamp\\\": \\\"{{new Date().toISOString()}}\\\",\\n  \\\"serviceId\\\": \\\"echo-service-1\\\"\\n}",
-        "options": {}
+        "replyMode": "automatic",
+        "automaticReply": {
+          "responseTemplate": "{\n  \"echo\": \"{{$json.data}}\",\n  \"timestamp\": \"{{new Date().toISOString()}}\",\n  \"serviceId\": \"echo-service-1\"\n}",
+          "includeRequestInOutput": true
+        }
       },
-      "id": "simple-service",
+      "id": "echo-service",
       "name": "Echo Service",
-      "type": "n8n-nodes-synadia.natsService",
+      "type": "n8n-nodes-synadia.natsSubscriber",
       "typeVersion": 1,
       "position": [680, 500],
       "credentials": {
@@ -81,6 +86,24 @@
           "name": "NATS Connection"
         }
       }
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "Request completed"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [680, 300]
     }
   ],
   "connections": {
@@ -88,14 +111,14 @@
       "main": [
         [
           {
-            "node": "Call User Service",
+            "node": "Send User Request",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "User Service": {
+    "User Service Endpoint": {
       "main": [
         [
           {
@@ -105,14 +128,25 @@
           }
         ]
       ]
+    },
+    "Send User Request": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {},
-  "versionId": "request-reply-v1",
-  "id": "3",
+  "versionId": "rr-example-v1",
+  "id": "5",
   "meta": {
     "instanceId": "n8n-instance-id"
   },
-  "tags": ["nats", "request-reply", "service", "example"]
+  "tags": []
 }

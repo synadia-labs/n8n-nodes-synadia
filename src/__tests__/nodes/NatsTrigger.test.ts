@@ -1,4 +1,4 @@
-import { NatsTrigger } from '../../nodes/NatsTrigger.node';
+import { NatsSubscriber } from '../../nodes/NatsSubscriber.node';
 import { ITriggerFunctions, ITriggerResponse } from 'n8n-workflow';
 import * as NatsConnection from '../../utils/NatsConnection';
 import { StringCodec, jetstream, consumerOpts } from '../../bundled/nats-bundled';
@@ -33,8 +33,8 @@ jest.mock('../../bundled/nats-bundled', () => ({
 	})),
 }));
 
-describe('NatsTrigger', () => {
-  let node: NatsTrigger;
+describe('NatsSubscriber', () => {
+  let node: NatsSubscriber;
   let mockTriggerFunctions: ITriggerFunctions;
   let mockNatsConnection: any;
   let mockSubscription: any;
@@ -42,7 +42,7 @@ describe('NatsTrigger', () => {
   let mockGetNodeParameter: jest.Mock;
 
   beforeEach(() => {
-    node = new NatsTrigger();
+    node = new NatsSubscriber();
     mockEmit = jest.fn();
 
     // Mock subscription
@@ -72,10 +72,22 @@ describe('NatsTrigger', () => {
     mockTriggerFunctions = {
       getCredentials: jest.fn().mockResolvedValue({ connectionType: 'url', servers: 'nats://localhost:4222' }),
       getNodeParameter: mockGetNodeParameter,
-      getNode: jest.fn().mockReturnValue({}),
+      getNode: jest.fn().mockReturnValue({
+        id: 'test-node-id',
+        name: 'Test Node',
+        type: 'n8n-nodes-synadia.natsSubscriber',
+        position: [0, 0],
+        typeVersion: 1,
+      }),
       emit: mockEmit,
       helpers: {
         returnJsonArray: jest.fn((data) => data),
+      },
+      logger: {
+        error: jest.fn(),
+        warn: jest.fn(),
+        info: jest.fn(),
+        debug: jest.fn(),
       },
     } as unknown as ITriggerFunctions;
 
@@ -389,7 +401,7 @@ describe('NatsTrigger', () => {
       await response.closeFunction!();
 
       expect(mockSubscription.drain).toHaveBeenCalled();
-      expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(mockNatsConnection);
+      expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(mockNatsConnection, expect.any(Object));
     });
   });
 
@@ -415,7 +427,7 @@ describe('NatsTrigger', () => {
         .mockReturnValueOnce('');
 
       await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow(
-        'Failed to setup NATS trigger: Connection failed'
+        'Failed to setup NATS subscriber: Connection failed'
       );
     });
   });

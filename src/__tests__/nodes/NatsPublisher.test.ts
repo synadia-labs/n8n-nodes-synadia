@@ -45,8 +45,20 @@ describe('NatsPublisher', () => {
       getInputData: mockGetInputData,
       getCredentials: jest.fn().mockResolvedValue({ connectionType: 'url', servers: 'nats://localhost:4222' }),
       getNodeParameter: mockGetNodeParameter,
-      getNode: jest.fn().mockReturnValue({}),
+      getNode: jest.fn().mockReturnValue({
+        id: 'test-node-id',
+        name: 'Test Node',
+        type: 'n8n-nodes-synadia.natsPublisher',
+        position: [0, 0],
+        typeVersion: 1,
+      }),
       continueOnFail: mockContinueOnFail,
+      logger: {
+        error: jest.fn(),
+        warn: jest.fn(),
+        info: jest.fn(),
+        debug: jest.fn(),
+      },
     } as unknown as IExecuteFunctions;
 
     // Mock createNatsConnection
@@ -297,7 +309,7 @@ describe('NatsPublisher', () => {
         .mockReturnValueOnce({});
 
       await expect(node.execute.call(mockExecuteFunctions)).rejects.toThrow();
-      expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(mockNatsConnection);
+      expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(mockNatsConnection, expect.any(Object));
     });
   });
 

@@ -17,11 +17,11 @@ Shows how to use NATS JetStream Key-Value store.
 - Listing all keys
 - Watching for changes in real-time
 
-### 3. Request/Reply Service Pattern (`request-reply-service.json`)
-Implements microservice patterns using NATS.
-- Setting up a service endpoint with NatsServiceReply
-- Making requests with NatsRequestReply
-- Simple echo service with NatsService
+### 3. Request/Reply Pattern (`request-reply-service.json`)
+Implements request/reply patterns using NATS Subscriber with reply modes.
+- Setting up a service endpoint with NatsSubscriber in manual reply mode
+- Making requests with NatsPublisher
+- Simple echo service with NatsSubscriber in automatic reply mode
 - Processing requests and sending responses
 
 ### 4. JetStream Workflow (`jetstream-workflow.json`)

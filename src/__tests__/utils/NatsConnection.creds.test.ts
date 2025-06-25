@@ -10,6 +10,13 @@ describe('NatsConnection - Credentials File Support', () => {
 	const mockConnect = connect as jest.MockedFunction<typeof connect>;
 	const mockJwtAuthenticator = jwtAuthenticator as jest.MockedFunction<typeof jwtAuthenticator>;
 	
+	const mockLogger = {
+		error: jest.fn(),
+		warn: jest.fn(),
+		info: jest.fn(),
+		debug: jest.fn(),
+	};
+	
 	beforeEach(() => {
 		jest.clearAllMocks();
 		mockConnect.mockResolvedValue({} as any);
@@ -38,7 +45,7 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
 				credsFile: validCredsFile,
 			};
 			
-			await createNatsConnection(credentials);
+			await createNatsConnection(credentials, mockLogger);
 			
 			expect(mockJwtAuthenticator).toHaveBeenCalledWith(
 				expect.stringContaining('eyJ0eXAiOiJKV1QiLCJhbGciOiJlZDI1NTE5LW5rZXkifQ'),
@@ -74,7 +81,7 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
 				credsFile: credsWithSpaces,
 			};
 			
-			await createNatsConnection(credentials);
+			await createNatsConnection(credentials, mockLogger);
 			
 			expect(mockJwtAuthenticator).toHaveBeenCalled();
 		});
@@ -88,7 +95,7 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
 				credsFile: invalidCreds,
 			};
 			
-			await expect(createNatsConnection(credentials)).rejects.toThrow(
+			await expect(createNatsConnection(credentials, mockLogger)).rejects.toThrow(
 				'Invalid credentials file format'
 			);
 		});
@@ -104,7 +111,7 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
 				credsFile: missingJWT,
 			};
 			
-			await expect(createNatsConnection(credentials)).rejects.toThrow(
+			await expect(createNatsConnection(credentials, mockLogger)).rejects.toThrow(
 				'Invalid credentials file format'
 			);
 		});
@@ -120,7 +127,7 @@ eyJ0eXAiOiJKV1QiLCJhbGciOiJlZDI1NTE5LW5rZXkifQ.SOME_JWT
 				credsFile: missingSeed,
 			};
 			
-			await expect(createNatsConnection(credentials)).rejects.toThrow(
+			await expect(createNatsConnection(credentials, mockLogger)).rejects.toThrow(
 				'Invalid credentials file format'
 			);
 		});
@@ -132,7 +139,7 @@ eyJ0eXAiOiJKV1QiLCJhbGciOiJlZDI1NTE5LW5rZXkifQ.SOME_JWT
 				credsFile: validCredsFile,
 			};
 			
-			await createNatsConnection(credentials);
+			await createNatsConnection(credentials, mockLogger);
 			
 			expect(mockConnect).toHaveBeenCalledWith(
 				expect.objectContaining({

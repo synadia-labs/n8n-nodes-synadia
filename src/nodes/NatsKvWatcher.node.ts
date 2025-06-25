@@ -10,18 +10,19 @@ import {
 import { NatsConnection, jetstream, Kvm } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { validateBucketName, validateKeyName } from '../utils/ValidationHelpers';
+import { NodeLogger } from '../utils/NodeLogger';
 
-export class NatsKvTrigger implements INodeType {
+export class NatsKvWatcher implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'NATS KV Trigger',
-		name: 'natsKvTrigger',
+		displayName: 'NATS KV Watcher',
+		name: 'natsKvWatcher',
 		icon: 'file:../icons/nats.svg',
 		group: ['trigger'],
 		version: 1,
-		description: 'Triggers when changes occur in a NATS KV bucket',
-		subtitle: '={{$parameter["bucket"]}} - {{$parameter["operation"]}}',
+		description: 'Watch for changes in NATS KV buckets and trigger workflows',
+		subtitle: '{{$parameter["bucket"]}} - {{$parameter["operation"]}}',
 		defaults: {
-			name: 'NATS KV Trigger',
+			name: 'NATS KV Watcher',
 		},
 		inputs: [],
 		outputs: [NodeConnectionType.Main],
@@ -179,6 +180,9 @@ export class NatsKvTrigger implements INodeType {
 		let nc: NatsConnection;
 		let watcher: any;
 		
+		// Create NodeLogger once for the entire trigger lifecycle
+		const nodeLogger = new NodeLogger(this.logger, this.getNode());
+		
 		const emitData = (entry: any) => {
 			if (!options.includeDeletes && entry.operation === 'DEL') {
 				return;
@@ -208,7 +212,7 @@ export class NatsKvTrigger implements INodeType {
 		
 		const startWatcher = async () => {
 			try {
-				nc = await createNatsConnection(credentials, this);
+				nc = await createNatsConnection(credentials, nodeLogger);
 				const js = jetstream(nc);
 				const kvManager = new Kvm(js);
 				
@@ -275,7 +279,7 @@ export class NatsKvTrigger implements INodeType {
 					} catch (error: any) {
 						// Connection closed or other error
 						if (!error.message?.includes('closed')) {
-							this.logger.error('KV watcher error:', error);
+							nodeLogger.error('KV watcher error:', { error });
 						}
 					}
 				})();
@@ -302,10 +306,15 @@ export class NatsKvTrigger implements INodeType {
 					// It will be cleaned up when the connection closes
 				}
 				if (nc) {
-					await closeNatsConnection(nc);
+					await closeNatsConnection(nc, nodeLogger);
 				}
-			} catch (error) {
-				console.error('Error closing KV trigger:', error);
+			} catch (error: any) {
+				// Log error but don't throw - connection may already be closed
+				// This is expected behavior during shutdown
+				if (error.message && !error.message.includes('closed')) {
+					// Only log unexpected errors
+					nodeLogger.error('Error closing KV watcher:', { error });
+				}
 			}
 		}
 		

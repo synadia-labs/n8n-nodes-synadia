@@ -43,15 +43,12 @@
       "dist/credentials/NatsApi.credentials.js"
     ],
     "nodes": [
-      "dist/nodes/NatsTrigger.node.js",
+      "dist/nodes/NatsSubscriber.node.js",
       "dist/nodes/NatsPublisher.node.js",
       "dist/nodes/NatsKv.node.js",
-      "dist/nodes/NatsKvTrigger.node.js",
+      "dist/nodes/NatsKvWatcher.node.js",
       "dist/nodes/NatsObjectStore.node.js",
-      "dist/nodes/NatsObjectStoreTrigger.node.js",
-      "dist/nodes/NatsRequestReply.node.js",
-      "dist/nodes/NatsServiceReply.node.js",
-      "dist/nodes/NatsService.node.js"
+      "dist/nodes/NatsObjectStoreWatcher.node.js"
     ]
   },
   "dependencies": {

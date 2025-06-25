@@ -13,18 +13,19 @@ import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnecti
 import { parseNatsMessage, validateSubject } from '../utils/NatsHelpers';
 import { createReplyHandler, ManualReplyHandler } from '../utils/reply';
 import { validateQueueGroup, validateStreamName, validateConsumerName, validateTimeout } from '../utils/ValidationHelpers';
+import { NodeLogger } from '../utils/NodeLogger';
 
-export class NatsTrigger implements INodeType {
+export class NatsSubscriber implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'NATS Trigger',
-		name: 'natsTrigger',
+		displayName: 'NATS Subscriber',
+		name: 'natsSubscriber',
 		icon: 'file:../icons/nats.svg',
 		group: ['trigger'],
 		version: 1,
-		description: 'Start workflows when messages arrive on NATS subjects',
-		subtitle: '={{$parameter["subject"]}}',
+		description: 'Subscribe to NATS subjects and trigger workflows on messages',
+		subtitle: '{{$parameter["subject"]}}',
 		defaults: {
-			name: 'NATS Trigger',
+			name: 'NATS Subscriber',
 		},
 		inputs: [],
 		outputs: [NodeConnectionType.Main],
@@ -406,6 +407,9 @@ export class NatsTrigger implements INodeType {
 		let messageIterator: any;
 		const replyHandler = createReplyHandler(replyMode);
 
+		// Create NodeLogger once for the entire trigger lifecycle
+		const nodeLogger = new NodeLogger(this.logger, this.getNode());
+
 		const closeFunction = async () => {
 			// Stop message iteration if JetStream consumer
 			if (messageIterator && messageIterator.stop) {
@@ -428,7 +432,7 @@ export class NatsTrigger implements INodeType {
 			}
 			
 			if (nc) {
-				await closeNatsConnection(nc);
+				await closeNatsConnection(nc, nodeLogger);
 			}
 			if (replyHandler.cleanup) {
 				replyHandler.cleanup();
@@ -523,7 +527,7 @@ export class NatsTrigger implements INodeType {
 		};
 
 		try {
-			nc = await createNatsConnection(credentials, this);
+			nc = await createNatsConnection(credentials, nodeLogger);
 
 			if (subscriptionType === 'core') {
 				// Core NATS subscription
@@ -653,7 +657,7 @@ export class NatsTrigger implements INodeType {
 			return response;
 
 		} catch (error: any) {
-			throw new ApplicationError(`Failed to setup NATS trigger: ${error.message}`);
+			throw new ApplicationError(`Failed to setup NATS subscriber: ${error.message}`);
 		}
 	}
 }

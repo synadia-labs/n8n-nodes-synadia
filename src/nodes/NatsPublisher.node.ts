@@ -9,6 +9,7 @@ import {
 import { NatsConnection, jetstream } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { encodeMessage, createNatsHeaders, validateSubject } from '../utils/NatsHelpers';
+import { NodeLogger } from '../utils/NodeLogger';
 import { validateStreamName, validateTimeout } from '../utils/ValidationHelpers';
 
 export class NatsPublisher implements INodeType {
@@ -19,7 +20,7 @@ export class NatsPublisher implements INodeType {
 		group: ['output'],
 		version: 1,
 		description: 'Send messages to NATS subjects or JetStream streams',
-		subtitle: '={{$parameter["subject"]}}',
+		subtitle: '{{$parameter["subject"]}}',
 		defaults: {
 			name: 'NATS Publisher',
 		},
@@ -67,7 +68,7 @@ export class NatsPublisher implements INodeType {
 				typeOptions: {
 					rows: 4,
 				},
-				default: '={{ $json }}',
+				default: '{{ $json }}',
 				description: 'Message content to publish',
 				hint: 'Supports expressions like {{ $json }} to use input data',
 			},
@@ -211,8 +212,11 @@ export class NatsPublisher implements INodeType {
 		
 		let nc: NatsConnection;
 		
+		// Create NodeLogger once for the entire execution
+		const nodeLogger = new NodeLogger(this.logger, this.getNode());
+		
 		try {
-			nc = await createNatsConnection(credentials, this);
+			nc = await createNatsConnection(credentials, nodeLogger);
 			const publishType = this.getNodeParameter('publishType', 0) as string;
 			
 			for (let i = 0; i < items.length; i++) {
@@ -339,7 +343,7 @@ export class NatsPublisher implements INodeType {
 			throw new NodeOperationError(this.getNode(), `NATS publish failed: ${error.message}`);
 		} finally {
 			if (nc!) {
-				await closeNatsConnection(nc);
+				await closeNatsConnection(nc, nodeLogger);
 			}
 		}
 		

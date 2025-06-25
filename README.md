@@ -85,17 +85,14 @@ npm link n8n-nodes-synadia
 
 | Node | Type | Description | Sample Data |
 |------|------|-------------|-------------|
-| NATS Trigger | Trigger | Subscribe to NATS subjects | ✅ Yes |
+| NATS Subscriber | Trigger | Subscribe to NATS subjects | ✅ Yes |
 | NATS Publisher | Action | Publish messages to NATS | N/A |
 | NATS KV Store | Action | Key-Value operations | N/A |
-| NATS KV Trigger | Trigger | Watch KV changes | ✅ Yes |
+| NATS KV Watcher | Trigger | Watch KV changes | ✅ Yes |
 | NATS Object Store | Action | File/object storage | N/A |
-| NATS Object Store Trigger | Trigger | Watch object changes | ✅ Yes |
-| NATS Request/Reply | Action | Send requests and wait for replies | N/A |
-| NATS Service Reply | Trigger | Respond to requests as a service | ✅ Yes |
-| NATS Service | Trigger | Receive requests and auto-respond | ✅ Yes |
+| NATS Object Store Watcher | Trigger | Watch object changes | ✅ Yes |
 
-### NATS Trigger
+### NATS Subscriber
 
 Triggers workflows when messages are received on NATS subjects.
 
@@ -152,7 +149,7 @@ Interact with NATS JetStream Key-Value Store for persistent key-value operations
 - Distributed caching
 - State management
 
-### NATS KV Trigger
+### NATS KV Watcher
 
 Triggers workflows when changes occur in a NATS KV bucket.
 
@@ -187,7 +184,7 @@ Interact with NATS JetStream Object Store for storing large objects and files.
 - Document storage
 - Media file handling
 
-### NATS Object Store Trigger
+### NATS Object Store Watcher
 
 Triggers workflows when changes occur in a NATS Object Store bucket.
 
@@ -203,61 +200,6 @@ Triggers workflows when changes occur in a NATS Object Store bucket.
 - Backup and archival processes
 - Content management systems
 
-### NATS Request/Reply
-
-Send requests and wait for replies from NATS services.
-
-**Features:**
-- Synchronous request/reply pattern
-- Scatter-gather (multiple replies)
-- Configurable timeouts
-- Custom headers support
-- Fire-and-forget mode
-- Support for all message encodings
-
-**Use Cases:**
-- Microservice communication
-- API gateway integration
-- Service discovery
-- Load balanced requests
-
-### NATS Service Reply
-
-Respond to NATS request/reply messages as a service endpoint.
-
-**Features:**
-- Act as a NATS service
-- Queue group support for load balancing
-- Automatic reply handling
-- Custom reply field mapping
-- Include request in reply option
-- Process workflow results as replies
-
-**Use Cases:**
-- Build microservices with n8n
-- API endpoint implementation
-- Service worker pools
-- Request processing pipelines
-
-**Note**: Consider using NATS Trigger with Reply Mode instead for simpler setups.
-
-### NATS Service
-
-All-in-one service that receives requests and automatically sends responses without needing a workflow.
-
-**Features:**
-- Receive and respond in a single node
-- Template-based response generation
-- Support for dynamic response data
-- Queue group load balancing
-- Error response handling
-- JSON and string response formats
-
-**Use Cases:**
-- Simple microservices
-- Mock services for testing
-- Static API endpoints
-- Health check endpoints
 
 ## Authentication
 
@@ -298,7 +240,7 @@ To connect to Synadia Cloud:
       "type": "n8n-nodes-synadia.natsPublisher",
       "parameters": {
         "subject": "orders.new",
-        "message": "={{ JSON.stringify($json) }}"
+        "message": "{{ JSON.stringify($json) }}"
       }
     }
   ]
@@ -311,8 +253,8 @@ To connect to Synadia Cloud:
 {
   "nodes": [
     {
-      "name": "NATS Trigger",
-      "type": "n8n-nodes-synadia.natsTrigger",
+      "name": "NATS Subscriber",
+      "type": "n8n-nodes-synadia.natsSubscriber",
       "parameters": {
         "subscriptionType": "jetstream",
         "subject": "events.>",
@@ -334,7 +276,7 @@ To connect to Synadia Cloud:
   "nodes": [
     {
       "name": "NATS Worker",
-      "type": "n8n-nodes-synadia.natsTrigger",
+      "type": "n8n-nodes-synadia.natsSubscriber",
       "parameters": {
         "subject": "work.items",
         "queueGroup": "workers",
@@ -357,7 +299,7 @@ To connect to Synadia Cloud:
         "operation": "put",
         "bucket": "config",
         "key": "app.settings",
-        "value": "={{JSON.stringify($json)}}",
+        "value": "{{JSON.stringify($json)}}",
         "options": {}
       }
     }
@@ -372,7 +314,7 @@ To connect to Synadia Cloud:
   "nodes": [
     {
       "name": "Config Watcher",
-      "type": "n8n-nodes-synadia.natsKvTrigger",
+      "type": "n8n-nodes-synadia.natsKvWatcher",
       "parameters": {
         "bucket": "config",
         "watchType": "pattern",
@@ -398,7 +340,7 @@ To connect to Synadia Cloud:
         "operation": "put",
         "bucket": "documents",
         "name": "report-{{ $now.toFormat('yyyy-MM-dd') }}.pdf",
-        "data": "={{ $binary.data }}",
+        "data": "{{ $binary.data }}",
         "options": {
           "dataType": "binary"
         }
@@ -417,47 +359,27 @@ To connect to Synadia Cloud:
     "operation": "put",
     "bucket": "documents",
     "name": "=report-{{ $json.timestamp.toDateTime().format('yyyy-LL-dd') }}.json",
-    "data": "={{ $json.toJsonString() }}",
+    "data": "{{ $json.toJsonString() }}",
     "options": {}
   }
 }
 ```
 
-### Request/Reply Pattern
+### Request/Reply Pattern (Using Subscriber with Reply Mode)
 
 ```json
 {
   "nodes": [
     {
-      "name": "Call Service",
-      "type": "n8n-nodes-synadia.natsRequestReply",
+      "name": "Service Endpoint",
+      "type": "n8n-nodes-synadia.natsSubscriber",
       "parameters": {
         "subject": "api.users.get",
-        "requestData": "={{ JSON.stringify({ userId: $json.id }) }}",
-        "options": {
-          "timeout": 3000,
-          "requestEncoding": "json"
-        }
-      }
-    }
-  ]
-}
-```
-
-### Service Implementation (with workflow)
-
-```json
-{
-  "nodes": [
-    {
-      "name": "User Service",
-      "type": "n8n-nodes-synadia.natsServiceReply",
-      "parameters": {
-        "subject": "api.users.service",
-        "queueGroup": "user-service",
-        "options": {
+        "replyMode": "manual",
+        "replyOptions": {
           "replyField": "userData",
-          "includeRequest": true
+          "includeRequest": true,
+          "defaultReply": "{\"success\": true}"
         }
       }
     },
@@ -473,27 +395,9 @@ To connect to Synadia Cloud:
 }
 ```
 
-### Simple Service (single node)
+## Reply Modes in NATS Subscriber
 
-```json
-{
-  "nodes": [
-    {
-      "name": "Echo Service",
-      "type": "n8n-nodes-synadia.natsService",
-      "parameters": {
-        "subject": "api.echo",
-        "responseData": "{\n  \"success\": true,\n  \"echo\": \"{{$json.data}}\",\n  \"timestamp\": \"{{new Date().toISOString()}}\"\n}",
-        "options": {}
-      }
-    }
-  ]
-}
-```
-
-## Reply Modes in NATS Trigger
-
-The NATS Trigger node now supports three reply modes for handling request-reply patterns:
+The NATS Subscriber node now supports three reply modes for handling request-reply patterns:
 
 ### Disabled Mode (Default)
 Traditional trigger behavior - processes messages without sending replies.
@@ -513,7 +417,7 @@ Stores incoming request messages and allows the workflow to process them before 
   "nodes": [
     {
       "name": "NATS Service",
-      "type": "n8n-nodes-synadia.natsTrigger",
+      "type": "n8n-nodes-synadia.natsSubscriber",
       "parameters": {
         "subject": "api.process",
         "replyMode": "manual",
@@ -637,8 +541,12 @@ src/
 ├── credentials/
 │   └── NatsApi.credentials.ts    # NATS connection credentials
 ├── nodes/
-│   ├── NatsTrigger.node.ts       # Trigger node implementation
-│   └── NatsPublisher.node.ts     # Publisher node implementation
+│   ├── NatsSubscriber.node.ts    # Subscriber node implementation
+│   ├── NatsPublisher.node.ts     # Publisher node implementation
+│   ├── NatsKv.node.ts            # Key-Value operations
+│   ├── NatsKvWatcher.node.ts     # Watch KV changes
+│   ├── NatsObjectStore.node.ts   # Object storage operations
+│   └── NatsObjectStoreWatcher.node.ts  # Watch object changes
 └── utils/
     ├── NatsConnection.ts         # Connection management
     └── NatsHelpers.ts           # Message parsing and encoding
@@ -657,7 +565,7 @@ All trigger nodes include built-in sample data for easy testing and development.
 
 ### Sample Data Examples
 
-#### NATS Trigger (Core NATS)
+#### NATS Subscriber (Core NATS)
 ```json
 {
   "subject": "orders.new",
@@ -673,7 +581,7 @@ All trigger nodes include built-in sample data for easy testing and development.
 }
 ```
 
-#### NATS Trigger (JetStream)
+#### NATS Subscriber (JetStream)
 ```json
 {
   "subject": "orders.confirmed",
@@ -693,7 +601,7 @@ All trigger nodes include built-in sample data for easy testing and development.
 }
 ```
 
-#### NATS KV Trigger
+#### NATS KV Watcher
 ```json
 {
   "bucket": "config",
@@ -712,7 +620,7 @@ All trigger nodes include built-in sample data for easy testing and development.
 }
 ```
 
-#### NATS Object Store Trigger
+#### NATS Object Store Watcher
 ```json
 {
   "bucket": "documents",
@@ -729,52 +637,6 @@ All trigger nodes include built-in sample data for easy testing and development.
 }
 ```
 
-#### NATS Service Reply
-```json
-{
-  "subject": "api.users.get",
-  "data": {
-    "userId": "12345",
-    "action": "getUser",
-    "includeDetails": true
-  },
-  "headers": {
-    "X-Request-ID": "sample-req-123",
-    "X-Client-Version": "1.0.0"
-  },
-  "replyTo": "_INBOX.sample.reply",
-  "requestId": "sample-request-id",
-  "timestamp": "<current_iso_timestamp>"
-}
-```
-
-#### NATS Service
-```json
-{
-  "subject": "api.echo",
-  "data": {
-    "userId": "12345",
-    "action": "getUser",
-    "includeDetails": true
-  },
-  "replyTo": "_INBOX.sample.reply",
-  "timestamp": "<current_iso_timestamp>",
-  "sentRequest": {
-    "userId": "12345",
-    "action": "getUser",
-    "includeDetails": true
-  },
-  "sentResponse": {
-    "success": true,
-    "echo": {
-      "userId": "12345",
-      "action": "getUser",
-      "includeDetails": true
-    },
-    "timestamp": "<current_iso_timestamp>"
-  }
-}
-```
 
 ### Benefits of Sample Data
 

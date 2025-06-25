@@ -1,4 +1,4 @@
-import { NatsObjectStoreTrigger } from '../NatsObjectStoreTrigger.node';
+import { NatsObjectStoreWatcher } from '../NatsObjectStoreWatcher.node';
 import { createNatsConnection, closeNatsConnection } from '../../utils/NatsConnection';
 import { ITriggerFunctions } from 'n8n-workflow';
 import { jetstream, consumerOpts, jetstreamManager } from '../../bundled/nats-bundled';
@@ -6,8 +6,8 @@ import { jetstream, consumerOpts, jetstreamManager } from '../../bundled/nats-bu
 jest.mock('../../utils/NatsConnection');
 jest.mock('../../bundled/nats-bundled');
 
-describe('NatsObjectStoreTrigger', () => {
-	let node: NatsObjectStoreTrigger;
+describe('NatsObjectStoreWatcher', () => {
+	let node: NatsObjectStoreWatcher;
 	let mockTriggerFunctions: ITriggerFunctions;
 	let mockNc: any;
 	let mockJs: any;
@@ -20,7 +20,7 @@ describe('NatsObjectStoreTrigger', () => {
 	let mockConsumer: any;
 
 	beforeEach(() => {
-		node = new NatsObjectStoreTrigger();
+		node = new NatsObjectStoreWatcher();
 		
 		// Setup mocks
 		mockSubscription = {
@@ -81,7 +81,13 @@ describe('NatsObjectStoreTrigger', () => {
 				returnJsonArray: jest.fn((data) => data.map((item: any) => ({ json: item }))),
 			},
 			getMode: jest.fn().mockReturnValue('trigger'),
-			getNode: jest.fn().mockReturnValue({}),
+			getNode: jest.fn().mockReturnValue({
+				id: 'test-node-id',
+				name: 'Test Node',
+				type: 'n8n-nodes-synadia.natsObjectStoreWatcher',
+				position: [0, 0],
+				typeVersion: 1,
+			}),
 			logger: {
 				error: jest.fn(),
 			},
@@ -177,7 +183,7 @@ describe('NatsObjectStoreTrigger', () => {
 			}
 			
 			expect(mockConsumer.delete).toHaveBeenCalled();
-			expect(closeNatsConnection).toHaveBeenCalledWith(mockNc);
+			expect(closeNatsConnection).toHaveBeenCalledWith(mockNc, expect.any(Object));
 		});
 
 		it('should handle updates only option', async () => {
@@ -433,8 +439,8 @@ describe('NatsObjectStoreTrigger', () => {
 
 	describe('node description', () => {
 		it('should have correct metadata', () => {
-			expect(node.description.displayName).toBe('NATS Object Store Trigger');
-			expect(node.description.name).toBe('natsObjectStoreTrigger');
+			expect(node.description.displayName).toBe('NATS Object Store Watcher');
+			expect(node.description.name).toBe('natsObjectStoreWatcher');
 			expect(node.description.version).toBe(1);
 			expect(node.description.credentials).toEqual([{
 				name: 'natsApi',

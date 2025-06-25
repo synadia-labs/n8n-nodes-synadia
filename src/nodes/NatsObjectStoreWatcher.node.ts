@@ -9,18 +9,19 @@ import {
 import { NatsConnection, jetstream, jetstreamManager } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { validateBucketName } from '../utils/ValidationHelpers';
+import { NodeLogger } from '../utils/NodeLogger';
 
-export class NatsObjectStoreTrigger implements INodeType {
+export class NatsObjectStoreWatcher implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'NATS Object Store Trigger',
-		name: 'natsObjectStoreTrigger',
+		displayName: 'NATS Object Store Watcher',
+		name: 'natsObjectStoreWatcher',
 		icon: 'file:../icons/nats.svg',
 		group: ['trigger'],
 		version: 1,
-		description: 'Receive notifications when objects are added, updated, or deleted in a bucket',
-		subtitle: '={{$parameter["bucket"]}}',
+		description: 'Watch for object changes in NATS Object Store buckets and trigger workflows',
+		subtitle: '{{$parameter["bucket"]}}',
 		defaults: {
-			name: 'NATS Object Store Trigger',
+			name: 'NATS Object Store Watcher',
 		},
 		inputs: [],
 		outputs: [NodeConnectionType.Main],
@@ -96,9 +97,12 @@ export class NatsObjectStoreTrigger implements INodeType {
 		let nc: NatsConnection;
 		let subscription: any;
 		
+		// Create NodeLogger once for the entire trigger lifecycle
+		const nodeLogger = new NodeLogger(this.logger, this.getNode());
+		
 		const startWatcher = async () => {
 			try {
-				nc = await createNatsConnection(credentials, this);
+				nc = await createNatsConnection(credentials, nodeLogger);
 				const js = jetstream(nc);
 				
 				// Object Store uses the underlying stream events
@@ -178,12 +182,12 @@ export class NatsObjectStoreTrigger implements INodeType {
 							
 							msg.ack();
 						} catch (error) {
-							this.logger.error('Error processing object store event:', { error });
+							nodeLogger.error('Error processing object store event:', { error });
 							msg.ack();
 						}
 					}
 				})().catch((error) => {
-					this.logger.error('Object store watcher error:', { error });
+					nodeLogger.error('Object store watcher error:', { error });
 				});
 				
 			} catch (error: any) {
@@ -204,10 +208,15 @@ export class NatsObjectStoreTrigger implements INodeType {
 					}
 				}
 				if (nc) {
-					await closeNatsConnection(nc);
+					await closeNatsConnection(nc, nodeLogger);
 				}
-			} catch (error) {
-				console.error('Error closing object store trigger:', error);
+			} catch (error: any) {
+				// Log error but don't throw - connection may already be closed
+				// This is expected behavior during shutdown
+				if (error.message && !error.message.includes('closed')) {
+					// Only log unexpected errors
+					nodeLogger.error('Error closing object store watcher:', { error });
+				}
 			}
 		}
 		

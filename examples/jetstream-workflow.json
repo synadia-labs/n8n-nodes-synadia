@@ -12,11 +12,11 @@
     {
       "parameters": {
         "subject": "orders.new",
-        "message": "={{JSON.stringify({\"orderId\": \"ORD-\" + Math.random().toString(36).substr(2, 9).toUpperCase(), \"customerName\": \"Alice Smith\", \"items\": [{\"product\": \"Widget\", \"quantity\": 2, \"price\": 29.99}], \"total\": 59.98, \"status\": \"pending\", \"timestamp\": $now.toISO()})}}",
+        "message": "{{JSON.stringify({\"orderId\": \"ORD-\" + Math.random().toString(36).substr(2, 9).toUpperCase(), \"customerName\": \"Alice Smith\", \"items\": [{\"product\": \"Widget\", \"quantity\": 2, \"price\": 29.99}], \"total\": 59.98, \"status\": \"pending\", \"timestamp\": $now.toISO()})}}",
         "publishType": "jetstream",
         "streamName": "ORDERS",
         "options": {
-          "messageId": "={{\"order-\" + Date.now()}}"
+          "messageId": "{{\"order-\" + Date.now()}}"
         }
       },
       "id": "publish-js",
@@ -42,7 +42,7 @@
       },
       "id": "consume-js",
       "name": "Consume from JetStream",
-      "type": "n8n-nodes-synadia.natsTrigger",
+      "type": "n8n-nodes-synadia.natsSubscriber",
       "typeVersion": 1,
       "position": [240, 500],
       "credentials": {
@@ -57,7 +57,7 @@
         "conditions": {
           "string": [
             {
-              "value1": "={{$json.subject}}",
+              "value1": "{{$json.subject}}",
               "value2": "orders.new"
             }
           ]
@@ -75,7 +75,7 @@
           "string": [
             {
               "name": "processedAt",
-              "value": "={{$now.toISO()}}"
+              "value": "{{$now.toISO()}}"
             },
             {
               "name": "processorId",
@@ -85,7 +85,7 @@
           "number": [
             {
               "name": "sequence",
-              "value": "={{$json.seq}}"
+              "value": "{{$json.seq}}"
             }
           ]
         },
@@ -100,7 +100,7 @@
     {
       "parameters": {
         "subject": "orders.processed",
-        "message": "={{JSON.stringify(Object.assign({}, $json.data, {processedAt: $json.processedAt, processorId: $json.processorId, originalSeq: $json.sequence}))}}",
+        "message": "{{JSON.stringify(Object.assign({}, $json.data, {processedAt: $json.processedAt, processorId: $json.processorId, originalSeq: $json.sequence}))}}"
         "publishType": "jetstream",
         "streamName": "ORDERS",
         "options": {}
