@@ -527,7 +527,14 @@ export class NatsSubscriber implements INodeType {
 		};
 
 		try {
-			nc = await createNatsConnection(credentials, nodeLogger);
+			// Create connection with monitoring for long-running trigger
+			nc = await createNatsConnection(credentials, nodeLogger, {
+				monitor: true,
+				onError: (error) => {
+					nodeLogger.error('Subscriber connection lost:', { error });
+					// Connection errors will be handled by the monitoring
+				}
+			});
 
 			if (subscriptionType === 'core') {
 				// Core NATS subscription

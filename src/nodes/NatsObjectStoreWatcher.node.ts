@@ -102,7 +102,14 @@ export class NatsObjectStoreWatcher implements INodeType {
 		
 		const startWatcher = async () => {
 			try {
-				nc = await createNatsConnection(credentials, nodeLogger);
+				// Create connection with monitoring for long-running trigger
+				nc = await createNatsConnection(credentials, nodeLogger, {
+					monitor: true,
+					onError: (error) => {
+						nodeLogger.error('Object store watcher connection lost:', { error });
+						// Connection errors will be handled by the monitoring
+					}
+				});
 				const js = jetstream(nc);
 				
 				// Object Store uses the underlying stream events

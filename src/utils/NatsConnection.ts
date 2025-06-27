@@ -21,6 +21,10 @@ export type NatsCredentials = {
 export async function createNatsConnection(
 	credentials: ICredentialDataDecryptedObject,
 	logger: Logger,
+	options?: {
+		monitor?: boolean;
+		onError?: (error: Error) => void;
+	}
 ): Promise<NatsConnection> {
 	const creds = credentials as unknown as NatsCredentials;
 	
@@ -72,6 +76,12 @@ export async function createNatsConnection(
 
 	try {
 		const nc = await connect(connectionOptions);
+		
+		// Set up connection monitoring if requested
+		if (options?.monitor) {
+			monitorNatsConnection(nc, logger, options.onError);
+		}
+		
 		return nc;
 	} catch (error: any) {
 		// For connection errors, we use NodeApiError when we have a NodeLogger with node context
@@ -92,14 +102,46 @@ export async function createNatsConnection(
 
 export async function closeNatsConnection(nc: NatsConnection, logger: Logger): Promise<void> {
 	try {
+		// Check if connection is still alive before attempting to drain
+		if (nc.isClosed()) {
+			return; // Connection already closed
+		}
+		
+		// drain() automatically closes the connection, no need to call close() separately
 		await nc.drain();
-		await nc.close();
 	} catch (error: any) {
 		// Log error but don't throw - connection may already be closed
 		// This is expected behavior during shutdown
 		if (error.message && !error.message.includes('closed')) {
 			// Only log unexpected errors
-			logger.error('Error closing NATS connection:', { error });
+			logger.error('Error draining NATS connection:', { error });
 		}
 	}
+}
+
+export async function monitorNatsConnection(
+	nc: NatsConnection, 
+	logger: Logger, 
+	onError?: (error: Error) => void
+): Promise<void> {
+	// Monitor connection lifecycle in the background
+	nc.closed().then((err) => {
+		if (err) {
+			// Connection closed due to an error
+			logger.error('NATS connection closed with error:', { error: err });
+			if (onError) {
+				onError(err);
+			}
+		} else {
+			// Connection closed normally
+			logger.debug('NATS connection closed normally');
+		}
+	}).catch((err) => {
+		// Unexpected error in monitoring
+		logger.error('Error monitoring NATS connection:', { error: err });
+	});
+}
+
+export function isConnectionAlive(nc: NatsConnection): boolean {
+	return !nc.isClosed();
 }

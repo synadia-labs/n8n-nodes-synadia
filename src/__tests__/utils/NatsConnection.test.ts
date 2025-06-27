@@ -1,4 +1,4 @@
-import { createNatsConnection, closeNatsConnection } from '../../utils/NatsConnection';
+import { createNatsConnection, closeNatsConnection, monitorNatsConnection, isConnectionAlive } from '../../utils/NatsConnection';
 import { connect, credsAuthenticator, usernamePasswordAuthenticator, tokenAuthenticator } from '../../bundled/nats-bundled';
 
 jest.mock('../../bundled/nats-bundled', () => ({
@@ -161,38 +161,120 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
     it('should handle close operation gracefully', async () => {
       const mockNatsConnection = {
         drain: jest.fn().mockResolvedValue(undefined),
-        close: jest.fn().mockResolvedValue(undefined),
+        isClosed: jest.fn().mockReturnValue(false),
       } as any;
 
       await closeNatsConnection(mockNatsConnection, mockLogger);
 
+      expect(mockNatsConnection.isClosed).toHaveBeenCalled();
       expect(mockNatsConnection.drain).toHaveBeenCalled();
-      expect(mockNatsConnection.close).toHaveBeenCalled();
     });
 
     it('should handle errors gracefully', async () => {
       const mockNatsConnection = {
         drain: jest.fn().mockRejectedValue(new Error('Drain failed')),
-        close: jest.fn().mockResolvedValue(undefined),
+        isClosed: jest.fn().mockReturnValue(false),
       } as any;
 
       await closeNatsConnection(mockNatsConnection, mockLogger);
 
       expect(mockLogger.error).toHaveBeenCalledWith(
-        'Error closing NATS connection:',
+        'Error draining NATS connection:',
         { error: expect.any(Error) }
       );
     });
 
-    it('should not log errors for connection already closed', async () => {
+    it('should not drain if connection is already closed', async () => {
+      const mockNatsConnection = {
+        drain: jest.fn(),
+        isClosed: jest.fn().mockReturnValue(true),
+      } as any;
+
+      await closeNatsConnection(mockNatsConnection, mockLogger);
+
+      expect(mockNatsConnection.isClosed).toHaveBeenCalled();
+      expect(mockNatsConnection.drain).not.toHaveBeenCalled();
+      expect(mockLogger.error).not.toHaveBeenCalled();
+    });
+
+    it('should not log errors for connection already closed during drain', async () => {
       const mockNatsConnection = {
         drain: jest.fn().mockRejectedValue(new Error('connection closed')),
-        close: jest.fn().mockResolvedValue(undefined),
+        isClosed: jest.fn().mockReturnValue(false),
       } as any;
 
       await closeNatsConnection(mockNatsConnection, mockLogger);
 
       expect(mockLogger.error).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('monitorNatsConnection', () => {
+    it('should set up connection monitoring', async () => {
+      const mockNatsConnection = {
+        closed: jest.fn().mockResolvedValue(undefined),
+      } as any;
+
+      const onError = jest.fn();
+      monitorNatsConnection(mockNatsConnection, mockLogger, onError);
+
+      expect(mockNatsConnection.closed).toHaveBeenCalled();
+    });
+
+    it('should handle connection closed with error', async () => {
+      const testError = new Error('Connection error');
+      const mockNatsConnection = {
+        closed: jest.fn().mockResolvedValue(testError),
+      } as any;
+
+      const onError = jest.fn();
+      monitorNatsConnection(mockNatsConnection, mockLogger, onError);
+
+      // Wait for the promise to resolve
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(onError).toHaveBeenCalledWith(testError);
+    });
+  });
+
+  describe('isConnectionAlive', () => {
+    it('should return true for alive connection', () => {
+      const mockNatsConnection = {
+        isClosed: jest.fn().mockReturnValue(false),
+      } as any;
+
+      expect(isConnectionAlive(mockNatsConnection)).toBe(true);
+    });
+
+    it('should return false for closed connection', () => {
+      const mockNatsConnection = {
+        isClosed: jest.fn().mockReturnValue(true),
+      } as any;
+
+      expect(isConnectionAlive(mockNatsConnection)).toBe(false);
+    });
+  });
+
+  describe('createNatsConnection with monitoring', () => {
+    it('should create connection with monitoring when requested', async () => {
+      const mockNatsConnection = {
+        closed: jest.fn().mockResolvedValue(undefined),
+      } as any;
+      
+      mockConnect.mockResolvedValue(mockNatsConnection);
+
+      const credentials = {
+        url: 'nats://localhost:4222',
+        authenticationType: 'none',
+      };
+
+      const onError = jest.fn();
+      await createNatsConnection(credentials, mockLogger, {
+        monitor: true,
+        onError,
+      });
+
+      expect(mockNatsConnection.closed).toHaveBeenCalled();
     });
   });
 });

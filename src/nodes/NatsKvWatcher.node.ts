@@ -212,7 +212,14 @@ export class NatsKvWatcher implements INodeType {
 		
 		const startWatcher = async () => {
 			try {
-				nc = await createNatsConnection(credentials, nodeLogger);
+				// Create connection with monitoring for long-running trigger
+				nc = await createNatsConnection(credentials, nodeLogger, {
+					monitor: true,
+					onError: (error) => {
+						nodeLogger.error('KV watcher connection lost:', { error });
+						// Connection errors will be handled by the monitoring
+					}
+				});
 				const js = jetstream(nc);
 				const kvManager = new Kvm(js);
 				
