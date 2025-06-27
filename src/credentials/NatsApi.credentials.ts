@@ -10,51 +10,41 @@ export class NatsApi implements ICredentialType {
 	documentationUrl = 'https://docs.nats.io';
 	properties: INodeProperties[] = [
 		{
-			displayName: 'Connection Type',
-			name: 'connectionType',
+			displayName: 'Server URL',
+			name: 'url',
+			type: 'string',
+			default: 'nats://localhost:4222',
+			placeholder: 'nats://localhost:4222',
+			description: 'NATS server URL. For Synadia Cloud, use: tls://connect.ngs.global.',
+			required: true,
+		},
+		{
+			displayName: 'Authentication Type',
+			name: 'authenticationType',
 			type: 'options',
 			options: [
 				{
+					name: 'No Authentication',
+					value: 'none',
+					description: 'Connect without authentication',
+				},
+				{
 					name: 'Credentials',
-					value: 'credentials',
-					description: 'Connect using username/password',
+					value: 'creds',
+					description: 'Connect using .creds file content',
 				},
 				{
-					name: 'Credentials File',
-					value: 'credsFile',
-					description: 'Connect using Synadia Cloud .creds file',
-				},
-				{
-					name: 'JWT',
-					value: 'jwt',
-					description: 'Connect using JWT authentication',
-				},
-				{
-					name: 'NKey',
-					value: 'nkey',
-					description: 'Connect using NKey authentication',
+					name: 'Username/Password',
+					value: 'userpass',
+					description: 'Connect using username and password',
 				},
 				{
 					name: 'Token',
 					value: 'token',
 					description: 'Connect using auth token',
 				},
-				{
-					name: 'URL',
-					value: 'url',
-					description: 'Connect using NATS URL(s)',
-				},
 			],
-			default: 'url',
-		},
-		{
-			displayName: 'Server URLs',
-			name: 'servers',
-			type: 'string',
-			default: 'nats://localhost:4222',
-			placeholder: 'nats://localhost:4222,nats://localhost:4223',
-			description: 'Comma-separated list of NATS server URLs. For Synadia Cloud, use: tls://connect.ngs.global.',
-			hint: 'For Synadia Cloud with .creds file, use: tls://connect.ngs.global',
+			default: 'none',
 		},
 		{
 			displayName: 'Username',
@@ -62,10 +52,11 @@ export class NatsApi implements ICredentialType {
 			type: 'string',
 			displayOptions: {
 				show: {
-					connectionType: ['credentials'],
+					authenticationType: ['userpass'],
 				},
 			},
 			default: '',
+			required: true,
 		},
 		{
 			displayName: 'Password',
@@ -76,7 +67,7 @@ export class NatsApi implements ICredentialType {
 			},
 			displayOptions: {
 				show: {
-					connectionType: ['credentials'],
+					authenticationType: ['userpass'],
 				},
 			},
 			default: '',
@@ -90,56 +81,11 @@ export class NatsApi implements ICredentialType {
 			},
 			displayOptions: {
 				show: {
-					connectionType: ['token'],
+					authenticationType: ['token'],
 				},
 			},
 			default: '',
-		},
-		{
-			displayName: 'NKey Seed',
-			name: 'nkeySeed',
-			type: 'string',
-			typeOptions: {
-				password: true,
-			},
-			displayOptions: {
-				show: {
-					connectionType: ['nkey'],
-				},
-			},
-			default: '',
-			placeholder: 'SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY',
-		},
-		{
-			displayName: 'JWT',
-			name: 'jwt',
-			type: 'string',
-			typeOptions: {
-				password: true,
-				rows: 4,
-			},
-			displayOptions: {
-				show: {
-					connectionType: ['jwt'],
-				},
-			},
-			default: '',
-			description: 'JWT token for authentication',
-		},
-		{
-			displayName: 'NKey for JWT',
-			name: 'jwtNkey',
-			type: 'string',
-			typeOptions: {
-				password: true,
-			},
-			displayOptions: {
-				show: {
-					connectionType: ['jwt'],
-				},
-			},
-			default: '',
-			description: 'NKey seed to sign the JWT',
+			required: true,
 		},
 		{
 			displayName: 'Credentials File Content',
@@ -151,7 +97,7 @@ export class NatsApi implements ICredentialType {
 			},
 			displayOptions: {
 				show: {
-					connectionType: ['credsFile'],
+					authenticationType: ['creds'],
 				},
 			},
 			default: '',
@@ -167,6 +113,7 @@ NKEYs are sensitive and should be treated as secrets.
 SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
 ------END USER NKEY SEED------`,
 			description: 'Paste the entire contents of your .creds file here',
+			required: true,
 		},
 		{
 			displayName: 'Options',
@@ -176,29 +123,29 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
 			default: {},
 			options: [
 				{
-					displayName: 'Name',
+					displayName: 'Client Name',
 					name: 'name',
 					type: 'string',
 					default: '',
 					description: 'Client name for connection identification',
 				},
 				{
-					displayName: 'TLS',
-					name: 'tls',
+					displayName: 'Enable TLS',
+					name: 'tlsEnabled',
 					type: 'boolean',
 					default: false,
-					description: 'Whether to use TLS encryption',
+					description: 'Whether to enable TLS encryption',
 				},
 				{
 					displayName: 'TLS CA Certificate',
-					name: 'tlsCaCert',
+					name: 'ca',
 					type: 'string',
 					typeOptions: {
 						rows: 4,
 					},
 					displayOptions: {
 						show: {
-							tls: [true],
+							tlsEnabled: [true],
 						},
 					},
 					default: '',
@@ -206,14 +153,14 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
 				},
 				{
 					displayName: 'TLS Client Certificate',
-					name: 'tlsCert',
+					name: 'cert',
 					type: 'string',
 					typeOptions: {
 						rows: 4,
 					},
 					displayOptions: {
 						show: {
-							tls: [true],
+							tlsEnabled: [true],
 						},
 					},
 					default: '',
@@ -221,7 +168,7 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
 				},
 				{
 					displayName: 'TLS Client Key',
-					name: 'tlsKey',
+					name: 'key',
 					type: 'string',
 					typeOptions: {
 						rows: 4,
@@ -229,39 +176,11 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
 					},
 					displayOptions: {
 						show: {
-							tls: [true],
+							tlsEnabled: [true],
 						},
 					},
 					default: '',
 					description: 'Client key for TLS authentication',
-				},
-				{
-					displayName: 'Max Reconnect Attempts',
-					name: 'maxReconnectAttempts',
-					type: 'number',
-					default: -1,
-					description: 'Maximum number of reconnect attempts (-1 for infinite)',
-				},
-				{
-					displayName: 'Reconnect Time Wait (Ms)',
-					name: 'reconnectTimeWait',
-					type: 'number',
-					default: 2000,
-					description: 'Time to wait between reconnect attempts',
-				},
-				{
-					displayName: 'Connection Timeout (Ms)',
-					name: 'timeout',
-					type: 'number',
-					default: 20000,
-					description: 'Connection timeout in milliseconds',
-				},
-				{
-					displayName: 'Ping Interval (Ms)',
-					name: 'pingInterval',
-					type: 'number',
-					default: 120000,
-					description: 'Ping interval in milliseconds',
 				},
 			],
 		},
