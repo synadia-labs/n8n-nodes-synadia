@@ -62,7 +62,7 @@ export class NatsStreamConsumer implements INodeType {
 		const credentials = await this.getCredentials('natsApi');
 
 		let nc: NatsConnection;
-		let subscription: any;
+		let consumer: any;
 		let messageIterator: any;
 
 		// Create NodeLogger once for the entire trigger
@@ -76,8 +76,8 @@ export class NatsStreamConsumer implements INodeType {
 			if (messageIterator) {
 				await messageIterator.return();
 			}
-			if (subscription && typeof subscription.stop === 'function') {
-				await subscription.stop();
+			if (consumer && typeof consumer.stop === 'function') {
+				await consumer.stop();
 			}
 			if (nc) {
 				await closeNatsConnection(nc, nodeLogger);
@@ -119,7 +119,7 @@ export class NatsStreamConsumer implements INodeType {
 			const js = jetstream(nc);
 
 			// Use existing consumer (durable or ephemeral)
-			const consumer = await js.consumers.get(streamName, consumerName);
+			consumer = await js.consumers.get(streamName, consumerName);
 			
 			// Start consuming messages
 			messageIterator = await consumer.consume();
@@ -129,9 +129,6 @@ export class NatsStreamConsumer implements INodeType {
 					msg.ack();
 				}
 			})();
-
-			// Store consumer for cleanup
-			subscription = consumer as any;
 
 			return {
 				closeFunction,
