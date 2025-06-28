@@ -18,13 +18,25 @@ export type NatsCredentials = {
 	};
 };
 
+export type ConnectionMonitoringOptions = {
+	monitor?: boolean;
+	onError?: (error: Error) => void;
+	onStatus?: (status: any) => void;
+	onDisconnect?: (server: string) => void;
+	onReconnect?: (server: string) => void;
+	onReconnecting?: () => void;
+	onClusterUpdate?: (added: string[], removed: string[]) => void;
+	onAsyncError?: (error: Error) => void;
+	onLameDuck?: () => void;
+	onPing?: (pendingPings: number) => void;
+	onStaleConnection?: () => void;
+	onForceReconnect?: () => void;
+};
+
 export async function createNatsConnection(
 	credentials: ICredentialDataDecryptedObject,
 	logger: Logger,
-	options?: {
-		monitor?: boolean;
-		onError?: (error: Error) => void;
-	}
+	options?: ConnectionMonitoringOptions
 ): Promise<NatsConnection> {
 	const creds = credentials as unknown as NatsCredentials;
 	
@@ -79,7 +91,7 @@ export async function createNatsConnection(
 		
 		// Set up connection monitoring if requested
 		if (options?.monitor) {
-			monitorNatsConnection(nc, logger, options.onError);
+			monitorNatsConnection(nc, logger, options);
 		}
 		
 		return nc;
@@ -122,15 +134,120 @@ export async function closeNatsConnection(nc: NatsConnection, logger: Logger): P
 export async function monitorNatsConnection(
 	nc: NatsConnection, 
 	logger: Logger, 
-	onError?: (error: Error) => void
+	options?: ConnectionMonitoringOptions
 ): Promise<void> {
-	// Monitor connection lifecycle in the background
+	// Monitor connection status events in the background
+	(async () => {
+		try {
+			logger.info(`NATS connected to ${nc.getServer()}`);
+			
+			for await (const status of nc.status()) {
+				// Call general status callback if provided
+				if (options?.onStatus) {
+					options.onStatus(status);
+				}
+				
+				switch (status.type) {
+					case 'disconnect':
+						logger.warn(`NATS disconnected from ${(status as any).server}`);
+						if (options?.onDisconnect) {
+							options.onDisconnect((status as any).server);
+						}
+						break;
+						
+					case 'reconnecting':
+						logger.debug('NATS is reconnecting...');
+						if (options?.onReconnecting) {
+							options.onReconnecting();
+						}
+						break;
+						
+					case 'reconnect':
+						logger.info(`NATS reconnected to ${(status as any).server}`);
+						if (options?.onReconnect) {
+							options.onReconnect((status as any).server);
+						}
+						break;
+						
+					case 'update':
+						logger.info('NATS cluster configuration updated', {
+							added: (status as any).added || [],
+							removed: (status as any).removed || []
+						});
+						if (options?.onClusterUpdate) {
+							options.onClusterUpdate(
+								(status as any).added || [],
+								(status as any).removed || []
+							);
+						}
+						break;
+						
+					case 'error':
+						logger.error('NATS async error:', { error: (status as any).error });
+						if (options?.onAsyncError) {
+							options.onAsyncError((status as any).error);
+						}
+						break;
+						
+					case 'ldm':
+						logger.warn('NATS server entered lame duck mode - will evict clients');
+						if (options?.onLameDuck) {
+							options.onLameDuck();
+						}
+						break;
+						
+					case 'ping': {
+						const pendingPings = (status as any).pendingPings || 0;
+						if (pendingPings > 1) {
+							logger.warn(`NATS ping timeout - ${pendingPings} pending pings`);
+						} else {
+							logger.debug(`NATS ping - ${pendingPings} pending`);
+						}
+						if (options?.onPing) {
+							options.onPing(pendingPings);
+						}
+						break;
+					}
+						
+					case 'staleConnection':
+						logger.warn('NATS connection is stale - client will reconnect');
+						if (options?.onStaleConnection) {
+							options.onStaleConnection();
+						}
+						break;
+						
+					case 'forceReconnect':
+						logger.debug('NATS forced reconnect initiated');
+						if (options?.onForceReconnect) {
+							options.onForceReconnect();
+						}
+						break;
+						
+					case 'close':
+						logger.debug('NATS connection closed - no further reconnects will be attempted');
+						break;
+						
+					default:
+						logger.debug(`NATS status event: ${status.type}`, { status });
+						break;
+				}
+			}
+		} catch (error) {
+			// Status monitoring loop ended - this is expected when connection closes
+			logger.debug('NATS status monitoring ended', { error });
+		}
+	})().catch((err) => {
+		// Unexpected error in status monitoring
+		logger.error('Error in NATS status monitoring:', { error: err });
+	});
+	
+	// Also monitor connection lifecycle with closed() promise
 	nc.closed().then((err) => {
 		if (err) {
 			// Connection closed due to an error
 			logger.error('NATS connection closed with error:', { error: err });
-			if (onError) {
-				onError(err);
+			if (options?.onError) {
+				options.onError(err);
 			}
 		} else {
 			// Connection closed normally
@@ -138,7 +255,7 @@ export async function monitorNatsConnection(
 		}
 	}).catch((err) => {
 		// Unexpected error in monitoring
-		logger.error('Error monitoring NATS connection:', { error: err });
+		logger.error('Error monitoring NATS connection closure:', { error: err });
 	});
 }
 

@@ -107,7 +107,15 @@ export class NatsObjectStoreWatcher implements INodeType {
 					monitor: true,
 					onError: (error) => {
 						nodeLogger.error('Object store watcher connection lost:', { error });
-						// Connection errors will be handled by the monitoring
+					},
+					onReconnect: (server) => {
+						nodeLogger.info(`Object store watcher reconnected to ${server}`);
+					},
+					onDisconnect: (server) => {
+						nodeLogger.warn(`Object store watcher disconnected from ${server}`);
+					},
+					onAsyncError: (error) => {
+						nodeLogger.error('Object store watcher async error (e.g. permission):', { error });
 					}
 				});
 				const js = jetstream(nc);

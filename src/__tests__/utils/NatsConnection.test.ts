@@ -1,4 +1,4 @@
-import { createNatsConnection, closeNatsConnection, monitorNatsConnection, isConnectionAlive } from '../../utils/NatsConnection';
+import { createNatsConnection, closeNatsConnection, monitorNatsConnection, isConnectionAlive, ConnectionMonitoringOptions } from '../../utils/NatsConnection';
 import { connect, credsAuthenticator, usernamePasswordAuthenticator, tokenAuthenticator } from '../../bundled/nats-bundled';
 
 jest.mock('../../bundled/nats-bundled', () => ({
@@ -210,30 +210,87 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
   });
 
   describe('monitorNatsConnection', () => {
-    it('should set up connection monitoring', async () => {
+    it('should set up connection monitoring with status events', async () => {
+      const mockStatus = async function* () {
+        yield { type: 'disconnect', server: 'nats://server1:4222' };
+        yield { type: 'reconnect', server: 'nats://server2:4222' };
+      };
+      
       const mockNatsConnection = {
+        getServer: jest.fn().mockReturnValue('nats://localhost:4222'),
+        status: jest.fn().mockReturnValue(mockStatus()),
         closed: jest.fn().mockResolvedValue(undefined),
       } as any;
 
-      const onError = jest.fn();
-      monitorNatsConnection(mockNatsConnection, mockLogger, onError);
+      const options: ConnectionMonitoringOptions = {
+        onDisconnect: jest.fn(),
+        onReconnect: jest.fn(),
+        onStatus: jest.fn(),
+      };
 
-      expect(mockNatsConnection.closed).toHaveBeenCalled();
+      monitorNatsConnection(mockNatsConnection, mockLogger, options);
+
+      // Wait for status events to be processed
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(mockNatsConnection.status).toHaveBeenCalled();
+      expect(options.onDisconnect).toHaveBeenCalledWith('nats://server1:4222');
+      expect(options.onReconnect).toHaveBeenCalledWith('nats://server2:4222');
+    });
+
+    it('should handle various status event types', async () => {
+      const mockStatus = async function* () {
+        yield { type: 'error', error: new Error('Permission denied') };
+        yield { type: 'ldm' };
+        yield { type: 'ping', pendingPings: 2 };
+        yield { type: 'staleConnection' };
+        yield { type: 'update', added: ['server3'], removed: ['server1'] };
+      };
+      
+      const mockNatsConnection = {
+        getServer: jest.fn().mockReturnValue('nats://localhost:4222'),
+        status: jest.fn().mockReturnValue(mockStatus()),
+        closed: jest.fn().mockResolvedValue(undefined),
+      } as any;
+
+      const options: ConnectionMonitoringOptions = {
+        onAsyncError: jest.fn(),
+        onLameDuck: jest.fn(),
+        onPing: jest.fn(),
+        onStaleConnection: jest.fn(),
+        onClusterUpdate: jest.fn(),
+      };
+
+      monitorNatsConnection(mockNatsConnection, mockLogger, options);
+
+      // Wait for status events to be processed
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(options.onAsyncError).toHaveBeenCalledWith(expect.any(Error));
+      expect(options.onLameDuck).toHaveBeenCalled();
+      expect(options.onPing).toHaveBeenCalledWith(2);
+      expect(options.onStaleConnection).toHaveBeenCalled();
+      expect(options.onClusterUpdate).toHaveBeenCalledWith(['server3'], ['server1']);
     });
 
     it('should handle connection closed with error', async () => {
       const testError = new Error('Connection error');
       const mockNatsConnection = {
+        getServer: jest.fn().mockReturnValue('nats://localhost:4222'),
+        status: jest.fn().mockReturnValue((async function* () {})()),
         closed: jest.fn().mockResolvedValue(testError),
       } as any;
 
-      const onError = jest.fn();
-      monitorNatsConnection(mockNatsConnection, mockLogger, onError);
+      const options: ConnectionMonitoringOptions = {
+        onError: jest.fn(),
+      };
+
+      monitorNatsConnection(mockNatsConnection, mockLogger, options);
 
       // Wait for the promise to resolve
       await new Promise(resolve => setTimeout(resolve, 0));
 
-      expect(onError).toHaveBeenCalledWith(testError);
+      expect(options.onError).toHaveBeenCalledWith(testError);
     });
   });
 
@@ -258,6 +315,8 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
   describe('createNatsConnection with monitoring', () => {
     it('should create connection with monitoring when requested', async () => {
       const mockNatsConnection = {
+        getServer: jest.fn().mockReturnValue('nats://localhost:4222'),
+        status: jest.fn().mockReturnValue((async function* () {})()),
         closed: jest.fn().mockResolvedValue(undefined),
       } as any;
       
@@ -268,13 +327,35 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
         authenticationType: 'none',
       };
 
-      const onError = jest.fn();
-      await createNatsConnection(credentials, mockLogger, {
+      const options: ConnectionMonitoringOptions = {
         monitor: true,
-        onError,
-      });
+        onError: jest.fn(),
+        onReconnect: jest.fn(),
+      };
 
+      await createNatsConnection(credentials, mockLogger, options);
+
+      expect(mockNatsConnection.status).toHaveBeenCalled();
       expect(mockNatsConnection.closed).toHaveBeenCalled();
+    });
+
+    it('should not set up monitoring when not requested', async () => {
+      const mockNatsConnection = {
+        status: jest.fn(),
+        closed: jest.fn(),
+      } as any;
+      
+      mockConnect.mockResolvedValue(mockNatsConnection);
+
+      const credentials = {
+        url: 'nats://localhost:4222',
+        authenticationType: 'none',
+      };
+
+      await createNatsConnection(credentials, mockLogger);
+
+      expect(mockNatsConnection.status).not.toHaveBeenCalled();
+      expect(mockNatsConnection.closed).not.toHaveBeenCalled();
     });
   });
 });

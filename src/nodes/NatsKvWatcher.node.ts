@@ -217,7 +217,15 @@ export class NatsKvWatcher implements INodeType {
 					monitor: true,
 					onError: (error) => {
 						nodeLogger.error('KV watcher connection lost:', { error });
-						// Connection errors will be handled by the monitoring
+					},
+					onReconnect: (server) => {
+						nodeLogger.info(`KV watcher reconnected to ${server}`);
+					},
+					onDisconnect: (server) => {
+						nodeLogger.warn(`KV watcher disconnected from ${server}`);
+					},
+					onAsyncError: (error) => {
+						nodeLogger.error('KV watcher async error (e.g. permission):', { error });
 					}
 				});
 				const js = jetstream(nc);

@@ -6370,11 +6370,11 @@ var require_authenticator = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.multiAuthenticator = multiAuthenticator;
     exports2.noAuthFn = noAuthFn;
-    exports2.usernamePasswordAuthenticator = usernamePasswordAuthenticator;
-    exports2.tokenAuthenticator = tokenAuthenticator;
+    exports2.usernamePasswordAuthenticator = usernamePasswordAuthenticator2;
+    exports2.tokenAuthenticator = tokenAuthenticator2;
     exports2.nkeyAuthenticator = nkeyAuthenticator2;
     exports2.jwtAuthenticator = jwtAuthenticator2;
-    exports2.credsAuthenticator = credsAuthenticator;
+    exports2.credsAuthenticator = credsAuthenticator2;
     var nkeys_1 = require_nkeys2();
     var encoders_1 = require_encoders();
     function multiAuthenticator(authenticators) {
@@ -6394,21 +6394,21 @@ var require_authenticator = __commonJS({
       };
     }
     __name(noAuthFn, "noAuthFn");
-    function usernamePasswordAuthenticator(user, pass) {
+    function usernamePasswordAuthenticator2(user, pass) {
       return () => {
         const u = typeof user === "function" ? user() : user;
         const p = typeof pass === "function" ? pass() : pass;
         return { user: u, pass: p };
       };
     }
-    __name(usernamePasswordAuthenticator, "usernamePasswordAuthenticator");
-    function tokenAuthenticator(token) {
+    __name(usernamePasswordAuthenticator2, "usernamePasswordAuthenticator");
+    function tokenAuthenticator2(token) {
       return () => {
         const auth_token = typeof token === "function" ? token() : token;
         return { auth_token };
       };
     }
-    __name(tokenAuthenticator, "tokenAuthenticator");
+    __name(tokenAuthenticator2, "tokenAuthenticator");
     function nkeyAuthenticator2(seed) {
       return (nonce) => {
         const s = typeof seed === "function" ? seed() : seed;
@@ -6430,7 +6430,7 @@ var require_authenticator = __commonJS({
       };
     }
     __name(jwtAuthenticator2, "jwtAuthenticator");
-    function credsAuthenticator(creds) {
+    function credsAuthenticator2(creds) {
       const fn = typeof creds !== "function" ? () => creds : creds;
       const parse = /* @__PURE__ */ __name(() => {
         const CREDS = /\s*(?:(?:[-]{3,}[^\n]*[-]{3,}\n)(.+)(?:\n\s*[-]{3,}[^\n]*[-]{3,}\n))/ig;
@@ -6457,7 +6457,7 @@ var require_authenticator = __commonJS({
       }, "nkeyFn");
       return jwtAuthenticator2(jwtFn, nkeyFn);
     }
-    __name(credsAuthenticator, "credsAuthenticator");
+    __name(credsAuthenticator2, "credsAuthenticator");
   }
 });
 
@@ -15121,11 +15121,14 @@ __export(nats_bundle_entry_exports, {
   connect: () => import_nats_core.wsconnect,
   consumerOpts: () => consumerOpts,
   createInbox: () => import_nats_core.createInbox,
+  credsAuthenticator: () => import_nats_core.credsAuthenticator,
   headers: () => import_nats_core.headers,
   jetstream: () => jetstream,
   jetstreamManager: () => jetstreamManager,
   jwtAuthenticator: () => import_nats_core.jwtAuthenticator,
-  nkeyAuthenticator: () => import_nats_core.nkeyAuthenticator
+  nkeyAuthenticator: () => import_nats_core.nkeyAuthenticator,
+  tokenAuthenticator: () => import_nats_core.tokenAuthenticator,
+  usernamePasswordAuthenticator: () => import_nats_core.usernamePasswordAuthenticator
 });
 module.exports = __toCommonJS(nats_bundle_entry_exports);
 var import_nats_core = __toESM(require_mod2());
@@ -15213,11 +15216,14 @@ var jetstreamManager = import_jetstream.jetstreamManager;
   connect,
   consumerOpts,
   createInbox,
+  credsAuthenticator,
   headers,
   jetstream,
   jetstreamManager,
   jwtAuthenticator,
-  nkeyAuthenticator
+  nkeyAuthenticator,
+  tokenAuthenticator,
+  usernamePasswordAuthenticator
 });
 /*! Bundled license information:
 

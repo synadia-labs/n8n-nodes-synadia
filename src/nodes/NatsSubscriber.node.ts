@@ -532,7 +532,15 @@ export class NatsSubscriber implements INodeType {
 				monitor: true,
 				onError: (error) => {
 					nodeLogger.error('Subscriber connection lost:', { error });
-					// Connection errors will be handled by the monitoring
+				},
+				onReconnect: (server) => {
+					nodeLogger.info(`Subscriber reconnected to ${server}`);
+				},
+				onDisconnect: (server) => {
+					nodeLogger.warn(`Subscriber disconnected from ${server}`);
+				},
+				onAsyncError: (error) => {
+					nodeLogger.error('Subscriber async error (e.g. permission):', { error });
 				}
 			});
 
