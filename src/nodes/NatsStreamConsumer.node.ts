@@ -8,11 +8,11 @@ import {
 	NodeConnectionType,
 	INodeExecutionData,
 } from 'n8n-workflow';
-import { NatsConnection, Msg, jetstream, jetstreamManager } from '../bundled/nats-bundled';
+import { NatsConnection, Msg, jetstream } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
-import { parseNatsMessage, validateSubject } from '../utils/NatsHelpers';
+import { parseNatsMessage } from '../utils/NatsHelpers';
 import { createReplyHandler, ManualReplyHandler } from '../utils/reply';
-import { validateStreamName, validateConsumerName, validateTimeout } from '../utils/ValidationHelpers';
+import { validateStreamName, validateConsumerName } from '../utils/ValidationHelpers';
 import { NodeLogger } from '../utils/NodeLogger';
 
 export class NatsStreamConsumer implements INodeType {
@@ -22,8 +22,8 @@ export class NatsStreamConsumer implements INodeType {
 		icon: 'file:../icons/nats.svg',
 		group: ['trigger'],
 		version: 1,
-		description: 'Consume messages from NATS JetStream streams with guaranteed delivery',
-		subtitle: '{{$parameter["streamName"]}} - {{$parameter["subject"]}}',
+		description: 'Consume messages from existing NATS JetStream consumers',
+		subtitle: '{{$parameter["streamName"]}} - {{$parameter["consumerName"]}}',
 		defaults: {
 			name: 'NATS Stream Consumer',
 		},
@@ -47,46 +47,12 @@ export class NatsStreamConsumer implements INodeType {
 				hint: 'Stream must exist and contain the specified subject',
 			},
 			{
-				displayName: 'Subject',
-				name: 'subject',
-				type: 'string',
-				default: '',
-				required: true,
-				placeholder: 'orders.>',
-				description: 'Subject pattern to consume from (no spaces allowed)',
-				hint: 'Use * for single token wildcard, > for multi-token wildcard',
-			},
-			{
-				displayName: 'Consumer Type',
-				name: 'consumerType',
-				type: 'options',
-				options: [
-					{
-						name: 'Ephemeral',
-						value: 'ephemeral',
-						description: 'Temporary consumer, deleted when connection closes',
-					},
-					{
-						name: 'Durable',
-						value: 'durable',
-						description: 'Persistent consumer, maintains state across restarts',
-					},
-				],
-				default: 'ephemeral',
-				description: 'Type of JetStream consumer to use',
-			},
-			{
 				displayName: 'Consumer Name',
 				name: 'consumerName',
 				type: 'string',
 				default: '',
-				displayOptions: {
-					show: {
-						consumerType: ['durable'],
-					},
-				},
 				required: true,
-				description: 'Existing consumer name (no spaces or dots)',
+				description: 'Name of existing JetStream consumer (no spaces or dots)',
 				placeholder: 'order-processor',
 				hint: 'Consumer must already exist in the stream',
 			},
@@ -185,95 +151,12 @@ export class NatsStreamConsumer implements INodeType {
 				],
 			},
 			{
-				displayName: 'Consumer Options',
+				displayName: 'Options',
 				name: 'options',
 				type: 'collection',
 				placeholder: 'Add Option',
 				default: {},
 				options: [
-					{
-						displayName: 'Delivery Policy',
-						name: 'deliverPolicy',
-						type: 'options',
-						displayOptions: {
-							show: {
-								'/consumerType': ['ephemeral'],
-							},
-						},
-						options: [
-							{
-								name: 'All',
-								value: 'all',
-								description: 'Deliver all messages from the beginning',
-							},
-							{
-								name: 'Last',
-								value: 'last',
-								description: 'Deliver only the last message',
-							},
-							{
-								name: 'New',
-								value: 'new',
-								description: 'Deliver only new messages',
-							},
-							{
-								name: 'Start from Sequence',
-								value: 'startSequence',
-								description: 'Start from specific sequence number',
-							},
-							{
-								name: 'Start from Time',
-								value: 'startTime',
-								description: 'Start from specific timestamp',
-							},
-						],
-						default: 'new',
-						description: 'Where to start message delivery from',
-						hint: 'Determines which messages the consumer will receive',
-					},
-					{
-						displayName: 'Start Sequence',
-						name: 'startSequence',
-						type: 'number',
-						displayOptions: {
-							show: {
-								deliverPolicy: ['startSequence'],
-							},
-						},
-						default: 1,
-						description: 'Sequence number to start from',
-						hint: 'Must be a valid sequence in the stream',
-					},
-					{
-						displayName: 'Start Time',
-						name: 'startTime',
-						type: 'string',
-						displayOptions: {
-							show: {
-								deliverPolicy: ['startTime'],
-							},
-						},
-						default: '',
-						description: 'Time to start from',
-						placeholder: '2023-01-01T00:00:00Z',
-						hint: 'ISO 8601 format timestamp',
-					},
-					{
-						displayName: 'Ack Wait (Ms)',
-						name: 'ackWait',
-						type: 'number',
-						default: 30000,
-						description: 'Time to wait for acknowledgment before redelivery (milliseconds)',
-						hint: 'Message will be redelivered if not acknowledged in time',
-					},
-					{
-						displayName: 'Max Delivery Attempts',
-						name: 'maxDeliver',
-						type: 'number',
-						default: -1,
-						description: 'Maximum delivery attempts before giving up',
-						hint: 'Use -1 for unlimited attempts',
-					},
 					{
 						displayName: 'Manual Acknowledgment',
 						name: 'manualAck',
@@ -288,9 +171,8 @@ export class NatsStreamConsumer implements INodeType {
 	};
 
 	async trigger(this: ITriggerFunctions): Promise<ITriggerResponse> {
-		const subject = this.getNodeParameter('subject') as string;
 		const streamName = this.getNodeParameter('streamName') as string;
-		const consumerType = this.getNodeParameter('consumerType') as string;
+		const consumerName = this.getNodeParameter('consumerName') as string;
 		const replyMode = this.getNodeParameter('replyMode', 'disabled') as string;
 		const replyOptions = this.getNodeParameter('replyOptions', {}) as IDataObject;
 		const automaticReply = this.getNodeParameter('automaticReply', {}) as IDataObject;
@@ -306,17 +188,8 @@ export class NatsStreamConsumer implements INodeType {
 		const nodeLogger = new NodeLogger(this.logger, this.getNode());
 
 		// Validate inputs
-		validateSubject(subject);
 		validateStreamName(streamName);
-
-		if (options.ackWait) {
-			validateTimeout(options.ackWait as number, 'Ack Wait');
-		}
-
-		if (consumerType === 'durable') {
-			const consumerName = this.getNodeParameter('consumerName') as string;
-			validateConsumerName(consumerName);
-		}
+		validateConsumerName(consumerName);
 
 		const closeFunction = async () => {
 			if (messageIterator) {
@@ -371,7 +244,7 @@ export class NatsStreamConsumer implements INodeType {
 		const manualTriggerFunction = async () => {
 			// Provide sample data for testing
 			const sampleData: any = {
-				subject,
+				subject: 'orders.new',
 				data: { 
 					orderId: 'ORD-12345',
 					customerName: 'John Doe',
@@ -381,6 +254,7 @@ export class NatsStreamConsumer implements INodeType {
 				headers: {
 					'Nats-Msg-Id': 'sample-msg-123',
 					'Nats-Stream': streamName,
+					'Nats-Consumer': consumerName,
 					'Nats-Sequence': '42'
 				},
 				seq: 42,
@@ -414,78 +288,22 @@ export class NatsStreamConsumer implements INodeType {
 			nc = await createNatsConnection(credentials, nodeLogger);
 			const js = jetstream(nc);
 
-			if (consumerType === 'durable') {
-				// Use existing durable consumer
-				const consumerName = this.getNodeParameter('consumerName') as string;
-				const consumer = await js.consumers.get(streamName, consumerName);
-				
-				const messages = await consumer.consume();
-				(async () => {
-					for await (const msg of messages) {
-						await processMessage(msg as any);
-						if (!options.manualAck) {
-							msg.ack();
-						}
+			// Use existing consumer (durable or ephemeral)
+			const consumer = await js.consumers.get(streamName, consumerName);
+			
+			// Start consuming messages
+			messageIterator = await consumer.consume();
+			(async () => {
+				for await (const msg of messageIterator) {
+					await processMessage(msg as any);
+					if (!options.manualAck) {
+						msg.ack();
 					}
-				})();
-
-			} else {
-				// Create ephemeral consumer configuration
-				const consumerConfig: any = {
-					filter_subject: subject,
-					ack_policy: options.manualAck ? 'explicit' : 'all',
-				};
-
-				// Configure delivery policy
-				switch (options.deliverPolicy) {
-					case 'all':
-						consumerConfig.deliver_policy = 'all';
-						break;
-					case 'last':
-						consumerConfig.deliver_policy = 'last';
-						break;
-					case 'new':
-						consumerConfig.deliver_policy = 'new';
-						break;
-					case 'startSequence':
-						consumerConfig.deliver_policy = 'by_start_sequence';
-						consumerConfig.opt_start_seq = options.startSequence as number;
-						break;
-					case 'startTime':
-						consumerConfig.deliver_policy = 'by_start_time';
-						consumerConfig.opt_start_time = new Date(options.startTime as string).toISOString();
-						break;
 				}
+			})();
 
-				if (options.ackWait) {
-					consumerConfig.ack_wait = (options.ackWait as number) * 1_000_000; // Convert to nanoseconds
-				}
-
-				if (options.maxDeliver) {
-					consumerConfig.max_deliver = options.maxDeliver as number;
-				}
-
-				// Get JetStream manager and create ephemeral consumer
-				const jsm = await jetstreamManager(nc);
-				const consumerInfo = await jsm.consumers.add(streamName, consumerConfig);
-				
-				// Get consumer reference
-				const consumer = await js.consumers.get(consumerInfo.stream_name, consumerInfo.name);
-				
-				// Start consuming messages
-				(async () => {
-					messageIterator = await consumer.consume();
-					for await (const msg of messageIterator) {
-						await processMessage(msg as any);
-						if (!options.manualAck) {
-							msg.ack();
-						}
-					}
-				})();
-
-				// Store consumer for cleanup
-				subscription = consumer as any;
-			}
+			// Store consumer for cleanup
+			subscription = consumer as any;
 
 			const response: ITriggerResponse = {
 				closeFunction,
@@ -508,7 +326,7 @@ export class NatsStreamConsumer implements INodeType {
 			if (error.code === 'STREAM_NOT_FOUND') {
 				errorMessage = `Stream '${streamName}' not found. Please create the stream first.`;
 			} else if (error.code === 'CONSUMER_NOT_FOUND') {
-				errorMessage = `Consumer '${this.getNodeParameter('consumerName', '')}' not found in stream '${streamName}'.`;
+				errorMessage = `Consumer '${consumerName}' not found in stream '${streamName}'. Please create the consumer first.`;
 			}
 			
 			throw new ApplicationError(errorMessage, {

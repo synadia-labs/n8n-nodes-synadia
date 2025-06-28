@@ -1,25 +1,11 @@
 import { NatsSubscriber } from '../../nodes/NatsSubscriber.node';
 import { ITriggerFunctions, ITriggerResponse } from 'n8n-workflow';
 import * as NatsConnection from '../../utils/NatsConnection';
-import { StringCodec, jetstream, consumerOpts } from '../../bundled/nats-bundled';
+import { StringCodec } from '../../bundled/nats-bundled';
 
 // Mock dependencies
 jest.mock('../../utils/NatsConnection');
 jest.mock('../../bundled/nats-bundled', () => ({
-	jetstream: jest.fn(),
-	jetstreamManager: jest.fn(),
-	Kvm: jest.fn(),
-	Objm: jest.fn(),
-	consumerOpts: jest.fn(() => ({
-		deliverAll: jest.fn().mockReturnThis(),
-		deliverNew: jest.fn().mockReturnThis(),
-		deliverLast: jest.fn().mockReturnThis(),
-		deliverLastPerSubject: jest.fn().mockReturnThis(),
-		ackExplicit: jest.fn().mockReturnThis(),
-		manualAck: jest.fn().mockReturnThis(),
-		bind: jest.fn().mockReturnThis(),
-		build: jest.fn().mockReturnValue({}),
-	})),
 	StringCodec: jest.fn(() => ({
 		encode: jest.fn((str) => new TextEncoder().encode(str)),
 		decode: jest.fn((data) => new TextDecoder().decode(data)),
@@ -47,7 +33,7 @@ describe('NatsSubscriber', () => {
 
     // Mock subscription
     mockSubscription = {
-      drain: jest.fn().mockResolvedValue(undefined),
+      unsubscribe: jest.fn(),
       [Symbol.asyncIterator]: jest.fn().mockReturnValue({
         async next() {
           return { done: true };
@@ -58,13 +44,6 @@ describe('NatsSubscriber', () => {
     // Mock NATS connection
     mockNatsConnection = {
       subscribe: jest.fn().mockReturnValue(mockSubscription),
-      jetstream: jest.fn().mockReturnValue({
-        subscribe: jest.fn(),
-        consumers: {
-          get: jest.fn(),
-        },
-      }),
-      jetstreamManager: jest.fn().mockResolvedValue({}),
     } as any;
 
     // Mock trigger functions
@@ -103,12 +82,11 @@ describe('NatsSubscriber', () => {
   describe('Core NATS Subscription', () => {
     it('should subscribe to Core NATS subject', async () => {
       mockGetNodeParameter
-        .mockReturnValueOnce('core') // subscriptionType
         .mockReturnValueOnce('test.subject') // subject
+        .mockReturnValueOnce('') // queueGroup
         .mockReturnValueOnce('disabled') // replyMode
         .mockReturnValueOnce({}) // replyOptions
-        .mockReturnValueOnce({}) // automaticReply
-        .mockReturnValueOnce(''); // queueGroup
+        .mockReturnValueOnce({}); // automaticReply
 
       const response = await node.trigger.call(mockTriggerFunctions);
 
@@ -122,12 +100,11 @@ describe('NatsSubscriber', () => {
 
     it('should subscribe with queue group', async () => {
       mockGetNodeParameter
-        .mockReturnValueOnce('core')
         .mockReturnValueOnce('test.subject')
+        .mockReturnValueOnce('my-queue-group') // queueGroup
         .mockReturnValueOnce('disabled') // replyMode
         .mockReturnValueOnce({}) // replyOptions
-        .mockReturnValueOnce({}) // automaticReply
-        .mockReturnValueOnce('my-queue-group');
+        .mockReturnValueOnce({}); // automaticReply
 
       await node.trigger.call(mockTriggerFunctions);
 
@@ -167,9 +144,9 @@ describe('NatsSubscriber', () => {
       });
 
       mockGetNodeParameter
-        .mockReturnValueOnce('core')
         .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('');
+        .mockReturnValueOnce('') // queueGroup
+        .mockReturnValueOnce('disabled'); // replyMode
 
       const response = await node.trigger.call(mockTriggerFunctions);
 
@@ -186,234 +163,62 @@ describe('NatsSubscriber', () => {
         }),
       ]]);
     });
-  });
 
-  describe('JetStream Subscription', () => {
-    it('should create ephemeral consumer', async () => {
-      const mockMessageIterator = {
-        [Symbol.asyncIterator]: jest.fn().mockReturnValue({
-          async next() { return { done: true }; },
-        }),
-        stop: jest.fn(),
-      };
-
-      const mockConsumer = {
-        consume: jest.fn().mockResolvedValue(mockMessageIterator),
-        delete: jest.fn(),
-      };
-
-      const mockConsumerInfo = {
-        stream_name: 'TEST-STREAM',
-        name: 'ephemeral-consumer-123',
-      };
-
-      const mockJsm = {
-        consumers: {
-          add: jest.fn().mockResolvedValue(mockConsumerInfo),
-        },
-      };
-
-      const mockJs = {
-        consumers: {
-          get: jest.fn().mockResolvedValue(mockConsumer),
-        },
-      };
-
-      (jetstream as jest.Mock).mockReturnValue(mockJs);
-      (require('../../bundled/nats-bundled').jetstreamManager as jest.Mock).mockResolvedValue(mockJsm);
-
+    it('should handle manual reply mode', async () => {
       mockGetNodeParameter
-        .mockReturnValueOnce('jetstream') // subscriptionType
-        .mockReturnValueOnce('test.subject') // subject
-        .mockReturnValueOnce('disabled') // replyMode
-        .mockReturnValueOnce({}) // replyOptions
-        .mockReturnValueOnce({}) // automaticReply
-        .mockReturnValueOnce('test-stream') // streamName
-        .mockReturnValueOnce('ephemeral') // consumerType
-        .mockReturnValueOnce({ // options
-          deliverPolicy: 'new',
-          ackWait: 30000,
-          maxDeliver: 3,
-          manualAck: false,
-        });
-
-      await node.trigger.call(mockTriggerFunctions);
-
-      expect(mockJsm.consumers.add).toHaveBeenCalledWith('test-stream', {
-        filter_subject: 'test.subject',
-        ack_policy: 'all',
-        deliver_policy: 'new',
-        ack_wait: 30000000000, // nanoseconds
-        max_deliver: 3,
-      });
-      expect(mockJs.consumers.get).toHaveBeenCalledWith('TEST-STREAM', 'ephemeral-consumer-123');
-      expect(mockConsumer.consume).toHaveBeenCalled();
-    });
-
-    it('should use durable consumer', async () => {
-      const mockConsumer = {
-        consume: jest.fn().mockResolvedValue({
-          [Symbol.asyncIterator]: jest.fn().mockReturnValue({
-            async next() { return { done: true }; },
-          }),
-        }),
-      };
-
-      const mockJs = {
-        consumers: {
-          get: jest.fn().mockResolvedValue(mockConsumer)
-        }
-      };
-      (jetstream as jest.Mock).mockReturnValue(mockJs);
-
-      mockGetNodeParameter
-        .mockReturnValueOnce('jetstream')
         .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('disabled') // replyMode
-        .mockReturnValueOnce({}) // replyOptions
-        .mockReturnValueOnce({}) // automaticReply
-        .mockReturnValueOnce('test-stream')
-        .mockReturnValueOnce('durable') // consumerType
-        .mockReturnValueOnce({}) // options
-        .mockReturnValueOnce('my-consumer'); // consumerName
-
-      await node.trigger.call(mockTriggerFunctions);
-
-      expect(mockJs.consumers.get).toHaveBeenCalledWith('test-stream', 'my-consumer');
-      expect(mockConsumer.consume).toHaveBeenCalled();
-    });
-
-    it('should handle different delivery policies', async () => {
-      const testCases = [
-        { policy: 'all', expectedConfig: { deliver_policy: 'all' } },
-        { policy: 'last', expectedConfig: { deliver_policy: 'last' } },
-        { policy: 'new', expectedConfig: { deliver_policy: 'new' } },
-        { policy: 'startSequence', param: 100, expectedConfig: { deliver_policy: 'by_start_sequence', opt_start_seq: 100 } },
-        { policy: 'startTime', param: '2023-01-01T00:00:00Z', expectedConfig: { deliver_policy: 'by_start_time', opt_start_time: '2023-01-01T00:00:00.000Z' } },
-      ];
-
-      for (const testCase of testCases) {
-        jest.clearAllMocks();
-        
-        const mockMessageIterator = {
-          [Symbol.asyncIterator]: jest.fn().mockReturnValue({
-            async next() { return { done: true }; },
-          }),
-          stop: jest.fn(),
-        };
-
-        const mockConsumer = {
-          consume: jest.fn().mockResolvedValue(mockMessageIterator),
-          delete: jest.fn(),
-        };
-
-        const mockConsumerInfo = {
-          stream_name: 'TEST-STREAM',
-          name: 'ephemeral-consumer-123',
-        };
-
-        const mockJsm = {
-          consumers: {
-            add: jest.fn().mockResolvedValue(mockConsumerInfo),
-          },
-        };
-
-        const mockJs = {
-          consumers: {
-            get: jest.fn().mockResolvedValue(mockConsumer),
-          },
-        };
-
-        (jetstream as jest.Mock).mockReturnValue(mockJs);
-        (require('../../bundled/nats-bundled').jetstreamManager as jest.Mock).mockResolvedValue(mockJsm);
-
-        const options: any = { deliverPolicy: testCase.policy };
-        if (testCase.param !== undefined) {
-          if (testCase.policy === 'startSequence') {
-            options.startSequence = testCase.param;
-          } else if (testCase.policy === 'startTime') {
-            options.startTime = testCase.param;
-          }
-        }
-
-        mockGetNodeParameter
-          .mockReturnValueOnce('jetstream')
-          .mockReturnValueOnce('test.subject')
-          .mockReturnValueOnce('disabled') // replyMode
-          .mockReturnValueOnce({}) // replyOptions
-          .mockReturnValueOnce({}) // automaticReply
-          .mockReturnValueOnce('test-stream')
-          .mockReturnValueOnce('ephemeral')
-          .mockReturnValueOnce(options);
-
-        await node.trigger.call(mockTriggerFunctions);
-
-        const expectedConsumerConfig = {
-          filter_subject: 'test.subject',
-          ack_policy: 'all',
-          ...testCase.expectedConfig,
-        };
-
-        expect(mockJsm.consumers.add).toHaveBeenCalledWith('test-stream', expectedConsumerConfig);
-        expect(mockJs.consumers.get).toHaveBeenCalledWith('TEST-STREAM', 'ephemeral-consumer-123');
-        expect(mockConsumer.consume).toHaveBeenCalled();
-      }
-    });
-  });
-
-  describe('Manual Trigger', () => {
-    it('should emit test message on manual trigger', async () => {
-      mockGetNodeParameter
-        .mockReturnValueOnce('core')
-        .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('');
+        .mockReturnValueOnce('')
+        .mockReturnValueOnce('manual') // replyMode
+        .mockReturnValueOnce({ replyField: 'response' }) // replyOptions
+        .mockReturnValueOnce({}); // automaticReply
 
       const response = await node.trigger.call(mockTriggerFunctions);
-      
-      // Call manual trigger function
-      await response.manualTriggerFunction!();
 
-      expect(mockTriggerFunctions.helpers.returnJsonArray).toHaveBeenCalledWith([
-        expect.objectContaining({
-          subject: 'test.subject',
-          data: expect.objectContaining({
-            message: 'Sample NATS message',
-          }),
-        }),
-      ]);
-      
-      expect(mockEmit).toHaveBeenCalledWith([
-        expect.any(Array)
-      ]);
+      expect(response.closeFunction).toBeDefined();
+      expect(response.manualTriggerFunction).toBeDefined();
+      expect((response as any).manualReplyFunction).toBeDefined();
     });
-  });
 
-  describe('Cleanup', () => {
-    it('should properly close connections', async () => {
+    it('should handle automatic reply mode', async () => {
       mockGetNodeParameter
-        .mockReturnValueOnce('core')
         .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('');
+        .mockReturnValueOnce('')
+        .mockReturnValueOnce('automatic') // replyMode
+        .mockReturnValueOnce({}) // replyOptions
+        .mockReturnValueOnce({ responseTemplate: '{"processed": true}' }); // automaticReply
 
       const response = await node.trigger.call(mockTriggerFunctions);
-      
-      // Call close function
-      await response.closeFunction!();
 
-      expect(mockSubscription.drain).toHaveBeenCalled();
-      expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(mockNatsConnection, expect.any(Object));
+      expect(response.closeFunction).toBeDefined();
+      expect(response.manualTriggerFunction).toBeDefined();
+      // Automatic mode doesn't add manualReplyFunction
+      expect((response as any).manualReplyFunction).toBeUndefined();
     });
   });
 
   describe('Error Handling', () => {
     it('should validate subject', async () => {
       mockGetNodeParameter
-        .mockReturnValueOnce('core')
-        .mockReturnValueOnce('invalid subject'); // Invalid subject with space
+        .mockReturnValueOnce('invalid subject') // Invalid subject with space
+        .mockReturnValueOnce('')
+        .mockReturnValueOnce('disabled')
+        .mockReturnValueOnce({})
+        .mockReturnValueOnce({});
 
       await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow(
         'Subject cannot contain spaces'
       );
+    });
+
+    it('should validate queue group when provided', async () => {
+      mockGetNodeParameter
+        .mockReturnValueOnce('test.subject')
+        .mockReturnValueOnce('invalid queue') // Invalid queue group with space
+        .mockReturnValueOnce('disabled')
+        .mockReturnValueOnce({})
+        .mockReturnValueOnce({});
+
+      await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow();
     });
 
     it('should handle connection errors', async () => {
@@ -422,13 +227,75 @@ describe('NatsSubscriber', () => {
       );
 
       mockGetNodeParameter
-        .mockReturnValueOnce('core')
         .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('');
+        .mockReturnValueOnce('')
+        .mockReturnValueOnce('disabled')
+        .mockReturnValueOnce({})
+        .mockReturnValueOnce({});
 
       await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow(
-        'Failed to setup NATS subscriber: Connection failed'
+        'NATS Subscriber failed: Connection failed'
       );
+    });
+
+    it('should close connection on cleanup', async () => {
+      mockGetNodeParameter
+        .mockReturnValueOnce('test.subject')
+        .mockReturnValueOnce('')
+        .mockReturnValueOnce('disabled')
+        .mockReturnValueOnce({})
+        .mockReturnValueOnce({});
+
+      const response = await node.trigger.call(mockTriggerFunctions);
+      await response.closeFunction!();
+
+      expect(mockSubscription.unsubscribe).toHaveBeenCalled();
+      expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(mockNatsConnection, expect.any(Object));
+    });
+  });
+
+  describe('Manual Trigger', () => {
+    it('should provide sample data', async () => {
+      mockGetNodeParameter
+        .mockReturnValueOnce('test.subject')
+        .mockReturnValueOnce('')
+        .mockReturnValueOnce('disabled')
+        .mockReturnValueOnce({})
+        .mockReturnValueOnce({});
+
+      const response = await node.trigger.call(mockTriggerFunctions);
+      await response.manualTriggerFunction!();
+
+      expect(mockEmit).toHaveBeenCalledWith([
+        expect.arrayContaining([
+          expect.objectContaining({
+            subject: 'test.subject',
+            data: expect.any(Object),
+            timestamp: expect.any(String),
+          })
+        ])
+      ]);
+    });
+
+    it('should include reply fields for manual mode', async () => {
+      mockGetNodeParameter
+        .mockReturnValueOnce('test.subject')
+        .mockReturnValueOnce('')
+        .mockReturnValueOnce('manual')
+        .mockReturnValueOnce({})
+        .mockReturnValueOnce({});
+
+      const response = await node.trigger.call(mockTriggerFunctions);
+      await response.manualTriggerFunction!();
+
+      expect(mockEmit).toHaveBeenCalledWith([
+        expect.arrayContaining([
+          expect.objectContaining({
+            replyTo: '_INBOX.sample.reply',
+            requestId: 'sample-request-id',
+          })
+        ])
+      ]);
     });
   });
 });
