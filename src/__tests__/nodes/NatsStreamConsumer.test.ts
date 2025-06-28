@@ -94,9 +94,6 @@ describe('NatsStreamConsumer', () => {
         switch (paramName) {
           case 'streamName': return 'TESTSTREAM';
           case 'consumerName': return 'my-consumer';
-          case 'replyMode': return 'disabled';
-          case 'replyOptions': return {};
-          case 'automaticReply': return {};
           case 'options': return {};
           default: return defaultValue;
         }
@@ -137,9 +134,6 @@ describe('NatsStreamConsumer', () => {
         switch (paramName) {
           case 'streamName': return 'TESTSTREAM';
           case 'consumerName': return 'my-consumer';
-          case 'replyMode': return 'disabled';
-          case 'replyOptions': return {};
-          case 'automaticReply': return {};
           case 'options': return {
             manualAck: true,
           };
@@ -176,9 +170,6 @@ describe('NatsStreamConsumer', () => {
         switch (paramName) {
           case 'streamName': return 'TESTSTREAM';
           case 'consumerName': return 'my-consumer';
-          case 'replyMode': return 'disabled';
-          case 'replyOptions': return {};
-          case 'automaticReply': return {};
           case 'options': return {
             manualAck: false,
           };
@@ -192,56 +183,12 @@ describe('NatsStreamConsumer', () => {
     });
   });
 
-  describe('Reply Modes', () => {
-    it('should handle manual reply mode', async () => {
-      const mockMessageIterator = {
-        [Symbol.asyncIterator]: jest.fn().mockReturnValue({
-          async next() { return { done: true }; },
-        }),
-        return: jest.fn(),
-      };
-
-      const mockConsumer = {
-        consume: jest.fn().mockResolvedValue(mockMessageIterator),
-      };
-
-      const mockJs = {
-        consumers: {
-          get: jest.fn().mockResolvedValue(mockConsumer),
-        },
-      };
-
-      (jetstream as jest.Mock).mockReturnValue(mockJs);
-
-      mockGetNodeParameter.mockImplementation((paramName, index, defaultValue) => {
-        switch (paramName) {
-          case 'streamName': return 'TESTSTREAM';
-          case 'consumerName': return 'my-consumer';
-          case 'replyMode': return 'manual';
-          case 'replyOptions': return { replyField: 'response' };
-          case 'automaticReply': return {};
-          case 'options': return {};
-          default: return defaultValue;
-        }
-      });
-
-      const response = await node.trigger.call(mockTriggerFunctions);
-
-      expect(response.closeFunction).toBeDefined();
-      expect(response.manualTriggerFunction).toBeDefined();
-      expect((response as any).manualReplyFunction).toBeDefined();
-    });
-  });
-
   describe('Error Handling', () => {
     it('should validate stream name', async () => {
       mockGetNodeParameter.mockImplementation((paramName, index, defaultValue) => {
         switch (paramName) {
           case 'streamName': return 'invalid stream'; // Invalid stream name with space
           case 'consumerName': return 'my-consumer';
-          case 'replyMode': return 'disabled';
-          case 'replyOptions': return {};
-          case 'automaticReply': return {};
           case 'options': return {};
           default: return defaultValue;
         }
@@ -255,9 +202,6 @@ describe('NatsStreamConsumer', () => {
         switch (paramName) {
           case 'streamName': return 'TESTSTREAM';
           case 'consumerName': return 'invalid consumer'; // Invalid consumer name with space
-          case 'replyMode': return 'disabled';
-          case 'replyOptions': return {};
-          case 'automaticReply': return {};
           case 'options': return {};
           default: return defaultValue;
         }
@@ -279,9 +223,6 @@ describe('NatsStreamConsumer', () => {
         switch (paramName) {
           case 'streamName': return 'NONEXISTENTSTREAM';
           case 'consumerName': return 'my-consumer';
-          case 'replyMode': return 'disabled';
-          case 'replyOptions': return {};
-          case 'automaticReply': return {};
           case 'options': return {};
           default: return defaultValue;
         }
@@ -305,9 +246,6 @@ describe('NatsStreamConsumer', () => {
         switch (paramName) {
           case 'streamName': return 'TESTSTREAM';
           case 'consumerName': return 'NONEXISTENTCONSUMER';
-          case 'replyMode': return 'disabled';
-          case 'replyOptions': return {};
-          case 'automaticReply': return {};
           case 'options': return {};
           default: return defaultValue;
         }
@@ -327,9 +265,6 @@ describe('NatsStreamConsumer', () => {
         switch (paramName) {
           case 'streamName': return 'TESTSTREAM';
           case 'consumerName': return 'my-consumer';
-          case 'replyMode': return 'disabled';
-          case 'replyOptions': return {};
-          case 'automaticReply': return {};
           case 'options': return {};
           default: return defaultValue;
         }
@@ -363,9 +298,6 @@ describe('NatsStreamConsumer', () => {
         switch (paramName) {
           case 'streamName': return 'TESTSTREAM';
           case 'consumerName': return 'my-consumer';
-          case 'replyMode': return 'disabled';
-          case 'replyOptions': return {};
-          case 'automaticReply': return {};
           case 'options': return {};
           default: return defaultValue;
         }
