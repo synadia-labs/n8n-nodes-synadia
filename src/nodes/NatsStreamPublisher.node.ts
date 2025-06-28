@@ -6,22 +6,23 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection } from '../bundled/nats-bundled';
+import { NatsConnection, jetstream } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { encodeMessage, createNatsHeaders, validateSubject } from '../utils/NatsHelpers';
 import { NodeLogger } from '../utils/NodeLogger';
+import { validateStreamName, validateTimeout } from '../utils/ValidationHelpers';
 
-export class NatsPublisher implements INodeType {
+export class NatsStreamPublisher implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'NATS Publisher',
-		name: 'natsPublisher',
+		displayName: 'NATS Stream Publisher',
+		name: 'natsStreamPublisher',
 		icon: 'file:../icons/nats.svg',
 		group: ['output'],
 		version: 1,
-		description: 'Publish messages to Core NATS subjects with fast, at-most-once delivery',
-		subtitle: '{{$parameter["subject"]}}',
+		description: 'Publish messages to NATS JetStream streams with guaranteed delivery',
+		subtitle: '{{$parameter["streamName"]}} - {{$parameter["subject"]}}',
 		defaults: {
-			name: 'NATS Publisher',
+			name: 'NATS Stream Publisher',
 		},
 		inputs: [NodeConnectionType.Main],
 		outputs: [NodeConnectionType.Main],
@@ -54,6 +55,15 @@ export class NatsPublisher implements INodeType {
 				hint: 'Supports expressions like {{ $json }} to use input data',
 			},
 			{
+				displayName: 'Stream Name',
+				name: 'streamName',
+				type: 'string',
+				default: '',
+				description: 'Target stream name (auto-detected if not specified)',
+				placeholder: 'ORDERS',
+				hint: 'Leave empty to let JetStream find the appropriate stream',
+			},
+			{
 				displayName: 'Options',
 				name: 'options',
 				type: 'collection',
@@ -81,6 +91,49 @@ export class NatsPublisher implements INodeType {
 						placeholder: 'orders.replies',
 						hint: 'Used with request-reply pattern',
 					},
+					{
+						displayName: 'Timeout (Ms)',
+						name: 'timeout',
+						type: 'number',
+						default: 5000,
+						description: 'Maximum time to wait for acknowledgment (milliseconds)',
+						hint: 'Message will timeout if not acknowledged in time',
+					},
+					{
+						displayName: 'Message ID',
+						name: 'messageId',
+						type: 'string',
+						default: '',
+						description: 'Unique ID to prevent duplicate messages',
+						placeholder: 'order-12345',
+						hint: 'JetStream will reject duplicates within the deduplication window',
+					},
+					{
+						displayName: 'Expected Last Message ID',
+						name: 'expectedLastMsgId',
+						type: 'string',
+						default: '',
+						description: 'Only publish if this was the last message ID',
+						placeholder: 'order-12344',
+						hint: 'Prevents concurrent updates - fails if another message was published',
+					},
+					{
+						displayName: 'Expected Last Sequence',
+						name: 'expectedLastSeq',
+						type: 'number',
+						default: 0,
+						description: 'Only publish if stream is at this sequence number',
+						hint: 'Prevents concurrent updates - fails if stream has advanced',
+					},
+					{
+						displayName: 'Expected Stream',
+						name: 'expectedStream',
+						type: 'string',
+						default: '',
+						description: 'Verify message goes to this specific stream',
+						placeholder: 'ORDERS',
+						hint: 'Fails if subject would be stored in a different stream',
+					},
 				],
 			},
 		],
@@ -98,15 +151,32 @@ export class NatsPublisher implements INodeType {
 		
 		try {
 			nc = await createNatsConnection(credentials, nodeLogger);
+			const js = jetstream(nc);
 			
 			for (let i = 0; i < items.length; i++) {
 				try {
 					const subject = this.getNodeParameter('subject', i) as string;
 					const message = this.getNodeParameter('message', i) as string;
+					const streamName = this.getNodeParameter('streamName', i, '') as string;
 					const options = this.getNodeParameter('options', i, {}) as any;
 					
 					// Validate subject
 					validateSubject(subject);
+					
+					// Validate timeout if specified
+					if (options.timeout) {
+						validateTimeout(options.timeout, 'Timeout');
+					}
+					
+					// Validate stream name if specified
+					if (streamName) {
+						validateStreamName(streamName);
+					}
+					
+					// Validate expected stream if specified
+					if (options.expectedStream) {
+						validateStreamName(options.expectedStream);
+					}
 					
 					// Encode message using JSON encoding
 					const encodedMessage = encodeMessage(message, 'json');
@@ -124,19 +194,36 @@ export class NatsPublisher implements INodeType {
 						}
 					}
 					
-					// Core NATS publish
-					const pubOptions: any = { headers };
-					if (options.replyTo) {
-						pubOptions.reply = options.replyTo;
+					// JetStream publish
+					const pubOptions: any = { 
+						headers,
+						timeout: options.timeout || 5000,
+					};
+					
+					if (options.messageId) {
+						pubOptions.msgID = options.messageId;
 					}
 					
-					nc.publish(subject, encodedMessage, pubOptions);
+					if (options.expectedLastMsgId) {
+						pubOptions.expect = { lastMsgID: options.expectedLastMsgId };
+					} else if (options.expectedLastSeq) {
+						pubOptions.expect = { lastSequence: options.expectedLastSeq };
+					}
+					
+					if (options.expectedStream) {
+						pubOptions.expect = { ...pubOptions.expect, streamName: options.expectedStream };
+					}
+					
+					const ack = await js.publish(subject, encodedMessage, pubOptions);
 					
 					returnData.push({
 						json: {
 							success: true,
 							subject,
 							message: message,
+							stream: ack.stream,
+							sequence: ack.seq,
+							duplicate: ack.duplicate,
 							timestamp: new Date().toISOString(),
 						},
 					});
@@ -160,7 +247,7 @@ export class NatsPublisher implements INodeType {
 			await nc.flush();
 			
 		} catch (error: any) {
-			throw new NodeOperationError(this.getNode(), `NATS Publisher failed: ${error.message}`);
+			throw new NodeOperationError(this.getNode(), `NATS Stream Publisher failed: ${error.message}`);
 		} finally {
 			if (nc!) {
 				await closeNatsConnection(nc, nodeLogger);

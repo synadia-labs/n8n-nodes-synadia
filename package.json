@@ -44,7 +44,9 @@
     ],
     "nodes": [
       "dist/nodes/NatsSubscriber.node.js",
+      "dist/nodes/NatsStreamConsumer.node.js",
       "dist/nodes/NatsPublisher.node.js",
+      "dist/nodes/NatsStreamPublisher.node.js",
       "dist/nodes/NatsKv.node.js",
       "dist/nodes/NatsKvWatcher.node.js",
       "dist/nodes/NatsObjectStore.node.js",
