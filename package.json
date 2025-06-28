@@ -48,9 +48,13 @@
       "dist/nodes/NatsPublisher.node.js",
       "dist/nodes/NatsStreamPublisher.node.js",
       "dist/nodes/NatsKv.node.js",
+      "dist/nodes/NatsKvManager.node.js",
       "dist/nodes/NatsKvWatcher.node.js",
       "dist/nodes/NatsObjectStore.node.js",
-      "dist/nodes/NatsObjectStoreWatcher.node.js"
+      "dist/nodes/NatsObjectStoreManager.node.js",
+      "dist/nodes/NatsObjectStoreWatcher.node.js",
+      "dist/nodes/NatsStreamManager.node.js",
+      "dist/nodes/NatsConsumerManager.node.js"
     ]
   },
   "dependencies": {
