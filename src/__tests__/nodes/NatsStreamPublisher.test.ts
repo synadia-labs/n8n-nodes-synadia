@@ -102,63 +102,7 @@ describe('NatsStreamPublisher', () => {
       });
     });
 
-    it('should handle message ID for deduplication', async () => {
-      const mockJs = { 
-        publish: jest.fn().mockResolvedValue({
-          stream: 'TESTSTREAM',
-          seq: 123,
-          duplicate: false,
-        })
-      };
-      (jetstream as jest.Mock).mockReturnValue(mockJs);
 
-      mockGetNodeParameter
-        .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('{}')
-        .mockReturnValueOnce('')
-        .mockReturnValueOnce({ messageId: 'unique-123' });
-
-      await node.execute.call(mockExecuteFunctions);
-
-      expect(mockJs.publish).toHaveBeenCalledWith(
-        'test.subject',
-        expect.any(Uint8Array),
-        expect.objectContaining({ msgID: 'unique-123' })
-      );
-    });
-
-    it('should handle optimistic concurrency controls', async () => {
-      const mockJs = { 
-        publish: jest.fn().mockResolvedValue({
-          stream: 'TESTSTREAM',
-          seq: 123,
-          duplicate: false,
-        })
-      };
-      (jetstream as jest.Mock).mockReturnValue(mockJs);
-
-      mockGetNodeParameter
-        .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('{}')
-        .mockReturnValueOnce('')
-        .mockReturnValueOnce({ 
-          expectedLastMsgId: 'last-msg-123',
-          expectedStream: 'my-stream' 
-        });
-
-      await node.execute.call(mockExecuteFunctions);
-
-      expect(mockJs.publish).toHaveBeenCalledWith(
-        'test.subject',
-        expect.any(Uint8Array),
-        expect.objectContaining({ 
-          expect: { 
-            lastMsgID: 'last-msg-123',
-            streamName: 'my-stream' 
-          } 
-        })
-      );
-    });
 
     it('should handle expected last sequence', async () => {
       const mockJs = { 
@@ -221,31 +165,6 @@ describe('NatsStreamPublisher', () => {
       );
     });
 
-    it('should handle reply-to option', async () => {
-      const mockJs = { 
-        publish: jest.fn().mockResolvedValue({
-          stream: 'TESTSTREAM',
-          seq: 123,
-          duplicate: false,
-        })
-      };
-      (jetstream as jest.Mock).mockReturnValue(mockJs);
-
-      mockGetNodeParameter
-        .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('{}')
-        .mockReturnValueOnce('')
-        .mockReturnValueOnce({ replyTo: 'reply.subject' });
-
-      await node.execute.call(mockExecuteFunctions);
-
-      // Note: reply-to is handled via headers in JetStream
-      expect(mockJs.publish).toHaveBeenCalledWith(
-        'test.subject',
-        expect.any(Uint8Array),
-        expect.any(Object)
-      );
-    });
   });
 
   describe('Error Handling', () => {
@@ -271,15 +190,6 @@ describe('NatsStreamPublisher', () => {
       await expect(node.execute.call(mockExecuteFunctions)).rejects.toThrow();
     });
 
-    it('should validate expected stream name when provided', async () => {
-      mockGetNodeParameter
-        .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('{}')
-        .mockReturnValueOnce('')
-        .mockReturnValueOnce({ expectedStream: 'invalid stream' });
-
-      await expect(node.execute.call(mockExecuteFunctions)).rejects.toThrow();
-    });
 
     it('should validate timeout when provided', async () => {
       mockGetNodeParameter

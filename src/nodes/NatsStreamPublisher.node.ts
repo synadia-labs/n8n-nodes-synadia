@@ -83,15 +83,6 @@ export class NatsStreamPublisher implements INodeType {
 						hint: 'Headers can be used for routing and metadata',
 					},
 					{
-						displayName: 'Reply To',
-						name: 'replyTo',
-						type: 'string',
-						default: '',
-						description: 'Subject for receiving replies',
-						placeholder: 'orders.replies',
-						hint: 'Used with request-reply pattern',
-					},
-					{
 						displayName: 'Timeout (Ms)',
 						name: 'timeout',
 						type: 'number',
@@ -100,39 +91,12 @@ export class NatsStreamPublisher implements INodeType {
 						hint: 'Message will timeout if not acknowledged in time',
 					},
 					{
-						displayName: 'Message ID',
-						name: 'messageId',
-						type: 'string',
-						default: '',
-						description: 'Unique ID to prevent duplicate messages',
-						placeholder: 'order-12345',
-						hint: 'JetStream will reject duplicates within the deduplication window',
-					},
-					{
-						displayName: 'Expected Last Message ID',
-						name: 'expectedLastMsgId',
-						type: 'string',
-						default: '',
-						description: 'Only publish if this was the last message ID',
-						placeholder: 'order-12344',
-						hint: 'Prevents concurrent updates - fails if another message was published',
-					},
-					{
 						displayName: 'Expected Last Sequence',
 						name: 'expectedLastSeq',
 						type: 'number',
 						default: 0,
 						description: 'Only publish if stream is at this sequence number',
 						hint: 'Prevents concurrent updates - fails if stream has advanced',
-					},
-					{
-						displayName: 'Expected Stream',
-						name: 'expectedStream',
-						type: 'string',
-						default: '',
-						description: 'Verify message goes to this specific stream',
-						placeholder: 'ORDERS',
-						hint: 'Fails if subject would be stored in a different stream',
 					},
 				],
 			},
@@ -173,10 +137,6 @@ export class NatsStreamPublisher implements INodeType {
 						validateStreamName(streamName);
 					}
 					
-					// Validate expected stream if specified
-					if (options.expectedStream) {
-						validateStreamName(options.expectedStream);
-					}
 					
 					// Encode message using JSON encoding
 					const encodedMessage = encodeMessage(message, 'json');
@@ -200,18 +160,8 @@ export class NatsStreamPublisher implements INodeType {
 						timeout: options.timeout || 5000,
 					};
 					
-					if (options.messageId) {
-						pubOptions.msgID = options.messageId;
-					}
-					
-					if (options.expectedLastMsgId) {
-						pubOptions.expect = { lastMsgID: options.expectedLastMsgId };
-					} else if (options.expectedLastSeq) {
+					if (options.expectedLastSeq) {
 						pubOptions.expect = { lastSequence: options.expectedLastSeq };
-					}
-					
-					if (options.expectedStream) {
-						pubOptions.expect = { ...pubOptions.expect, streamName: options.expectedStream };
 					}
 					
 					const ack = await js.publish(subject, encodedMessage, pubOptions);
