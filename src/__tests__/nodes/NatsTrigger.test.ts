@@ -83,10 +83,7 @@ describe('NatsSubscriber', () => {
     it('should subscribe to Core NATS subject', async () => {
       mockGetNodeParameter
         .mockReturnValueOnce('test.subject') // subject
-        .mockReturnValueOnce('') // queueGroup
-        .mockReturnValueOnce('disabled') // replyMode
-        .mockReturnValueOnce({}) // replyOptions
-        .mockReturnValueOnce({}); // automaticReply
+        .mockReturnValueOnce(''); // queueGroup
 
       const response = await node.trigger.call(mockTriggerFunctions);
 
@@ -101,10 +98,7 @@ describe('NatsSubscriber', () => {
     it('should subscribe with queue group', async () => {
       mockGetNodeParameter
         .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('my-queue-group') // queueGroup
-        .mockReturnValueOnce('disabled') // replyMode
-        .mockReturnValueOnce({}) // replyOptions
-        .mockReturnValueOnce({}); // automaticReply
+        .mockReturnValueOnce('my-queue-group'); // queueGroup
 
       await node.trigger.call(mockTriggerFunctions);
 
@@ -145,8 +139,7 @@ describe('NatsSubscriber', () => {
 
       mockGetNodeParameter
         .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('') // queueGroup
-        .mockReturnValueOnce('disabled'); // replyMode
+        .mockReturnValueOnce(''); // queueGroup
 
       const response = await node.trigger.call(mockTriggerFunctions);
 
@@ -164,46 +157,13 @@ describe('NatsSubscriber', () => {
       ]]);
     });
 
-    it('should handle manual reply mode', async () => {
-      mockGetNodeParameter
-        .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('')
-        .mockReturnValueOnce('manual') // replyMode
-        .mockReturnValueOnce({ replyField: 'response' }) // replyOptions
-        .mockReturnValueOnce({}); // automaticReply
-
-      const response = await node.trigger.call(mockTriggerFunctions);
-
-      expect(response.closeFunction).toBeDefined();
-      expect(response.manualTriggerFunction).toBeDefined();
-      expect((response as any).manualReplyFunction).toBeDefined();
-    });
-
-    it('should handle automatic reply mode', async () => {
-      mockGetNodeParameter
-        .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('')
-        .mockReturnValueOnce('automatic') // replyMode
-        .mockReturnValueOnce({}) // replyOptions
-        .mockReturnValueOnce({ responseTemplate: '{"processed": true}' }); // automaticReply
-
-      const response = await node.trigger.call(mockTriggerFunctions);
-
-      expect(response.closeFunction).toBeDefined();
-      expect(response.manualTriggerFunction).toBeDefined();
-      // Automatic mode doesn't add manualReplyFunction
-      expect((response as any).manualReplyFunction).toBeUndefined();
-    });
   });
 
   describe('Error Handling', () => {
     it('should validate subject', async () => {
       mockGetNodeParameter
         .mockReturnValueOnce('invalid subject') // Invalid subject with space
-        .mockReturnValueOnce('')
-        .mockReturnValueOnce('disabled')
-        .mockReturnValueOnce({})
-        .mockReturnValueOnce({});
+        .mockReturnValueOnce('');
 
       await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow(
         'Subject cannot contain spaces'
@@ -213,10 +173,7 @@ describe('NatsSubscriber', () => {
     it('should validate queue group when provided', async () => {
       mockGetNodeParameter
         .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('invalid queue') // Invalid queue group with space
-        .mockReturnValueOnce('disabled')
-        .mockReturnValueOnce({})
-        .mockReturnValueOnce({});
+        .mockReturnValueOnce('invalid queue'); // Invalid queue group with space
 
       await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow();
     });
@@ -228,10 +185,7 @@ describe('NatsSubscriber', () => {
 
       mockGetNodeParameter
         .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('')
-        .mockReturnValueOnce('disabled')
-        .mockReturnValueOnce({})
-        .mockReturnValueOnce({});
+        .mockReturnValueOnce('');
 
       await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow(
         'NATS Subscriber failed: Connection failed'
@@ -241,10 +195,7 @@ describe('NatsSubscriber', () => {
     it('should close connection on cleanup', async () => {
       mockGetNodeParameter
         .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('')
-        .mockReturnValueOnce('disabled')
-        .mockReturnValueOnce({})
-        .mockReturnValueOnce({});
+        .mockReturnValueOnce('');
 
       const response = await node.trigger.call(mockTriggerFunctions);
       await response.closeFunction!();
@@ -258,10 +209,7 @@ describe('NatsSubscriber', () => {
     it('should provide sample data', async () => {
       mockGetNodeParameter
         .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('')
-        .mockReturnValueOnce('disabled')
-        .mockReturnValueOnce({})
-        .mockReturnValueOnce({});
+        .mockReturnValueOnce('');
 
       const response = await node.trigger.call(mockTriggerFunctions);
       await response.manualTriggerFunction!();
@@ -277,25 +225,5 @@ describe('NatsSubscriber', () => {
       ]);
     });
 
-    it('should include reply fields for manual mode', async () => {
-      mockGetNodeParameter
-        .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('')
-        .mockReturnValueOnce('manual')
-        .mockReturnValueOnce({})
-        .mockReturnValueOnce({});
-
-      const response = await node.trigger.call(mockTriggerFunctions);
-      await response.manualTriggerFunction!();
-
-      expect(mockEmit).toHaveBeenCalledWith([
-        expect.arrayContaining([
-          expect.objectContaining({
-            replyTo: '_INBOX.sample.reply',
-            requestId: 'sample-request-id',
-          })
-        ])
-      ]);
-    });
   });
 });
