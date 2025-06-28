@@ -202,9 +202,10 @@ export class NatsKvManager implements INodeType {
 							break;
 							
 						case 'deleteBucket':
-							const deleted = await jsm.streams.delete(`KV_${bucket}`);
+							const kvToDelete = await kvManager.open(bucket);
+							await kvToDelete.destroy();
 							result = {
-								success: deleted,
+								success: true,
 								operation: 'deleteBucket',
 								bucket,
 							};

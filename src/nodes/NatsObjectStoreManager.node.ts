@@ -190,9 +190,10 @@ export class NatsObjectStoreManager implements INodeType {
 							break;
 							
 						case 'deleteBucket':
-							const deleted = await jsm.streams.delete(`OBJ_${bucket}`);
+							const objToDelete = await objManager.open(bucket);
+							await objToDelete.destroy();
 							result = {
-								success: deleted,
+								success: true,
 								operation: 'deleteBucket',
 								bucket,
 							};
