@@ -94,7 +94,6 @@ describe('NatsStreamConsumer', () => {
         switch (paramName) {
           case 'streamName': return 'TESTSTREAM';
           case 'consumerName': return 'my-consumer';
-          case 'options': return {};
           default: return defaultValue;
         }
       });
@@ -108,80 +107,6 @@ describe('NatsStreamConsumer', () => {
     });
   });
 
-  describe('Consumer Options', () => {
-    it('should handle manual acknowledgment option', async () => {
-      const mockMessageIterator = {
-        [Symbol.asyncIterator]: jest.fn().mockReturnValue({
-          async next() { return { done: true }; },
-        }),
-        return: jest.fn(),
-      };
-
-      const mockConsumer = {
-        consume: jest.fn().mockResolvedValue(mockMessageIterator),
-        stop: jest.fn(),
-      };
-
-      const mockJs = {
-        consumers: {
-          get: jest.fn().mockResolvedValue(mockConsumer),
-        },
-      };
-
-      (jetstream as jest.Mock).mockReturnValue(mockJs);
-
-      mockGetNodeParameter.mockImplementation((paramName, index, defaultValue) => {
-        switch (paramName) {
-          case 'streamName': return 'TESTSTREAM';
-          case 'consumerName': return 'my-consumer';
-          case 'options': return {
-            manualAck: true,
-          };
-          default: return defaultValue;
-        }
-      });
-
-      await node.trigger.call(mockTriggerFunctions);
-
-      expect(mockJs.consumers.get).toHaveBeenCalledWith('TESTSTREAM', 'my-consumer');
-    });
-
-    it('should handle automatic acknowledgment option', async () => {
-      const mockMessageIterator = {
-        [Symbol.asyncIterator]: jest.fn().mockReturnValue({
-          async next() { return { done: true }; },
-        }),
-        return: jest.fn(),
-      };
-
-      const mockConsumer = {
-        consume: jest.fn().mockResolvedValue(mockMessageIterator),
-      };
-
-      const mockJs = {
-        consumers: {
-          get: jest.fn().mockResolvedValue(mockConsumer),
-        },
-      };
-
-      (jetstream as jest.Mock).mockReturnValue(mockJs);
-
-      mockGetNodeParameter.mockImplementation((paramName, index, defaultValue) => {
-        switch (paramName) {
-          case 'streamName': return 'TESTSTREAM';
-          case 'consumerName': return 'my-consumer';
-          case 'options': return {
-            manualAck: false,
-          };
-          default: return defaultValue;
-        }
-      });
-
-      await node.trigger.call(mockTriggerFunctions);
-
-      expect(mockJs.consumers.get).toHaveBeenCalledWith('TESTSTREAM', 'my-consumer');
-    });
-  });
 
   describe('Error Handling', () => {
     it('should validate stream name', async () => {
@@ -189,7 +114,6 @@ describe('NatsStreamConsumer', () => {
         switch (paramName) {
           case 'streamName': return 'invalid stream'; // Invalid stream name with space
           case 'consumerName': return 'my-consumer';
-          case 'options': return {};
           default: return defaultValue;
         }
       });
@@ -202,7 +126,6 @@ describe('NatsStreamConsumer', () => {
         switch (paramName) {
           case 'streamName': return 'TESTSTREAM';
           case 'consumerName': return 'invalid consumer'; // Invalid consumer name with space
-          case 'options': return {};
           default: return defaultValue;
         }
       });
@@ -265,7 +188,6 @@ describe('NatsStreamConsumer', () => {
         switch (paramName) {
           case 'streamName': return 'TESTSTREAM';
           case 'consumerName': return 'my-consumer';
-          case 'options': return {};
           default: return defaultValue;
         }
       });
@@ -298,7 +220,6 @@ describe('NatsStreamConsumer', () => {
         switch (paramName) {
           case 'streamName': return 'TESTSTREAM';
           case 'consumerName': return 'my-consumer';
-          case 'options': return {};
           default: return defaultValue;
         }
       });

@@ -3,7 +3,6 @@ import {
 	INodeType,
 	INodeTypeDescription,
 	ITriggerResponse,
-	IDataObject,
 	ApplicationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
@@ -54,30 +53,12 @@ export class NatsStreamConsumer implements INodeType {
 				placeholder: 'order-processor',
 				hint: 'Consumer must already exist in the stream',
 			},
-			{
-				displayName: 'Options',
-				name: 'options',
-				type: 'collection',
-				placeholder: 'Add Option',
-				default: {},
-				options: [
-					{
-						displayName: 'Manual Acknowledgment',
-						name: 'manualAck',
-						type: 'boolean',
-						default: false,
-						description: 'Whether to require explicit acknowledgment in workflow',
-						hint: 'Messages remain pending until acknowledged',
-					},
-				],
-			},
 		],
 	};
 
 	async trigger(this: ITriggerFunctions): Promise<ITriggerResponse> {
 		const streamName = this.getNodeParameter('streamName') as string;
 		const consumerName = this.getNodeParameter('consumerName') as string;
-		const options = this.getNodeParameter('options', {}) as IDataObject;
 		const credentials = await this.getCredentials('natsApi');
 
 		let nc: NatsConnection;
@@ -145,9 +126,7 @@ export class NatsStreamConsumer implements INodeType {
 			(async () => {
 				for await (const msg of messageIterator) {
 					await processMessage(msg as any);
-					if (!options.manualAck) {
-						msg.ack();
-					}
+					msg.ack();
 				}
 			})();
 
