@@ -83,8 +83,5 @@ export function validateSubject(subject: string): void {
 
 // Removed parseMessage function - data should be handled raw without forced parsing
 
-// Legacy aliases for backward compatibility - all use the same encoding
-export const encodeMessage = encodeData;
-export const encodeKvValue = encodeData;
 
 // Removed decodeKvValue function - KV data should be handled raw without automatic parsing
