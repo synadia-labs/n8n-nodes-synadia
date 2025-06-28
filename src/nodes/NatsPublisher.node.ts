@@ -94,29 +94,6 @@ export class NatsPublisher implements INodeType {
 				default: {},
 				options: [
 					{
-						displayName: 'Message Encoding',
-						name: 'encoding',
-						type: 'options',
-						options: [
-							{
-								name: 'JSON',
-								value: 'json',
-								description: 'Encode message as JSON',
-							},
-							{
-								name: 'String',
-								value: 'string',
-								description: 'Send as plain string',
-							},
-							{
-								name: 'Binary',
-								value: 'binary',
-								description: 'Send as binary data',
-							},
-						],
-						default: 'json',
-					},
-					{
 						displayName: 'Headers',
 						name: 'headers',
 						type: 'json',
@@ -238,20 +215,16 @@ export class NatsPublisher implements INodeType {
 						validateStreamName(options.expectedStream);
 					}
 					
-					// Prepare message data
+					// Prepare message data - always encode as JSON
 					let messageData: any;
-					if (options.encoding === 'json') {
-						try {
-							messageData = typeof message === 'string' ? JSON.parse(message) : message;
-						} catch {
-							messageData = message;
-						}
-					} else {
+					try {
+						messageData = typeof message === 'string' ? JSON.parse(message) : message;
+					} catch {
 						messageData = message;
 					}
 					
-					// Encode message
-					const encodedMessage = encodeMessage(messageData, options.encoding || 'json');
+					// Encode message using simplified JSON encoding
+					const encodedMessage = encodeMessage(messageData);
 					
 					// Prepare headers
 					let headers;

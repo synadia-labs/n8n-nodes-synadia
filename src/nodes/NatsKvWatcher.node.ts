@@ -188,14 +188,10 @@ export class NatsKvWatcher implements INodeType {
 				return;
 			}
 			
+			// Return raw value data without automatic parsing
 			let value: any = null;
 			if (!options.metadataOnly && entry.value && entry.value.length > 0) {
-				const stringValue = new TextDecoder().decode(entry.value);
-				try {
-					value = JSON.parse(stringValue);
-				} catch {
-					value = stringValue;
-				}
+				value = entry.value;
 			}
 			
 			this.emit([this.helpers.returnJsonArray([{

@@ -13,17 +13,14 @@ export class PutObjectOperationHandler extends ObjectStoreOperationHandler {
 			});
 		}
 		
-		let objectData: Uint8Array;
-		const dataType = params.options.dataType || 'string';
-		
-		if (dataType === 'binary') {
-			objectData = new TextEncoder().encode(Buffer.from(params.data, 'base64').toString());
-		} else if (dataType === 'json') {
-			const jsonData = typeof params.data === 'string' ? JSON.parse(params.data) : params.data;
-			objectData = new TextEncoder().encode(JSON.stringify(jsonData));
-		} else {
-			objectData = new TextEncoder().encode(params.data);
+		// Use simplified encoding - always JSON encode object data
+		let dataToEncode: any;
+		try {
+			dataToEncode = typeof params.data === 'string' ? JSON.parse(params.data) : params.data;
+		} catch {
+			dataToEncode = params.data;
 		}
+		const objectData = new TextEncoder().encode(JSON.stringify(dataToEncode));
 		
 		const putOptions: any = {
 			headers: params.options.headers ? JSON.parse(params.options.headers) : undefined,

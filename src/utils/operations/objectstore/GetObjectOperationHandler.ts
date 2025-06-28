@@ -45,22 +45,11 @@ export class GetObjectOperationHandler extends ObjectStoreOperationHandler {
 			offset += chunk.length;
 		}
 		
-		const stringData = new TextDecoder().decode(combined);
-		let data: any = stringData;
-		
-		// Try to parse as JSON if requested
-		if (params.options.parseJson) {
-			try {
-				data = JSON.parse(stringData);
-			} catch {
-				// Keep as string if not valid JSON
-			}
-		}
-		
+		// Return raw data without automatic parsing - let users handle decoding
 		return this.createResult({
 			name: params.name,
 			found: true,
-			data,
+			data: combined,
 			info: {
 				name: result.info.name,
 				size: result.info.size,

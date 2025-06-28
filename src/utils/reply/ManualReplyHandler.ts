@@ -80,8 +80,8 @@ export class ManualReplyHandler extends ReplyHandler {
 						replyHeaders = createNatsHeaders(item.json.replyHeaders as Record<string, string>);
 					}
 					
-					// Encode and send reply
-					const encodedReply = encodeMessage(replyData, replyOptions.replyEncoding as any || 'json');
+					// Encode and send reply using simplified JSON encoding
+					const encodedReply = encodeMessage(replyData);
 					msg.respond(encodedReply, { headers: replyHeaders });
 					
 					// Remove from pending

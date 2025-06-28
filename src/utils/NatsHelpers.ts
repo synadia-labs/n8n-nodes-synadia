@@ -9,25 +9,13 @@ export interface NatsMessage {
 }
 
 export function parseNatsMessage(msg: Msg): INodeExecutionData {
-	let data: any;
+	// Store raw data as-is without any automatic parsing or decoding
 	const rawData = msg.data;
-	
-	// Try to parse as JSON first
-	try {
-		if (rawData.length > 0) {
-			data = JSON.parse(new TextDecoder().decode(rawData));
-		} else {
-			data = '';
-		}
-	} catch {
-		// If not JSON, return as string
-		data = new TextDecoder().decode(rawData);
-	}
 
 	const result: INodeExecutionData = {
 		json: {
 			subject: msg.subject,
-			data,
+			data: rawData,
 			replyTo: msg.reply,
 			timestamp: new Date().toISOString(),
 		},
@@ -50,30 +38,9 @@ export function parseNatsMessage(msg: Msg): INodeExecutionData {
 	return result;
 }
 
-export function encodeMessage(data: any, encoding: 'json' | 'string' | 'binary' = 'json'): Uint8Array {
-	switch (encoding) {
-		case 'json':
-			return new TextEncoder().encode(JSON.stringify(data));
-		case 'string':
-			return new TextEncoder().encode(String(data));
-		case 'binary':
-			if (data instanceof Uint8Array) {
-				return data;
-			} else if (typeof data === 'string') {
-				// Assume base64 encoded string
-				return Uint8Array.from(atob(data), c => c.charCodeAt(0));
-			} else {
-				throw new ApplicationError('Binary encoding requires Uint8Array or base64 string', {
-					level: 'warning',
-					tags: { nodeType: 'n8n-nodes-synadia.nats' },
-				});
-			}
-		default:
-			throw new ApplicationError(`Unsupported encoding: ${encoding}`, {
-				level: 'warning',
-				tags: { nodeType: 'n8n-nodes-synadia.nats' },
-			});
-	}
+export function encodeMessage(data: any): Uint8Array {
+	// Always encode as JSON for outbound messages - keep it simple
+	return new TextEncoder().encode(JSON.stringify(data));
 }
 
 export function createNatsHeaders(headersObj?: Record<string, string>): any {
@@ -114,53 +81,11 @@ export function validateSubject(subject: string): void {
 	}
 }
 
-export function parseMessage(data: Uint8Array, encoding: 'auto' | 'json' | 'string' | 'binary' = 'auto'): any {
-	const stringData = new TextDecoder().decode(data);
-	
-	if (encoding === 'binary') {
-		return Buffer.from(data).toString('base64');
-	}
-	
-	if (encoding === 'string') {
-		return stringData;
-	}
-	
-	if (encoding === 'json' || encoding === 'auto') {
-		try {
-			return JSON.parse(stringData);
-		} catch {
-			if (encoding === 'json') {
-				throw new ApplicationError('Failed to parse JSON', {
-					level: 'warning',
-					tags: { nodeType: 'n8n-nodes-synadia.nats' },
-				});
-			}
-			// Auto mode: fallback to string
-			return stringData;
-		}
-	}
-	
-	return stringData;
+// Removed parseMessage function - data should be handled raw without forced parsing
+
+export function encodeKvValue(value: any): Uint8Array {
+	// Always encode KV values as JSON - keep it simple
+	return new TextEncoder().encode(JSON.stringify(value));
 }
 
-export function encodeKvValue(value: any, valueType: string): Uint8Array {
-	switch (valueType) {
-		case 'binary':
-			return new TextEncoder().encode(Buffer.from(value, 'base64').toString());
-		case 'json': {
-			const jsonValue = typeof value === 'string' ? JSON.parse(value) : value;
-			return new TextEncoder().encode(JSON.stringify(jsonValue));
-		}
-		default:
-			return new TextEncoder().encode(value);
-	}
-}
-
-export function decodeKvValue(data: Uint8Array): any {
-	const stringValue = new TextDecoder().decode(data);
-	try {
-		return JSON.parse(stringValue);
-	} catch {
-		return stringValue;
-	}
-}
+// Removed decodeKvValue function - KV data should be handled raw without automatic parsing
