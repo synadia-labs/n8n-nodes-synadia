@@ -81,7 +81,3 @@ export function validateSubject(subject: string): void {
 	}
 }
 
-// Removed parseMessage function - data should be handled raw without forced parsing
-
-
-// Removed decodeKvValue function - KV data should be handled raw without automatic parsing
