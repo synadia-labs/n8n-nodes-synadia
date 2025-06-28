@@ -90,14 +90,6 @@ export class NatsStreamPublisher implements INodeType {
 						description: 'Maximum time to wait for acknowledgment (milliseconds)',
 						hint: 'Message will timeout if not acknowledged in time',
 					},
-					{
-						displayName: 'Expected Last Sequence',
-						name: 'expectedLastSeq',
-						type: 'number',
-						default: 0,
-						description: 'Only publish if stream is at this sequence number',
-						hint: 'Prevents concurrent updates - fails if stream has advanced',
-					},
 				],
 			},
 		],
@@ -160,9 +152,6 @@ export class NatsStreamPublisher implements INodeType {
 						timeout: options.timeout || 5000,
 					};
 					
-					if (options.expectedLastSeq) {
-						pubOptions.expect = { lastSequence: options.expectedLastSeq };
-					}
 					
 					const ack = await js.publish(subject, encodedMessage, pubOptions);
 					

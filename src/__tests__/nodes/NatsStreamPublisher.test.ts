@@ -104,36 +104,6 @@ describe('NatsStreamPublisher', () => {
 
 
 
-    it('should handle expected last sequence', async () => {
-      const mockJs = { 
-        publish: jest.fn().mockResolvedValue({
-          stream: 'TESTSTREAM',
-          seq: 123,
-          duplicate: false,
-        })
-      };
-      (jetstream as jest.Mock).mockReturnValue(mockJs);
-
-      mockGetNodeParameter
-        .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('{}')
-        .mockReturnValueOnce('')
-        .mockReturnValueOnce({ 
-          expectedLastSeq: 42
-        });
-
-      await node.execute.call(mockExecuteFunctions);
-
-      expect(mockJs.publish).toHaveBeenCalledWith(
-        'test.subject',
-        expect.any(Uint8Array),
-        expect.objectContaining({ 
-          expect: { 
-            lastSequence: 42
-          } 
-        })
-      );
-    });
 
     it('should include headers when provided', async () => {
       const mockHeaders = { append: jest.fn(), set: jest.fn(), get: jest.fn() };
