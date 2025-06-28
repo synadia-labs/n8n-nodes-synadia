@@ -1,9 +1,8 @@
 import { 
   parseNatsMessage, 
-  encodeMessage, 
+  encodeData, 
   createNatsHeaders, 
-  validateSubject,
-  encodeKvValue
+  validateSubject
 } from '../../utils/NatsHelpers';
 
 describe('NatsHelpers', () => {
@@ -94,10 +93,10 @@ describe('NatsHelpers', () => {
     });
   });
 
-  describe('encodeMessage', () => {
+  describe('encodeData', () => {
     it('should always encode as JSON', () => {
       const data = { test: 'value' };
-      const encoded = encodeMessage(data);
+      const encoded = encodeData(data);
       const decoded = JSON.parse(new TextDecoder().decode(encoded));
 
       expect(decoded).toEqual(data);
@@ -105,7 +104,7 @@ describe('NatsHelpers', () => {
 
     it('should encode strings as JSON', () => {
       const data = 'test string';
-      const encoded = encodeMessage(data);
+      const encoded = encodeData(data);
       const decoded = JSON.parse(new TextDecoder().decode(encoded));
 
       expect(decoded).toBe(data);
@@ -113,7 +112,7 @@ describe('NatsHelpers', () => {
 
     it('should encode arrays as JSON', () => {
       const data = [1, 2, 3, 4];
-      const encoded = encodeMessage(data);
+      const encoded = encodeData(data);
       const decoded = JSON.parse(new TextDecoder().decode(encoded));
 
       expect(decoded).toEqual(data);
@@ -171,38 +170,5 @@ describe('NatsHelpers', () => {
   });
 
 
-  describe('encodeKvValue', () => {
-    it('should encode string value as JSON', () => {
-      const value = 'plain text';
-      const encoded = encodeKvValue(value);
-      const decoded = new TextDecoder().decode(encoded);
-      
-      expect(JSON.parse(decoded)).toBe('plain text');
-    });
-
-    it('should encode object value as JSON', () => {
-      const value = { test: 'value' };
-      const encoded = encodeKvValue(value);
-      const decoded = new TextDecoder().decode(encoded);
-      
-      expect(JSON.parse(decoded)).toEqual({ test: 'value' });
-    });
-
-    it('should encode array value as JSON', () => {
-      const value = [1, 2, 3];
-      const encoded = encodeKvValue(value);
-      const decoded = new TextDecoder().decode(encoded);
-      
-      expect(JSON.parse(decoded)).toEqual([1, 2, 3]);
-    });
-
-    it('should encode number value as JSON', () => {
-      const value = 42;
-      const encoded = encodeKvValue(value);
-      const decoded = new TextDecoder().decode(encoded);
-      
-      expect(JSON.parse(decoded)).toBe(42);
-    });
-  });
 
 });

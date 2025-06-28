@@ -8,7 +8,7 @@ import {
 } from 'n8n-workflow';
 import { NatsConnection, jetstream } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
-import { encodeMessage, createNatsHeaders, validateSubject } from '../utils/NatsHelpers';
+import { encodeData, createNatsHeaders, validateSubject } from '../utils/NatsHelpers';
 import { NodeLogger } from '../utils/NodeLogger';
 import { validateStreamName, validateTimeout } from '../utils/ValidationHelpers';
 
@@ -215,16 +215,8 @@ export class NatsPublisher implements INodeType {
 						validateStreamName(options.expectedStream);
 					}
 					
-					// Prepare message data - always encode as JSON
-					let messageData: any;
-					try {
-						messageData = typeof message === 'string' ? JSON.parse(message) : message;
-					} catch {
-						messageData = message;
-					}
-					
-					// Encode message using simplified JSON encoding
-					const encodedMessage = encodeMessage(messageData);
+					// Encode message using simplified JSON encoding directly
+					const encodedMessage = encodeData(message);
 					
 					// Prepare headers
 					let headers;
@@ -252,7 +244,7 @@ export class NatsPublisher implements INodeType {
 							json: {
 								success: true,
 								subject,
-								message: messageData,
+								message: message,
 								timestamp: new Date().toISOString(),
 							},
 						});
@@ -285,7 +277,7 @@ export class NatsPublisher implements INodeType {
 							json: {
 								success: true,
 								subject,
-								message: messageData,
+								message: message,
 								stream: ack.stream,
 								sequence: ack.seq,
 								duplicate: ack.duplicate,

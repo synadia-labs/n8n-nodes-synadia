@@ -10,7 +10,7 @@ import {
 import { jetstream, jetstreamManager, Kvm } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { validateBucketName, validateKeyName, validateNumberRange } from '../utils/ValidationHelpers';
-import { encodeKvValue } from '../utils/NatsHelpers';
+import { encodeData } from '../utils/NatsHelpers';
 import { NodeLogger } from '../utils/NodeLogger';
 
 export class NatsKv implements INodeType {
@@ -412,14 +412,8 @@ export class NatsKv implements INodeType {
 								const value = this.getNodeParameter('value', i) as string;
 								validateKeyName(key);
 								
-								// Use simplified encoding - always JSON encode KV values
-								let valueData: any;
-								try {
-									valueData = typeof value === 'string' ? JSON.parse(value) : value;
-								} catch {
-									valueData = value;
-								}
-								const encodedValue = encodeKvValue(valueData);
+								// Use simplified encoding - always JSON encode KV values directly
+								const encodedValue = encodeData(value);
 								
 								const revision = await kv.put(key, encodedValue);
 								
@@ -441,14 +435,8 @@ export class NatsKv implements INodeType {
 								const expectedRevision = options.revision || 0;
 								validateKeyName(key);
 								
-								// Use simplified encoding - always JSON encode KV values
-								let valueData: any;
-								try {
-									valueData = typeof value === 'string' ? JSON.parse(value) : value;
-								} catch {
-									valueData = value;
-								}
-								const encodedValue = encodeKvValue(valueData);
+								// Use simplified encoding - always JSON encode KV values directly
+								const encodedValue = encodeData(value);
 								
 								const revision = await kv.update(key, encodedValue, expectedRevision);
 								

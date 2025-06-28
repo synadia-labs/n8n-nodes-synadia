@@ -38,8 +38,8 @@ export function parseNatsMessage(msg: Msg): INodeExecutionData {
 	return result;
 }
 
-export function encodeMessage(data: any): Uint8Array {
-	// Always encode as JSON for outbound messages - keep it simple
+export function encodeData(data: any): Uint8Array {
+	// Always encode as JSON - keep it simple
 	return new TextEncoder().encode(JSON.stringify(data));
 }
 
@@ -83,9 +83,8 @@ export function validateSubject(subject: string): void {
 
 // Removed parseMessage function - data should be handled raw without forced parsing
 
-export function encodeKvValue(value: any): Uint8Array {
-	// Always encode KV values as JSON - keep it simple
-	return new TextEncoder().encode(JSON.stringify(value));
-}
+// Legacy aliases for backward compatibility - all use the same encoding
+export const encodeMessage = encodeData;
+export const encodeKvValue = encodeData;
 
 // Removed decodeKvValue function - KV data should be handled raw without automatic parsing

@@ -13,14 +13,8 @@ export class PutObjectOperationHandler extends ObjectStoreOperationHandler {
 			});
 		}
 		
-		// Use simplified encoding - always JSON encode object data
-		let dataToEncode: any;
-		try {
-			dataToEncode = typeof params.data === 'string' ? JSON.parse(params.data) : params.data;
-		} catch {
-			dataToEncode = params.data;
-		}
-		const objectData = new TextEncoder().encode(JSON.stringify(dataToEncode));
+		// Use simplified encoding - always JSON encode object data directly
+		const objectData = new TextEncoder().encode(JSON.stringify(params.data));
 		
 		const putOptions: any = {
 			headers: params.options.headers ? JSON.parse(params.options.headers) : undefined,
