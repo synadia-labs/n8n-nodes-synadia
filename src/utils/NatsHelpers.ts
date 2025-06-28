@@ -9,13 +9,10 @@ export interface NatsMessage {
 }
 
 export function parseNatsMessage(msg: Msg): INodeExecutionData {
-	// Store raw data as-is without any automatic parsing or decoding
-	const rawData = msg.data;
-
 	const result: INodeExecutionData = {
 		json: {
 			subject: msg.subject,
-			data: rawData,
+			data: msg.data,
 			replyTo: msg.reply,
 			timestamp: new Date().toISOString(),
 		},
