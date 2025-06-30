@@ -1,20 +1,19 @@
 import { createNatsConnection, closeNatsConnection } from '../../utils/NatsConnection';
-import { connect, credsAuthenticator, jwtAuthenticator, nkeyAuthenticator } from '../../bundled/nats-bundled';
+import { connect, credsAuthenticator, usernamePasswordAuthenticator, tokenAuthenticator } from '../../bundled/nats-bundled';
 
-// Mock the bundled module
 jest.mock('../../bundled/nats-bundled', () => ({
   connect: jest.fn(),
   credsAuthenticator: jest.fn(),
-  jwtAuthenticator: jest.fn(),
-  nkeyAuthenticator: jest.fn(),
+  usernamePasswordAuthenticator: jest.fn(),
+  tokenAuthenticator: jest.fn(),
 }));
 
-describe('NatsConnection', () => {
-  const mockNatsConnection = {
-    drain: jest.fn(),
-    close: jest.fn(),
-  } as any;
-
+describe('NatsConnection Integration Tests', () => {
+  const mockConnect = connect as jest.MockedFunction<typeof connect>;
+  const mockCredsAuthenticator = credsAuthenticator as jest.MockedFunction<typeof credsAuthenticator>;
+  const mockUsernamePasswordAuthenticator = usernamePasswordAuthenticator as jest.MockedFunction<typeof usernamePasswordAuthenticator>;
+  const mockTokenAuthenticator = tokenAuthenticator as jest.MockedFunction<typeof tokenAuthenticator>;
+  
   const mockLogger = {
     error: jest.fn(),
     warn: jest.fn(),
@@ -24,189 +23,146 @@ describe('NatsConnection', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (connect as jest.Mock).mockResolvedValue(mockNatsConnection);
+    mockConnect.mockResolvedValue({} as any);
+    mockCredsAuthenticator.mockReturnValue({} as any);
+    mockUsernamePasswordAuthenticator.mockReturnValue({} as any);
+    mockTokenAuthenticator.mockReturnValue({} as any);
   });
 
   describe('createNatsConnection', () => {
-    it('should create connection with basic URL configuration', async () => {
+    it('should create connection options with URL only for no authentication', async () => {
       const credentials = {
-        connectionType: 'url',
-        servers: 'nats://localhost:4222',
-      };
-
-      const nc = await createNatsConnection(credentials, mockLogger);
-
-      expect(connect).toHaveBeenCalledWith({
-        servers: ['nats://localhost:4222'],
-        name: 'n8n-nats-client',
-        maxReconnectAttempts: -1,
-        reconnectTimeWait: 2000,
-        timeout: 20000,
-        pingInterval: 120000,
-      });
-      expect(nc).toBe(mockNatsConnection);
-    });
-
-    it('should handle multiple servers', async () => {
-      const credentials = {
-        connectionType: 'url',
-        servers: 'nats://server1:4222, nats://server2:4222',
+        url: 'nats://localhost:4222',
+        authenticationType: 'none',
       };
 
       await createNatsConnection(credentials, mockLogger);
 
-      expect(connect).toHaveBeenCalledWith(
-        expect.objectContaining({
-          servers: ['nats://server1:4222', 'nats://server2:4222'],
-        })
-      );
+      expect(mockConnect).toHaveBeenCalledWith({
+        servers: ['nats://localhost:4222'],
+      });
     });
 
-    it('should handle username/password authentication', async () => {
+    it('should create connection options with username/password authentication', async () => {
       const credentials = {
-        connectionType: 'credentials',
-        servers: 'nats://localhost:4222',
+        url: 'nats://localhost:4222',
+        authenticationType: 'userpass',
         username: 'testuser',
         password: 'testpass',
       };
 
       await createNatsConnection(credentials, mockLogger);
 
-      expect(connect).toHaveBeenCalledWith(
-        expect.objectContaining({
-          user: 'testuser',
-          pass: 'testpass',
-        })
-      );
+      expect(mockUsernamePasswordAuthenticator).toHaveBeenCalledWith('testuser', 'testpass');
+      expect(mockConnect).toHaveBeenCalledWith({
+        servers: ['nats://localhost:4222'],
+        authenticator: expect.anything(),
+      });
     });
 
-    it('should handle token authentication', async () => {
+    it('should create connection options with token authentication', async () => {
       const credentials = {
-        connectionType: 'token',
-        servers: 'nats://localhost:4222',
+        url: 'nats://localhost:4222',
+        authenticationType: 'token',
         token: 'mytoken',
       };
 
       await createNatsConnection(credentials, mockLogger);
 
-      expect(connect).toHaveBeenCalledWith(
-        expect.objectContaining({
-          token: 'mytoken',
-        })
-      );
+      expect(mockTokenAuthenticator).toHaveBeenCalledWith('mytoken');
+      expect(mockConnect).toHaveBeenCalledWith({
+        servers: ['nats://localhost:4222'],
+        authenticator: expect.anything(),
+      });
     });
 
-    it('should handle NKey authentication', async () => {
-      const mockAuthenticator = jest.fn();
-      (nkeyAuthenticator as jest.Mock).mockReturnValue(mockAuthenticator);
-
+    it('should create connection options with credentials file authentication', async () => {
       const credentials = {
-        connectionType: 'nkey',
-        servers: 'nats://localhost:4222',
-        nkeySeed: 'SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY',
+        url: 'nats://localhost:4222',
+        authenticationType: 'creds',
+        credsFile: `-----BEGIN NATS USER JWT-----
+eyJ0eXAiOiJKV1QiLCJhbGciOiJlZDI1NTE5LW5rZXkifQ.eyJqdGkiOiJPRkhZSjRDTUNBS1c3NjZOQkVNR1YySkU1TEROUlBNN1dNRzZQSUFMTkFFVklTT0FKNklRIiwiaWF0IjoxNjA0ODU0MjUyLCJpc3MiOiJBQTQ0VjJJUEtZTFhGR0daQVFVRFU1SzVOWldHUEJCREhDVkhNTDNMWFE2R1VOWkxJRFVJWFJXUSIsInN1YiI6IlVBU0NLV041UFZMNFNHNFg1UU5RWUtRU0s1VlRKVTJYQlZZWVJOUUtOQ1FZWVFDTlFRUUJLSDRSIiwidHlwIjoianVuayIsIm5iZiI6MTYwNDg1NDI1Mn0.oSX9vJSq4VrEhsLkLPGJFWJJGxgUE1yVtShF8_vLG2KlU6KA6xMWJMcHKzJrZdO8TGhTr8-4-_k-6_xZ5-LQ
+------END NATS USER JWT------
+
+************************* IMPORTANT *************************
+NKEY Seed printed below can be used to sign and prove identity.
+NKEYs are sensitive and should be treated as secrets.
+
+-----BEGIN USER NKEY SEED-----
+SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
+------END USER NKEY SEED------`,
       };
 
       await createNatsConnection(credentials, mockLogger);
 
-      expect(nkeyAuthenticator).toHaveBeenCalled();
-      expect(connect).toHaveBeenCalledWith(
-        expect.objectContaining({
-          authenticator: mockAuthenticator,
-        })
-      );
+      expect(mockCredsAuthenticator).toHaveBeenCalledWith(expect.any(Uint8Array));
+      expect(mockConnect).toHaveBeenCalledWith({
+        servers: ['nats://localhost:4222'],
+        authenticator: expect.anything(),
+      });
     });
 
-    it('should handle JWT authentication', async () => {
-      const mockAuthenticator = jest.fn();
-      (jwtAuthenticator as jest.Mock).mockReturnValue(mockAuthenticator);
-
+    it('should create connection options with TLS enabled', async () => {
       const credentials = {
-        connectionType: 'jwt',
-        servers: 'nats://localhost:4222',
-        jwt: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...',
-        jwtNkey: 'SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY',
-      };
-
-      await createNatsConnection(credentials, mockLogger);
-
-      expect(jwtAuthenticator).toHaveBeenCalled();
-      expect(connect).toHaveBeenCalledWith(
-        expect.objectContaining({
-          authenticator: mockAuthenticator,
-        })
-      );
-    });
-
-    it('should handle TLS configuration', async () => {
-      const credentials = {
-        connectionType: 'url',
-        servers: 'nats://localhost:4222',
+        url: 'nats://localhost:4222',
+        authenticationType: 'none',
         options: {
-          tls: true,
-          tlsCaCert: 'ca-cert-content',
-          tlsCert: 'client-cert-content',
-          tlsKey: 'client-key-content',
+          tlsEnabled: true,
+          ca: 'ca-cert-content',
+          cert: 'client-cert-content',
+          key: 'client-key-content',
         },
       };
 
       await createNatsConnection(credentials, mockLogger);
 
-      expect(connect).toHaveBeenCalledWith(
-        expect.objectContaining({
-          tls: {
-            ca: 'ca-cert-content',
-            cert: 'client-cert-content',
-            key: 'client-key-content',
-          },
-        })
-      );
+      expect(mockConnect).toHaveBeenCalledWith({
+        servers: ['nats://localhost:4222'],
+        tls: {
+          ca: 'ca-cert-content',
+          cert: 'client-cert-content',
+          key: 'client-key-content',
+        },
+      });
     });
 
-    it('should handle custom options', async () => {
+    it('should create connection options with custom client name', async () => {
       const credentials = {
-        connectionType: 'url',
-        servers: 'nats://localhost:4222',
+        url: 'nats://localhost:4222',
+        authenticationType: 'none',
         options: {
           name: 'custom-client',
-          maxReconnectAttempts: 10,
-          reconnectTimeWait: 5000,
-          timeout: 30000,
-          pingInterval: 60000,
         },
       };
 
       await createNatsConnection(credentials, mockLogger);
 
-      expect(connect).toHaveBeenCalledWith(
-        expect.objectContaining({
-          name: 'custom-client',
-          maxReconnectAttempts: 10,
-          reconnectTimeWait: 5000,
-          timeout: 30000,
-          pingInterval: 60000,
-        })
-      );
+      expect(mockConnect).toHaveBeenCalledWith({
+        servers: ['nats://localhost:4222'],
+        name: 'custom-client',
+      });
     });
 
-    it('should throw error on connection failure', async () => {
+    it('should handle connection failure', async () => {
       const error = new Error('Connection failed');
-      (connect as jest.Mock).mockRejectedValue(error);
+      mockConnect.mockRejectedValue(error);
 
       const credentials = {
-        connectionType: 'url',
-        servers: 'nats://localhost:4222',
+        url: 'nats://localhost:4222',
+        authenticationType: 'none',
       };
 
-      await expect(createNatsConnection(credentials, mockLogger)).rejects.toThrow(
-        'Failed to connect to NATS: Connection failed'
-      );
+      await expect(createNatsConnection(credentials, mockLogger))
+        .rejects.toThrow('Failed to connect to NATS: Connection failed');
     });
   });
 
   describe('closeNatsConnection', () => {
-    it('should drain and close connection', async () => {
-      mockNatsConnection.drain = jest.fn().mockResolvedValue(undefined);
-      mockNatsConnection.close = jest.fn().mockResolvedValue(undefined);
+    it('should handle close operation gracefully', async () => {
+      const mockNatsConnection = {
+        drain: jest.fn().mockResolvedValue(undefined),
+        close: jest.fn().mockResolvedValue(undefined),
+      } as any;
 
       await closeNatsConnection(mockNatsConnection, mockLogger);
 
@@ -215,7 +171,10 @@ describe('NatsConnection', () => {
     });
 
     it('should handle errors gracefully', async () => {
-      mockNatsConnection.drain = jest.fn().mockRejectedValue(new Error('Drain failed'));
+      const mockNatsConnection = {
+        drain: jest.fn().mockRejectedValue(new Error('Drain failed')),
+        close: jest.fn().mockResolvedValue(undefined),
+      } as any;
 
       await closeNatsConnection(mockNatsConnection, mockLogger);
 
@@ -223,6 +182,17 @@ describe('NatsConnection', () => {
         'Error closing NATS connection:',
         { error: expect.any(Error) }
       );
+    });
+
+    it('should not log errors for connection already closed', async () => {
+      const mockNatsConnection = {
+        drain: jest.fn().mockRejectedValue(new Error('connection closed')),
+        close: jest.fn().mockResolvedValue(undefined),
+      } as any;
+
+      await closeNatsConnection(mockNatsConnection, mockLogger);
+
+      expect(mockLogger.error).not.toHaveBeenCalled();
     });
   });
 });

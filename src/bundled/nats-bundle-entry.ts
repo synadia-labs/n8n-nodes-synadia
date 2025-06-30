@@ -1,5 +1,5 @@
 // Entry point for bundling NATS.js with WebSocket support
-import { wsconnect, Empty, createInbox, headers, jwtAuthenticator, nkeyAuthenticator } from '@nats-io/nats-core';
+import { wsconnect, Empty, createInbox, headers, jwtAuthenticator, nkeyAuthenticator, credsAuthenticator, usernamePasswordAuthenticator, tokenAuthenticator } from '@nats-io/nats-core';
 import { jetstream as jsFunc, jetstreamManager as jsmFunc } from '@nats-io/jetstream';
 import { Kvm } from '@nats-io/kv';
 import { Objm } from '@nats-io/obj';
@@ -90,6 +90,9 @@ export {
   headers,
   jwtAuthenticator,
   nkeyAuthenticator,
+  credsAuthenticator,
+  usernamePasswordAuthenticator,
+  tokenAuthenticator,
 };
 
 // Export jetstream functions

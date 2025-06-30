@@ -1,27 +1,20 @@
 import { ICredentialDataDecryptedObject, ApplicationError, NodeApiError, Logger } from 'n8n-workflow';
 import { NodeLogger } from './NodeLogger';
-import { connect, NatsConnection, ConnectionOptions, jwtAuthenticator, nkeyAuthenticator } from '../bundled/nats-bundled';
+import { connect, NatsConnection, ConnectionOptions, credsAuthenticator, usernamePasswordAuthenticator, tokenAuthenticator } from '../bundled/nats-bundled';
 
 export type NatsCredentials = {
-	connectionType: 'url' | 'credentials' | 'token' | 'nkey' | 'jwt' | 'credsFile';
-	servers: string;
+	url: string;
+	authenticationType: 'none' | 'creds' | 'userpass' | 'token';
 	username?: string;
 	password?: string;
 	token?: string;
-	nkeySeed?: string;
-	jwt?: string;
-	jwtNkey?: string;
 	credsFile?: string;
 	options?: {
 		name?: string;
-		tls?: boolean;
-		tlsCaCert?: string;
-		tlsCert?: string;
-		tlsKey?: string;
-		maxReconnectAttempts?: number;
-		reconnectTimeWait?: number;
-		timeout?: number;
-		pingInterval?: number;
+		tlsEnabled?: boolean;
+		ca?: string;
+		cert?: string;
+		key?: string;
 	};
 };
 
@@ -30,79 +23,52 @@ export async function createNatsConnection(
 	logger: Logger,
 ): Promise<NatsConnection> {
 	const creds = credentials as unknown as NatsCredentials;
-	const servers = creds.servers.split(',').map(s => s.trim());
 	
 	const connectionOptions: ConnectionOptions = {
-		servers,
-		name: creds.options?.name || 'n8n-nats-client',
-		maxReconnectAttempts: creds.options?.maxReconnectAttempts ?? -1,
-		reconnectTimeWait: creds.options?.reconnectTimeWait ?? 2000,
-		timeout: creds.options?.timeout ?? 20000,
-		pingInterval: creds.options?.pingInterval ?? 120000,
+		servers: [creds.url],
 	};
 
+	// Add optional client name if specified
+	if (creds.options?.name) {
+		connectionOptions.name = creds.options.name;
+	}
+
 	// Handle authentication
-	switch (creds.connectionType) {
-		case 'credentials':
+	switch (creds.authenticationType) {
+		case 'userpass':
 			if (creds.username && creds.password) {
-				connectionOptions.user = creds.username;
-				connectionOptions.pass = creds.password;
+				connectionOptions.authenticator = usernamePasswordAuthenticator(creds.username, creds.password);
 			}
 			break;
 		case 'token':
 			if (creds.token) {
-				connectionOptions.token = creds.token;
+				connectionOptions.authenticator = tokenAuthenticator(creds.token);
 			}
 			break;
-		case 'nkey':
-			if (creds.nkeySeed) {
-				connectionOptions.authenticator = nkeyAuthenticator(new TextEncoder().encode(creds.nkeySeed));
-			}
-			break;
-		case 'jwt':
-			if (creds.jwt && creds.jwtNkey) {
-				connectionOptions.authenticator = jwtAuthenticator(
-					creds.jwt,
-					new TextEncoder().encode(creds.jwtNkey)
-				);
-			}
-			break;
-		case 'credsFile':
+		case 'creds':
 			if (creds.credsFile) {
-				// Parse the credentials file content with improved regex
-				const credsContent = creds.credsFile;
-				
-				// Very flexible regex that handles any whitespace between sections
-				const jwtMatch = credsContent.match(/-----BEGIN NATS USER JWT-----\s*([\s\S]*?)\s*------END NATS USER JWT------/);
-				const seedMatch = credsContent.match(/-----BEGIN USER NKEY SEED-----\s*([\s\S]*?)\s*------END USER NKEY SEED------/);
-				
-				if (jwtMatch && seedMatch) {
-					// Extract and clean the JWT and seed - remove ALL whitespace and newlines
-					const jwt = jwtMatch[1].replace(/\s/g, '');
-					const seed = seedMatch[1].replace(/\s/g, '');
-					
-					connectionOptions.authenticator = jwtAuthenticator(
-						jwt,
-						new TextEncoder().encode(seed)
-					);
-				} else {
-					throw new ApplicationError('Invalid credentials file format. Please paste the entire .creds file content.', {
-						level: 'warning',
-						tags: { nodeType: 'n8n-nodes-synadia.nats' },
-					});
-				}
+				connectionOptions.authenticator = credsAuthenticator(new TextEncoder().encode(creds.credsFile));
 			}
+			break;
+		case 'none':
+		default:
+			// No authentication required
 			break;
 	}
 
-	// Handle TLS
-	if (creds.options?.tls) {
-		connectionOptions.tls = {
-			ca: creds.options.tlsCaCert,
-			cert: creds.options.tlsCert,
-			key: creds.options.tlsKey,
-		};
+	// Handle TLS if enabled
+	if (creds.options?.tlsEnabled) {
+		const tlsConfig: any = {};
+		if (creds.options.ca) tlsConfig.ca = creds.options.ca;
+		if (creds.options.cert) tlsConfig.cert = creds.options.cert;
+		if (creds.options.key) tlsConfig.key = creds.options.key;
+		
+		// Only add TLS config if there are actual TLS options specified
+		if (Object.keys(tlsConfig).length > 0 || creds.options.tlsEnabled) {
+			connectionOptions.tls = tlsConfig;
+		}
 	}
+
 
 	try {
 		const nc = await connect(connectionOptions);
