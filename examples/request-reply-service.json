@@ -36,7 +36,7 @@
       "parameters": {
         "subject": "api.users.service",
         "message": "{{JSON.stringify({\"userId\": \"123\", \"includeDetails\": true})}}",
-        "options": {
+        "config": {
           "publishType": "request",
           "timeout": 5000,
           "messageEncoding": "json"
@@ -97,7 +97,7 @@
             }
           ]
         },
-        "options": {}
+        "config": {}
       },
       "id": "format-response",
       "name": "Format Response",

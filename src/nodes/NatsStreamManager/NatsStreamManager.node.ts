@@ -6,11 +6,11 @@ import {
 	NodeConnectionType,
 	NodeOperationError,
 } from 'n8n-workflow';
-import {jetstreamManager, StreamConfig} from '../bundled/nats-bundled';
-import {closeNatsConnection, createNatsConnection} from '../utils/NatsConnection';
-import {NodeLogger} from '../utils/NodeLogger';
-import {StreamOperationParams} from "../operations/StreamOperationHandler";
-import {streamOperationHandlers} from "../operations/stream";
+import { jetstreamManager, StreamConfig } from '../../bundled/nats-bundled';
+import { closeNatsConnection, createNatsConnection } from '../../utils/NatsConnection';
+import { NodeLogger } from '../../utils/NodeLogger';
+import { StreamOperationParams } from '../../operations/StreamOperationHandler';
+import { streamOperationHandlers } from '../../operations/stream';
 
 export class NatsStreamManager implements INodeType {
 	description: INodeTypeDescription = {
@@ -141,14 +141,16 @@ export class NatsStreamManager implements INodeType {
 						name: 'max_msgs_per_subject',
 						type: 'number',
 						default: -1,
-						description: 'For wildcard streams ensure that for every unique subject this many messages are kept - a per subject retention limit',
+						description:
+							'For wildcard streams ensure that for every unique subject this many messages are kept - a per subject retention limit',
 					},
 					{
 						displayName: 'Max Messages',
 						name: 'max_msgs',
 						type: 'number',
 						default: -1,
-						description: 'How many messages may be in a stream, oldest messages will be removed if the stream exceeds this size (-1 for unlimited)',
+						description:
+							'How many messages may be in a stream, oldest messages will be removed if the stream exceeds this size (-1 for unlimited)',
 					},
 					{
 						displayName: 'Max Age (Seconds)',
@@ -281,14 +283,15 @@ export class NatsStreamManager implements INodeType {
 						name: 'placement',
 						type: 'collection',
 						default: {},
-						description: 'Placement directives to consider when placing replicas of this stream, random placement when unset',
+						description:
+							'Placement directives to consider when placing replicas of this stream, random placement when unset',
 						options: [
 							{
 								displayName: 'Cluster',
 								name: 'cluster',
 								type: 'string',
 								default: '',
-								description: 'The cluster to place the stream on'
+								description: 'The cluster to place the stream on',
 							},
 							{
 								displayName: 'Tags',
@@ -298,10 +301,10 @@ export class NatsStreamManager implements INodeType {
 									multipleValues: true,
 								},
 								default: [],
-								description: 'Tags matching server configuration'
-							}
-						]
-					}
+								description: 'Tags matching server configuration',
+							},
+						],
+					},
 				],
 			},
 		],
@@ -311,62 +314,61 @@ export class NatsStreamManager implements INodeType {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 		const credentials = await this.getCredentials('natsApi');
-		
+
 		let nc;
-		
+
 		// Create NodeLogger once for the entire execution
 		const nodeLogger = new NodeLogger(this.logger, this.getNode());
-		
+
 		try {
 			nc = await createNatsConnection(credentials, nodeLogger);
 			const jsm = await jetstreamManager(nc);
-			
+
 			for (let i = 0; i < items.length; i++) {
 				// Get the handler for this operation
 				const operation = this.getNodeParameter('operation', i) as string;
 				const handler = streamOperationHandlers[operation];
 				if (!handler) {
-					const error = `Unknown operation: ${operation}`
-					if (! this.continueOnFail()) throw error;
+					const error = `Unknown operation: ${operation}`;
+					if (!this.continueOnFail()) throw error;
 
 					returnData.push({
-						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
+						error: new NodeOperationError(this.getNode(), error, { itemIndex: i }),
 						json: {
 							operation,
 						},
-						pairedItem: i
-					})
-					continue
+						pairedItem: i,
+					});
+					continue;
 				}
-					
-					// Prepare parameters based on operation requirements
-					const params: StreamOperationParams = {
-						streamName: this.getNodeParameter('streamName', i) as string,
-						streamConfig: this.getNodeParameter('config', i) as StreamConfig,
-						subject: this.getNodeParameter('subject', i) as string,
-					};
+
+				// Prepare parameters based on operation requirements
+				const params: StreamOperationParams = {
+					streamName: this.getNodeParameter('streamName', i) as string,
+					streamConfig: this.getNodeParameter('streamConfig', i) as StreamConfig,
+					subject: this.getNodeParameter('subject', i) as string,
+				};
 
 				try {
-					let result = await handler.execute(jsm, params)
+					let result = await handler.execute(jsm, params);
 
 					// Execute the operation
 					returnData.push({
 						json: result,
 						pairedItem: i,
 					});
-				} catch (error : any) {
-					if (! this.continueOnFail()) throw error;
+				} catch (error: any) {
+					if (!this.continueOnFail()) throw error;
 
 					returnData.push({
-						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
+						error: new NodeOperationError(this.getNode(), error, { itemIndex: i }),
 						json: {
 							params: params,
 						},
-						pairedItem: i
-					})
+						pairedItem: i,
+					});
 				}
 			}
-			
 		} catch (error: any) {
 			throw new NodeOperationError(this.getNode(), `NATS Stream Manager failed: ${error.message}`);
 		} finally {
@@ -374,7 +376,7 @@ export class NatsStreamManager implements INodeType {
 				await closeNatsConnection(nc, nodeLogger);
 			}
 		}
-		
+
 		return [returnData];
 	}
 }

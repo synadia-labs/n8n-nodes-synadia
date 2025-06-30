@@ -6,11 +6,11 @@ import {
 	NodeConnectionType,
 	NodeOperationError,
 } from 'n8n-workflow';
-import {Objm} from '../bundled/nats-bundled';
-import {closeNatsConnection, createNatsConnection} from '../utils/NatsConnection';
-import {NodeLogger} from '../utils/NodeLogger';
-import {OsOperationParams} from "../operations/OsOperationHandler";
-import {osOperationHandlers} from "../operations/os";
+import { Objm } from '../../bundled/nats-bundled';
+import { closeNatsConnection, createNatsConnection } from '../../utils/NatsConnection';
+import { NodeLogger } from '../../utils/NodeLogger';
+import { OsOperationParams } from '../../operations/OsOperationHandler';
+import { osOperationHandlers } from '../../operations/os';
 
 export class NatsObjectStore implements INodeType {
 	description: INodeTypeDescription = {
@@ -121,16 +121,16 @@ export class NatsObjectStore implements INodeType {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 		const credentials = await this.getCredentials('natsApi');
-		
+
 		let nc: any;
-		
+
 		// Create NodeLogger once for the entire execution
 		const nodeLogger = new NodeLogger(this.logger, this.getNode());
-		
+
 		try {
 			nc = await createNatsConnection(credentials, nodeLogger);
-			const osm = new Objm(nc)
-			
+			const osm = new Objm(nc);
+
 			for (let i = 0; i < items.length; i++) {
 				const bucket = this.getNodeParameter('bucket', i) as string;
 				const os = await osm.open(bucket);
@@ -138,19 +138,19 @@ export class NatsObjectStore implements INodeType {
 				const operation = this.getNodeParameter('operation', i) as string;
 				const handler = osOperationHandlers[operation];
 				if (!handler) {
-					const error = `Unknown operation: ${operation}`
-					if (! this.continueOnFail()) throw error;
+					const error = `Unknown operation: ${operation}`;
+					if (!this.continueOnFail()) throw error;
 
 					returnData.push({
-						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
+						error: new NodeOperationError(this.getNode(), error, { itemIndex: i }),
 						json: {
 							operation,
 						},
-						pairedItem: i
-					})
-					continue
+						pairedItem: i,
+					});
+					continue;
 				}
-					
+
 				// Prepare parameters for the operation
 				const params: OsOperationParams = {
 					name: this.getNodeParameter('name', i) as string,
@@ -158,36 +158,35 @@ export class NatsObjectStore implements INodeType {
 
 				const data = this.getNodeParameter('data', i, '') as string;
 				if (data != '') {
-					params.data = new TextEncoder().encode(data)
+					params.data = new TextEncoder().encode(data);
 				}
 
 				try {
-					let result = await handler.execute(os, params)
+					let result = await handler.execute(os, params);
 
 					// Execute the operation
 					returnData.push({
 						json: result,
 						pairedItem: i,
 					});
-				} catch (error : any) {
-					if (! this.continueOnFail()) throw error;
+				} catch (error: any) {
+					if (!this.continueOnFail()) throw error;
 
 					returnData.push({
-						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
+						error: new NodeOperationError(this.getNode(), error, { itemIndex: i }),
 						json: {
 							params: params,
 						},
-						pairedItem: i
-					})
+						pairedItem: i,
+					});
 				}
 			}
-
 		} finally {
 			if (nc!) {
 				await closeNatsConnection(nc, nodeLogger);
 			}
 		}
-		
+
 		return [returnData];
 	}
 }

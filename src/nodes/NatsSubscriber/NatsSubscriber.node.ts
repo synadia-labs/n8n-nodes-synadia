@@ -6,10 +6,10 @@ import {
 	ApplicationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection, Subscription, Msg, SubscriptionOptions } from '../bundled/nats-bundled';
-import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
-import { parseNatsMessage, validateSubject } from '../utils/NatsHelpers';
-import { NodeLogger } from '../utils/NodeLogger';
+import { NatsConnection, Subscription, Msg, SubscriptionOptions } from '../../bundled/nats-bundled';
+import { createNatsConnection, closeNatsConnection } from '../../utils/NatsConnection';
+import { parseNatsMessage, validateSubject, validateQueueGroup } from '../../utils/NatsHelpers';
+import { NodeLogger } from '../../utils/NodeLogger';
 
 export class NatsSubscriber implements INodeType {
 	description: INodeTypeDescription = {
@@ -55,7 +55,7 @@ export class NatsSubscriber implements INodeType {
 				description: 'Group name for load balancing multiple subscribers',
 				placeholder: 'order-processors',
 				hint: 'Only one subscriber in the group receives each message',
-			}
+			},
 		],
 	};
 
@@ -64,8 +64,9 @@ export class NatsSubscriber implements INodeType {
 		const subject = this.getNodeParameter('subject') as string;
 		const queueGroup = this.getNodeParameter('queueGroup') as string;
 
-		// Validate subject
+		// Validate subject and queue group
 		validateSubject(subject);
+		validateQueueGroup(queueGroup);
 
 		let nc: NatsConnection;
 		let subscription: Subscription | any;
@@ -79,7 +80,12 @@ export class NatsSubscriber implements INodeType {
 			if (messageIterator && messageIterator.stop) {
 				await messageIterator.stop();
 			}
-			
+
+			// Unsubscribe from Core NATS subscription
+			if (subscription && subscription.unsubscribe) {
+				subscription.unsubscribe();
+			}
+
 			if (nc) {
 				await closeNatsConnection(nc, nodeLogger);
 			}
@@ -92,18 +98,18 @@ export class NatsSubscriber implements INodeType {
 
 		const manualTriggerFunction = async () => {
 			let sampleData: any = {
-					subject,
-					data: {
-						message: 'Sample NATS message',
-						timestamp: Date.now(),
-						source: 'manual-trigger'
-					},
-					headers: {
-						'X-Sample-Header': 'sample-value'
-					},
-					timestamp: new Date().toISOString(),
-				};
-			
+				subject,
+				data: {
+					message: 'Sample NATS message',
+					timestamp: Date.now(),
+					source: 'manual-trigger',
+				},
+				headers: {
+					'X-Sample-Header': 'sample-value',
+				},
+				timestamp: new Date().toISOString(),
+			};
+
 			this.emit([this.helpers.returnJsonArray([sampleData])]);
 		};
 
@@ -122,10 +128,10 @@ export class NatsSubscriber implements INodeType {
 				},
 				onAsyncError: (error) => {
 					nodeLogger.error('Subscriber async error (e.g. permission):', { error });
-				}
+				},
 			});
 
-			const subOptions : SubscriptionOptions = {};
+			const subOptions: SubscriptionOptions = {};
 			if (queueGroup) {
 				subOptions.queue = queueGroup;
 			}
@@ -142,7 +148,6 @@ export class NatsSubscriber implements INodeType {
 				closeFunction,
 				manualTriggerFunction,
 			};
-
 		} catch (error: any) {
 			throw new ApplicationError(`Failed to setup NATS subscriber: ${error.message}`);
 		}

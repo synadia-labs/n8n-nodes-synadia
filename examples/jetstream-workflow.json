@@ -38,7 +38,7 @@
         "streamName": "ORDERS",
         "consumerType": "durable",
         "consumerName": "order-processor",
-        "options": {}
+        "config": {}
       },
       "id": "consume-js",
       "name": "Consume from JetStream",
@@ -89,7 +89,7 @@
             }
           ]
         },
-        "options": {}
+        "config": {}
       },
       "id": "process-order",
       "name": "Process Order",
@@ -100,10 +100,10 @@
     {
       "parameters": {
         "subject": "orders.processed",
-        "message": "{{JSON.stringify(Object.assign({}, $json.data, {processedAt: $json.processedAt, processorId: $json.processorId, originalSeq: $json.sequence}))}}"
+        "message": "{{JSON.stringify(Object.assign({}, $json.data, {processedAt: $json.processedAt, processorId: $json.processorId, originalSeq: $json.sequence}))}}",
         "publishType": "jetstream",
         "streamName": "ORDERS",
-        "options": {}
+        "config": {}
       },
       "id": "publish-processed",
       "name": "Publish Processed",

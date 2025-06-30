@@ -6,12 +6,11 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { jetstream, Objm } from '../bundled/nats-bundled';
-import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
-import { NodeLogger } from '../utils/NodeLogger';
-import {osmOperationHandlers} from "../operations/osm";
-import {OsmOperationParams} from "../operations/OsmOperationHandler";
-import {ObjectStoreOptions} from "nats";
+import { jetstream, Objm, ObjectStoreOptions } from '../../bundled/nats-bundled';
+import { createNatsConnection, closeNatsConnection } from '../../utils/NatsConnection';
+import { NodeLogger } from '../../utils/NodeLogger';
+import { osmOperationHandlers } from '../../operations/osm';
+import { OsmOperationParams } from '../../operations/OsmOperationHandler';
 
 export class NatsObjectStoreManager implements INodeType {
 	description: INodeTypeDescription = {
@@ -138,71 +137,69 @@ export class NatsObjectStoreManager implements INodeType {
 		],
 	};
 
-
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 		const credentials = await this.getCredentials('natsApi');
-		
+
 		let nc;
-		
+
 		// Create NodeLogger once for the entire execution
 		const nodeLogger = new NodeLogger(this.logger, this.getNode());
-		
+
 		try {
 			nc = await createNatsConnection(credentials, nodeLogger);
 			const js = jetstream(nc);
 			const osm = new Objm(js);
-			
+
 			for (let i = 0; i < items.length; i++) {
 				const operation = this.getNodeParameter('operation', i) as string;
 				const handler = osmOperationHandlers[operation];
 				if (!handler) {
-					const error = `Unknown operation: ${operation}`
-					if (! this.continueOnFail()) throw error;
+					const error = `Unknown operation: ${operation}`;
+					if (!this.continueOnFail()) throw error;
 
 					returnData.push({
-						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
+						error: new NodeOperationError(this.getNode(), error, { itemIndex: i }),
 						json: {
 							operation,
 						},
-						pairedItem: i
-					})
-					continue
+						pairedItem: i,
+					});
+					continue;
 				}
 
-				const params : OsmOperationParams = {
+				const params: OsmOperationParams = {
 					bucket: this.getNodeParameter('bucket', i) as string,
 					objConfig: this.getNodeParameter('config', i, {}) as ObjectStoreOptions,
-				}
+				};
 
 				try {
-					let result = await handler.execute(osm, params)
+					let result = await handler.execute(osm, params);
 
 					// Execute the operation
 					returnData.push({
 						json: result,
 						pairedItem: i,
 					});
-				} catch (error : any) {
-					if (! this.continueOnFail()) throw error;
+				} catch (error: any) {
+					if (!this.continueOnFail()) throw error;
 
 					returnData.push({
-						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
+						error: new NodeOperationError(this.getNode(), error, { itemIndex: i }),
 						json: {
 							params: params,
 						},
-						pairedItem: i
-					})
+						pairedItem: i,
+					});
 				}
-
 			}
 		} finally {
 			if (nc!) {
 				await closeNatsConnection(nc, nodeLogger);
 			}
 		}
-		
+
 		return [returnData];
 	}
 }

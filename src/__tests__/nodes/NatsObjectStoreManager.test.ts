@@ -1,4 +1,4 @@
-import { NatsObjectStoreManager } from '../../nodes/NatsObjectStoreManager.node';
+import { NatsObjectStoreManager } from '../../nodes/NatsObjectStoreManager/NatsObjectStoreManager.node';
 
 describe('NatsObjectStoreManager (Simple)', () => {
 	let node: NatsObjectStoreManager;
@@ -14,20 +14,20 @@ describe('NatsObjectStoreManager (Simple)', () => {
 	});
 
 	it('should have create, delete, and status operations', () => {
-		const operations = node.description.properties?.find(p => p.name === 'operation') as any;
+		const operations = node.description.properties?.find((p) => p.name === 'operation') as any;
 		expect(operations?.options).toHaveLength(3);
-		expect(operations?.options?.map((op: any) => op.value)).toEqual(['createBucket', 'deleteBucket', 'status']);
+		expect(operations?.options?.map((op: any) => op.value)).toEqual(['create', 'delete', 'get']);
 	});
 
 	it('should require bucket name parameter', () => {
-		const bucketParam = node.description.properties?.find(p => p.name === 'bucket');
+		const bucketParam = node.description.properties?.find((p) => p.name === 'bucket');
 		expect(bucketParam?.required).toBe(true);
 		expect(bucketParam?.type).toBe('string');
 	});
 
-	it('should have options for createBucket operation', () => {
-		const optionsParam = node.description.properties?.find(p => p.name === 'options');
-		expect(optionsParam?.type).toBe('collection');
-		expect(optionsParam?.displayOptions?.show?.operation).toEqual(['createBucket']);
+	it('should have config for create operation', () => {
+		const configParam = node.description.properties?.find((p) => p.name === 'config');
+		expect(configParam?.type).toBe('collection');
+		expect(configParam?.displayOptions?.show?.operation).toEqual(['create']);
 	});
 });

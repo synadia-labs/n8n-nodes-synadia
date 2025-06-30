@@ -30,7 +30,7 @@
       "parameters": {
         "subject": "work.items",
         "queueGroup": "workers",
-        "options": {}
+        "config": {}
       },
       "type": "n8n-nodes-synadia.natsTrigger",
       "typeVersion": 1,
@@ -53,7 +53,7 @@
         "bucket": "config",
         "key": "app.settings",
         "value": "{{JSON.stringify($json)}}",
-        "options": {}
+        "config": {}
       },
       "type": "n8n-nodes-synadia.natsKv",
       "typeVersion": 1,
@@ -100,7 +100,7 @@
         "bucket": "documents",
         "name": "=report-{{ $json.timestamp.toDateTime().format('yyyy-LL-dd') }}.pdf",
         "data": "{{ $json.toJsonString() }}",
-        "options": {}
+        "config": {}
       },
       "type": "n8n-nodes-synadia.natsObjectStore",
       "typeVersion": 1,
@@ -120,7 +120,7 @@
     {
       "parameters": {
         "subject": "api.process",
-        "options": {}
+        "config": {}
       },
       "type": "n8n-nodes-synadia.natsService",
       "typeVersion": 1,

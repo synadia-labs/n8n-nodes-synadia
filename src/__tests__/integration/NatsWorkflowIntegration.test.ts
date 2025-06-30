@@ -1,12 +1,22 @@
 import { IExecuteFunctions, ITriggerFunctions, INodeExecutionData, INode } from 'n8n-workflow';
-import { NatsSubscriber } from '../../nodes/NatsSubscriber.node';
-import { NatsPublisher } from '../../nodes/NatsPublisher.node';
-import { NatsKv } from '../../nodes/NatsKv.node';
-import { NatsKvWatcher } from '../../nodes/NatsKvWatcher.node';
-import { NatsObjectStore } from '../../nodes/NatsObjectStore.node';
-import { NatsObjectStoreWatcher } from '../../nodes/NatsObjectStoreWatcher.node';
+import { NatsSubscriber } from '../../nodes/NatsSubscriber/NatsSubscriber.node';
+import { NatsPublisher } from '../../nodes/NatsPublisher/NatsPublisher.node';
+import { NatsKv } from '../../nodes/NatsKv/NatsKv.node';
+import { NatsKvWatcher } from '../../nodes/NatsKvWatcher/NatsKvWatcher.node';
+import { NatsObjectStore } from '../../nodes/NatsObjectStore/NatsObjectStore.node';
+import { NatsObjectStoreWatcher } from '../../nodes/NatsObjectStoreWatcher/NatsObjectStoreWatcher.node';
 import * as NatsConnection from '../../utils/NatsConnection';
-import { connect, headers as createHeaders, StringCodec, jetstream, jetstreamManager, Kvm as kv, Objm as objectstore, DeliverPolicy, consumerOpts } from '../../bundled/nats-bundled';
+import {
+	connect,
+	headers as createHeaders,
+	StringCodec,
+	jetstream,
+	jetstreamManager,
+	Kvm as kv,
+	Objm as objectstore,
+	DeliverPolicy,
+	consumerOpts,
+} from '../../bundled/nats-bundled';
 
 // Mock the bundled NATS module
 jest.mock('../../bundled/nats-bundled');
@@ -36,58 +46,60 @@ describe('NATS Nodes Integration Tests', () => {
 	};
 
 	// Create common mock functions
-	const createMockExecuteFunctions = (params: any = {}): IExecuteFunctions => ({
-		getNode: jest.fn(() => mockNode),
-		getNodeParameter: jest.fn((paramName: string, itemIndex?: number, fallback?: any) => {
-			if (params.hasOwnProperty(paramName)) {
-				return params[paramName];
-			}
-			return fallback;
-		}),
-		getCredentials: jest.fn().mockResolvedValue({
-			serverUrls: 'nats://localhost:4222',
-		}),
-		getInputData: jest.fn().mockReturnValue([{ json: { test: 'data' } }]),
-		helpers: {
-			returnJsonArray: jest.fn((data: any[]) => data.map(item => ({ json: item }))),
-			httpRequestWithAuthentication: { requestOAuth2: jest.fn() },
-		} as any,
-		logger: {
-			error: jest.fn(),
-			warn: jest.fn(),
-			info: jest.fn(),
-			debug: jest.fn(),
-		} as any,
-		continueOnFail: jest.fn(() => false),
-	} as unknown as IExecuteFunctions);
+	const createMockExecuteFunctions = (params: any = {}): IExecuteFunctions =>
+		({
+			getNode: jest.fn(() => mockNode),
+			getNodeParameter: jest.fn((paramName: string, itemIndex?: number, fallback?: any) => {
+				if (params.hasOwnProperty(paramName)) {
+					return params[paramName];
+				}
+				return fallback;
+			}),
+			getCredentials: jest.fn().mockResolvedValue({
+				serverUrls: 'nats://localhost:4222',
+			}),
+			getInputData: jest.fn().mockReturnValue([{ json: { test: 'data' } }]),
+			helpers: {
+				returnJsonArray: jest.fn((data: any[]) => data.map((item) => ({ json: item }))),
+				httpRequestWithAuthentication: { requestOAuth2: jest.fn() },
+			} as any,
+			logger: {
+				error: jest.fn(),
+				warn: jest.fn(),
+				info: jest.fn(),
+				debug: jest.fn(),
+			} as any,
+			continueOnFail: jest.fn(() => false),
+		}) as unknown as IExecuteFunctions;
 
-	const createMockTriggerFunctions = (params: any = {}): ITriggerFunctions => ({
-		getNode: jest.fn(() => mockNode),
-		getNodeParameter: jest.fn((paramName: string, fallback?: any) => {
-			if (params.hasOwnProperty(paramName)) {
-				return params[paramName];
-			}
-			return fallback;
-		}),
-		getCredentials: jest.fn().mockResolvedValue({
-			serverUrls: 'nats://localhost:4222',
-		}),
-		emit: jest.fn(),
-		helpers: {
-			returnJsonArray: jest.fn((data: any[]) => data.map(item => ({ json: item }))),
-		} as any,
-		logger: {
-			error: jest.fn(),
-			warn: jest.fn(),
-			info: jest.fn(),
-			debug: jest.fn(),
-		} as any,
-		continueOnFail: jest.fn(() => false),
-	} as unknown as ITriggerFunctions);
+	const createMockTriggerFunctions = (params: any = {}): ITriggerFunctions =>
+		({
+			getNode: jest.fn(() => mockNode),
+			getNodeParameter: jest.fn((paramName: string, fallback?: any) => {
+				if (params.hasOwnProperty(paramName)) {
+					return params[paramName];
+				}
+				return fallback;
+			}),
+			getCredentials: jest.fn().mockResolvedValue({
+				serverUrls: 'nats://localhost:4222',
+			}),
+			emit: jest.fn(),
+			helpers: {
+				returnJsonArray: jest.fn((data: any[]) => data.map((item) => ({ json: item }))),
+			} as any,
+			logger: {
+				error: jest.fn(),
+				warn: jest.fn(),
+				info: jest.fn(),
+				debug: jest.fn(),
+			} as any,
+			continueOnFail: jest.fn(() => false),
+		}) as unknown as ITriggerFunctions;
 
 	beforeEach(() => {
 		jest.clearAllMocks();
-		
+
 		// Initialize StringCodec
 		sc = {
 			encode: (str: string) => new TextEncoder().encode(str),
@@ -122,8 +134,8 @@ describe('NATS Nodes Integration Tests', () => {
 		// Mock KV store
 		mockKvStore = {
 			create: jest.fn().mockResolvedValue({ success: true }),
-			get: jest.fn().mockResolvedValue({ 
-				value: sc.encode('test-value'), 
+			get: jest.fn().mockResolvedValue({
+				value: sc.encode('test-value'),
 				revision: 1,
 				created: { getTime: () => Date.now() },
 				delta: 0,
@@ -144,12 +156,12 @@ describe('NATS Nodes Integration Tests', () => {
 			seal: jest.fn().mockResolvedValue({ success: true }),
 			status: jest.fn().mockResolvedValue({ bucket: 'test-bucket', size: 1000 }),
 			list: jest.fn().mockResolvedValue([{ name: 'file1.txt', size: 100 }]),
-			get: jest.fn().mockResolvedValue({ 
+			get: jest.fn().mockResolvedValue({
 				data: new ReadableStream({
 					start(controller) {
 						controller.enqueue(sc.encode('file content'));
 						controller.close();
-					}
+					},
 				}),
 				info: {
 					name: 'file1.txt',
@@ -157,7 +169,7 @@ describe('NATS Nodes Integration Tests', () => {
 					chunks: 1,
 					digest: 'abc123',
 					mtime: new Date().toISOString(),
-				}
+				},
 			}),
 			put: jest.fn().mockResolvedValue({ name: 'file1.txt', size: 100 }),
 			delete: jest.fn().mockResolvedValue({ success: true }),
@@ -174,7 +186,7 @@ describe('NATS Nodes Integration Tests', () => {
 				next: jest.fn().mockResolvedValue({ done: true }),
 			}),
 		};
-		
+
 		mockConsumer = {
 			consume: jest.fn(() => Promise.resolve(mockMessageIterator)),
 			delete: jest.fn().mockResolvedValue(undefined),
@@ -241,11 +253,11 @@ describe('NATS Nodes Integration Tests', () => {
 		(NatsConnection.createNatsConnection as jest.Mock).mockResolvedValue(mockNc);
 		(NatsConnection.closeNatsConnection as jest.Mock).mockResolvedValue(undefined);
 		(StringCodec as jest.Mock).mockReturnValue(sc);
-		
+
 		// Mock DeliverPolicy enum
 		(DeliverPolicy as any) = {
 			All: 'all',
-			Last: 'last', 
+			Last: 'last',
 			New: 'new',
 			ByStartSequence: 'by_start_sequence',
 			ByStartTime: 'by_start_time',
@@ -254,11 +266,11 @@ describe('NATS Nodes Integration Tests', () => {
 			deliverAll: jest.fn().mockReturnValue('all'),
 			deliverLast: jest.fn().mockReturnValue('last'),
 		};
-		
+
 		// Mock consumerOpts
 		const mockConsumerOpts = {
 			deliverAll: jest.fn().mockReturnThis(),
-			deliverLast: jest.fn().mockReturnThis(), 
+			deliverLast: jest.fn().mockReturnThis(),
 			deliverNew: jest.fn().mockReturnThis(),
 			deliverLastPerSubject: jest.fn().mockReturnThis(),
 			startSequence: jest.fn().mockReturnThis(),
@@ -295,31 +307,34 @@ describe('NATS Nodes Integration Tests', () => {
 			};
 
 			mockSubscription[Symbol.asyncIterator] = jest.fn().mockReturnValue({
-				next: jest.fn()
+				next: jest
+					.fn()
 					.mockResolvedValueOnce({ done: false, value: mockMessage })
 					.mockResolvedValue({ done: true }),
 			});
 
 			// Start trigger
 			const triggerPromise = trigger.trigger.call(triggerFunctions);
-			await new Promise(resolve => setTimeout(resolve, 50));
+			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			// Verify trigger received message
 			expect(triggerFunctions.emit).toHaveBeenCalledWith([
-				[expect.objectContaining({
-					json: expect.objectContaining({
-						subject: 'test.subject',
-						data: { test: 'message' },
+				[
+					expect.objectContaining({
+						json: expect.objectContaining({
+							subject: 'test.subject',
+							data: { test: 'message' },
+						}),
 					}),
-				})],
+				],
 			]);
 
 			// Setup publisher
 			const executeFunctions = createMockExecuteFunctions({
 				subject: 'test.subject',
-				message: '{"test": "message"}',
-				publishType: 'core',
+				data: '{"test": "message"}',
 				options: {},
+				headers: { headerValues: [] },
 			});
 
 			// Publish message
@@ -328,8 +343,8 @@ describe('NATS Nodes Integration Tests', () => {
 			// Verify publish was called
 			expect(mockNc.publish).toHaveBeenCalledWith(
 				'test.subject',
-				expect.any(Uint8Array),
-				expect.any(Object)
+				'{"test": "message"}',
+				expect.any(Object),
 			);
 
 			// Cleanup
@@ -352,11 +367,10 @@ describe('NATS Nodes Integration Tests', () => {
 
 			expect(mockNc.subscribe).toHaveBeenCalledWith(
 				'work.queue',
-				expect.objectContaining({ queue: 'workers' })
+				expect.objectContaining({ queue: 'workers' }),
 			);
 		});
 	});
-
 
 	describe('Authentication and Security', () => {
 		it('should handle different authentication methods', async () => {
@@ -370,7 +384,7 @@ describe('NATS Nodes Integration Tests', () => {
 
 			for (const auth of authMethods) {
 				jest.clearAllMocks();
-				
+
 				const trigger = new NatsSubscriber();
 				const triggerFunctions = createMockTriggerFunctions({
 					subject: 'test.subject',
@@ -390,7 +404,7 @@ describe('NATS Nodes Integration Tests', () => {
 						...auth,
 					}),
 					expect.any(Object),
-					expect.any(Object)
+					expect.any(Object),
 				);
 			}
 		});
@@ -415,9 +429,9 @@ describe('NATS Nodes Integration Tests', () => {
 			mockSubscription[Symbol.asyncIterator] = jest.fn().mockReturnValue({
 				next: jest.fn().mockImplementation(() => {
 					if (messageIndex < messages.length) {
-						return Promise.resolve({ 
-							done: false, 
-							value: messages[messageIndex++] 
+						return Promise.resolve({
+							done: false,
+							value: messages[messageIndex++],
 						});
 					}
 					return Promise.resolve({ done: true });
@@ -425,7 +439,7 @@ describe('NATS Nodes Integration Tests', () => {
 			});
 
 			await trigger.trigger.call(triggerFunctions);
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			// Should emit all messages
 			expect(triggerFunctions.emit).toHaveBeenCalledTimes(1000);
@@ -433,7 +447,7 @@ describe('NATS Nodes Integration Tests', () => {
 
 		it('should handle concurrent operations', async () => {
 			const kvNode = new NatsKv();
-			
+
 			// Execute multiple operations concurrently
 			const operations = Array.from({ length: 10 }, (_, i) => {
 				const functions = createMockExecuteFunctions({
@@ -463,15 +477,17 @@ describe('NATS Nodes Integration Tests', () => {
 
 			for (const { node, params } of triggers) {
 				const triggerFunctions = createMockTriggerFunctions(params);
-				
+
 				// All trigger nodes should have manualTriggerFunction
 				expect(node.trigger).toBeDefined();
-				
+
 				// Call manual trigger if available
 				const result = await node.trigger.call(triggerFunctions);
 				if (result && 'manualTriggerFunction' in result && result.manualTriggerFunction) {
-					const sampleData = await result.manualTriggerFunction() as INodeExecutionData[] | undefined;
-					
+					const sampleData = (await result.manualTriggerFunction()) as
+						| INodeExecutionData[]
+						| undefined;
+
 					if (sampleData !== undefined && sampleData !== null && Array.isArray(sampleData)) {
 						// Should return sample data
 						expect(sampleData).toBeDefined();

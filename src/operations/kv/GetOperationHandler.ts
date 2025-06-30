@@ -1,6 +1,6 @@
-import {KV} from '../../bundled/nats-bundled';
-import {KvOperationHandler, KvOperationParams} from "../KvOperationHandler";
-import {IDataObject} from "n8n-workflow";
+import { KV } from '../../bundled/nats-bundled';
+import { KvOperationHandler, KvOperationParams } from '../KvOperationHandler';
+import { IDataObject } from 'n8n-workflow';
 
 export class GetOperationHandler extends KvOperationHandler {
 	readonly operationName = 'get';
@@ -9,11 +9,11 @@ export class GetOperationHandler extends KvOperationHandler {
 		const { key } = params;
 
 		const entry = await kv.get(key!);
-		if (!entry) return {found: false}
+		if (!entry) return { found: false };
 
 		return {
 			found: true,
-			entry
-		}
+			entry,
+		};
 	}
 }

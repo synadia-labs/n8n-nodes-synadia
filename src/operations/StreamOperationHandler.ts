@@ -1,5 +1,5 @@
-import {JetStreamManager, StreamConfig} from "../bundled/nats-bundled";
-import {IDataObject} from "n8n-workflow";
+import { JetStreamManager, StreamConfig } from '../bundled/nats-bundled';
+import { IDataObject } from 'n8n-workflow';
 
 export interface StreamOperationParams {
 	streamName?: string;
@@ -9,9 +9,6 @@ export interface StreamOperationParams {
 
 export abstract class StreamOperationHandler {
 	abstract readonly operationName: string;
-	
-	abstract execute(
-		jsm: JetStreamManager,
-		params: StreamOperationParams
-	): Promise<IDataObject>;
+
+	abstract execute(jsm: JetStreamManager, params: StreamOperationParams): Promise<IDataObject>;
 }

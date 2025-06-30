@@ -1,10 +1,10 @@
 import { INodeType } from 'n8n-workflow';
-import { NatsSubscriber } from '../../nodes/NatsSubscriber.node';
-import { NatsPublisher } from '../../nodes/NatsPublisher.node';
-import { NatsKv } from '../../nodes/NatsKv.node';
-import { NatsObjectStore } from '../../nodes/NatsObjectStore.node';
-import { NatsKvWatcher } from '../../nodes/NatsKvWatcher.node';
-import { NatsObjectStoreWatcher } from '../../nodes/NatsObjectStoreWatcher.node';
+import { NatsSubscriber } from '../../nodes/NatsSubscriber/NatsSubscriber.node';
+import { NatsPublisher } from '../../nodes/NatsPublisher/NatsPublisher.node';
+import { NatsKv } from '../../nodes/NatsKv/NatsKv.node';
+import { NatsObjectStore } from '../../nodes/NatsObjectStore/NatsObjectStore.node';
+import { NatsKvWatcher } from '../../nodes/NatsKvWatcher/NatsKvWatcher.node';
+import { NatsObjectStoreWatcher } from '../../nodes/NatsObjectStoreWatcher/NatsObjectStoreWatcher.node';
 
 describe('n8n Node Behavior Tests', () => {
 	const nodes: Array<{ name: string; instance: INodeType; isTrigger: boolean }> = [
@@ -20,7 +20,7 @@ describe('n8n Node Behavior Tests', () => {
 		nodes.forEach(({ name, instance }) => {
 			it(`${name} should have valid description`, () => {
 				const description = instance.description;
-				
+
 				// Required fields
 				expect(description.displayName).toBeDefined();
 				expect(description.name).toBeDefined();
@@ -29,10 +29,10 @@ describe('n8n Node Behavior Tests', () => {
 				expect(description.defaults).toBeDefined();
 				expect(description.properties).toBeDefined();
 				expect(Array.isArray(description.properties)).toBe(true);
-				
+
 				// Icon should reference nats.svg
 				expect(description.icon).toContain('nats.svg');
-				
+
 				// Should have credentials
 				expect(description.credentials).toBeDefined();
 				expect(description.credentials).toHaveLength(1);
@@ -59,20 +59,20 @@ describe('n8n Node Behavior Tests', () => {
 		nodes.forEach(({ name, instance }) => {
 			it(`${name} should have valid property definitions`, () => {
 				const description = instance.description;
-				
-				description.properties.forEach(property => {
+
+				description.properties.forEach((property) => {
 					// Required fields
 					expect(property.displayName).toBeDefined();
 					expect(property.name).toBeDefined();
 					expect(property.type).toBeDefined();
-					
+
 					// Validate option properties
 					if (property.type === 'options') {
 						expect(property.options).toBeDefined();
 						expect(Array.isArray(property.options)).toBe(true);
 						expect(property.options!.length).toBeGreaterThan(0);
 					}
-					
+
 					// Validate collection properties
 					if (property.type === 'collection') {
 						expect(property.options).toBeDefined();
@@ -94,7 +94,7 @@ describe('n8n Node Behavior Tests', () => {
 			it(`${name} should have manual trigger function`, () => {
 				// We can't test the actual execution without proper mocking,
 				// but we can verify the nodes are trigger nodes
-				expect(triggerNodes.find(n => n.name === name)).toBeDefined();
+				expect(triggerNodes.find((n) => n.name === name)).toBeDefined();
 			});
 		});
 	});

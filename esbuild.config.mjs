@@ -1,9 +1,4 @@
 import esbuild from 'esbuild';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 await esbuild.build({
   entryPoints: ['src/bundled/nats-bundle-entry.ts'],

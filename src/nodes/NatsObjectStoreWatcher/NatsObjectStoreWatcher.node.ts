@@ -3,11 +3,12 @@ import {
 	INodeType,
 	INodeTypeDescription,
 	ITriggerResponse,
-	NodeConnectionType, IDataObject,
+	NodeConnectionType,
+	IDataObject,
 } from 'n8n-workflow';
-import { NatsConnection, jetstream, Objm } from '../bundled/nats-bundled';
-import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
-import { NodeLogger } from '../utils/NodeLogger';
+import { NatsConnection, jetstream, Objm } from '../../bundled/nats-bundled';
+import { createNatsConnection, closeNatsConnection } from '../../utils/NatsConnection';
+import { NodeLogger } from '../../utils/NodeLogger';
 
 export class NatsObjectStoreWatcher implements INodeType {
 	description: INodeTypeDescription = {
@@ -71,13 +72,13 @@ export class NatsObjectStoreWatcher implements INodeType {
 		const credentials = await this.getCredentials('natsApi');
 		const bucket = this.getNodeParameter('bucket') as string;
 		const options = this.getNodeParameter('options', {}) as any;
-		
+
 		let nc: NatsConnection;
 		let watcher: any;
-		
+
 		// Create NodeLogger once for the entire trigger lifecycle
 		const nodeLogger = new NodeLogger(this.logger, this.getNode());
-		
+
 		const startWatcher = async () => {
 			// Create connection with monitoring for long-running trigger
 			nc = await createNatsConnection(credentials, nodeLogger, {
@@ -93,7 +94,7 @@ export class NatsObjectStoreWatcher implements INodeType {
 				},
 				onAsyncError: (error) => {
 					nodeLogger.error('Object store watcher async error (e.g. permission):', { error });
-				}
+				},
 			});
 			const js = jetstream(nc);
 			const objManager = new Objm(js);
@@ -115,14 +116,14 @@ export class NatsObjectStoreWatcher implements INodeType {
 			// Process object change events
 			(async () => {
 				for await (const update of watcher) {
-					let result: IDataObject = {...update}
+					let result: IDataObject = { ...update };
 					this.emit([this.helpers.returnJsonArray([result])]);
 				}
 			})();
 		};
-		
+
 		await startWatcher();
-		
+
 		async function closeFunction() {
 			try {
 				// Stop the watcher if it exists
@@ -145,7 +146,7 @@ export class NatsObjectStoreWatcher implements INodeType {
 				}
 			}
 		}
-		
+
 		// Manual trigger function for testing
 		const manualTriggerFunction = async () => {
 			// Provide sample data matching ObjectWatchInfo format
@@ -157,10 +158,10 @@ export class NatsObjectStoreWatcher implements INodeType {
 				mtime: new Date().toISOString(),
 				deleted: false,
 			};
-			
+
 			this.emit([this.helpers.returnJsonArray([sampleData])]);
 		};
-		
+
 		return {
 			closeFunction,
 			manualTriggerFunction,

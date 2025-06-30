@@ -119,7 +119,7 @@ describe('NodeLogger', () => {
 
 		it('should work with instanceof in conditional statements', () => {
 			const logger: Logger = nodeLogger;
-			
+
 			if (logger instanceof NodeLogger) {
 				// This should execute
 				expect(logger.getNode()).toBe(mockNode);

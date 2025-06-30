@@ -11,9 +11,9 @@
     },
     {
       "parameters": {
-        "operation": "createBucket",
+        "operation": "create",
         "bucket": "config-store",
-        "options": {
+        "config": {
           "description": "Application configuration storage",
           "history": 10,
           "ttl": 3600
@@ -21,7 +21,7 @@
       },
       "id": "create-bucket",
       "name": "Create KV Bucket",
-      "type": "n8n-nodes-synadia.natsKv",
+      "type": "n8n-nodes-synadia.natsKvManager",
       "typeVersion": 1,
       "position": [460, 200],
       "credentials": {
@@ -36,10 +36,7 @@
         "operation": "put",
         "bucket": "config-store",
         "key": "app.settings.theme",
-        "value": "{{JSON.stringify({\"mode\": \"dark\", \"primaryColor\": \"#1976d2\", \"fontSize\": 14})}}",
-        "options": {
-          "valueType": "json"
-        }
+        "value": "{{JSON.stringify({\"mode\": \"dark\", \"primaryColor\": \"#1976d2\", \"fontSize\": 14})}}"
       },
       "id": "put-value",
       "name": "Store Config",

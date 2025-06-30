@@ -11,9 +11,9 @@
     },
     {
       "parameters": {
-        "operation": "createBucket",
+        "operation": "create",
         "bucket": "documents",
-        "options": {
+        "config": {
           "description": "Document storage bucket",
           "storage": "file",
           "replicas": 1
@@ -21,7 +21,7 @@
       },
       "id": "create-bucket",
       "name": "Create Document Bucket",
-      "type": "n8n-nodes-synadia.natsObjectStore",
+      "type": "n8n-nodes-synadia.natsObjectStoreManager",
       "typeVersion": 1,
       "position": [460, 200],
       "credentials": {
@@ -41,7 +41,7 @@
             }
           ]
         },
-        "options": {}
+        "config": {}
       },
       "id": "create-content",
       "name": "Create Report Content",
@@ -55,7 +55,7 @@
         "bucket": "documents",
         "name": "reports/2024/{{$now.format('yyyy-MM-dd')}}-daily-report.md",
         "data": "{{$json.content}}",
-        "options": {
+        "config": {
           "dataType": "string",
           "description": "Daily report"
         }
@@ -76,7 +76,7 @@
       "parameters": {
         "operation": "list",
         "bucket": "documents",
-        "options": {}
+        "config": {}
       },
       "id": "list-files",
       "name": "List All Files",
@@ -95,7 +95,7 @@
         "operation": "info",
         "bucket": "documents",
         "name": "{{$json.name}}",
-        "options": {}
+        "config": {}
       },
       "id": "get-info",
       "name": "Get File Info",
@@ -135,8 +135,8 @@
         "operation": "link",
         "bucket": "documents",
         "name": "reports/latest.md",
-        "linkSource": "documents/{{$json.object.name}}",
-        "options": {}
+        "linkTo": "{{$json.object.name}}",
+        "config": {}
       },
       "id": "create-link",
       "name": "Link to Latest",

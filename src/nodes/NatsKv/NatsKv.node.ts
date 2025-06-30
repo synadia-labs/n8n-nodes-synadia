@@ -6,10 +6,10 @@ import {
 	NodeConnectionType,
 	NodeOperationError,
 } from 'n8n-workflow';
-import {Kvm} from '../bundled/nats-bundled';
-import {closeNatsConnection, createNatsConnection} from '../utils/NatsConnection';
-import {NodeLogger} from '../utils/NodeLogger';
-import {kvOperationHandlers, KvOperationParams} from "../operations/kv";
+import { Kvm } from '../../bundled/nats-bundled';
+import { closeNatsConnection, createNatsConnection } from '../../utils/NatsConnection';
+import { NodeLogger } from '../../utils/NodeLogger';
+import { kvOperationHandlers, KvOperationParams } from '../../operations/kv';
 
 export class NatsKv implements INodeType {
 	description: INodeTypeDescription = {
@@ -80,7 +80,8 @@ export class NatsKv implements INodeType {
 				default: '',
 				required: true,
 				placeholder: 'my-bucket',
-				description: 'The name of the KV bucket to operate on. Must contain only letters, numbers, underscores, and hyphens (no spaces or dots).',
+				description:
+					'The name of the KV bucket to operate on. Must contain only letters, numbers, underscores, and hyphens (no spaces or dots).',
 				hint: 'Example: user-preferences, app-config, cache-data',
 			},
 			{
@@ -91,7 +92,8 @@ export class NatsKv implements INodeType {
 				default: '',
 				required: true,
 				placeholder: 'user.123.settings',
-				description: 'The key to operate on. Can use dots for hierarchical organization (e.g., "user.123.settings"). Cannot contain spaces.',
+				description:
+					'The key to operate on. Can use dots for hierarchical organization (e.g., "user.123.settings"). Cannot contain spaces.',
 				hint: 'Example: config.database.host, user.profile.avatar, session.abc123',
 			},
 			{
@@ -118,16 +120,16 @@ export class NatsKv implements INodeType {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 		const credentials = await this.getCredentials('natsApi');
-		
+
 		let nc: any;
-		
+
 		// Create NodeLogger once for the entire execution
 		const nodeLogger = new NodeLogger(this.logger, this.getNode());
-		
+
 		try {
 			nc = await createNatsConnection(credentials, nodeLogger);
-			const kvm = new Kvm(nc)
-			
+			const kvm = new Kvm(nc);
+
 			for (let i = 0; i < items.length; i++) {
 				const operation = this.getNodeParameter('operation', i) as string;
 				const bucket = this.getNodeParameter('bucket', i) as string;
@@ -138,43 +140,43 @@ export class NatsKv implements INodeType {
 				// Get the handler for this operation
 				const handler = kvOperationHandlers[operation];
 				if (!handler) {
-					const error = `Unknown operation: ${operation}`
-					if (! this.continueOnFail()) throw error;
+					const error = `Unknown operation: ${operation}`;
+					if (!this.continueOnFail()) throw error;
 
 					returnData.push({
-						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
+						error: new NodeOperationError(this.getNode(), error, { itemIndex: i }),
 						json: {
 							operation,
 						},
-						pairedItem: i
-					})
-					continue
+						pairedItem: i,
+					});
+					continue;
 				}
 
 				// Prepare parameters based on operation requirements
 				const params: KvOperationParams = {
 					key: this.getNodeParameter('key', i) as any,
-					value: this.getNodeParameter("value", i, {}) as string,
+					value: this.getNodeParameter('value', i, {}) as string,
 				};
 
 				try {
-					let result = await handler.execute(kv, params)
+					let result = await handler.execute(kv, params);
 
 					// Execute the operation
 					returnData.push({
 						json: result,
 						pairedItem: i,
 					});
-				} catch (error : any) {
-					if (! this.continueOnFail()) throw error;
+				} catch (error: any) {
+					if (!this.continueOnFail()) throw error;
 
 					returnData.push({
-						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
+						error: new NodeOperationError(this.getNode(), error, { itemIndex: i }),
 						json: {
 							params: params,
 						},
-						pairedItem: i
-					})
+						pairedItem: i,
+					});
 				}
 			}
 		} finally {
@@ -182,7 +184,7 @@ export class NatsKv implements INodeType {
 				await closeNatsConnection(nc, nodeLogger);
 			}
 		}
-		
+
 		return [returnData];
 	}
 }

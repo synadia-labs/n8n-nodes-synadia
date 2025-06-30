@@ -6,10 +6,10 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { jetstreamManager, ConsumerConfig } from '../bundled/nats-bundled';
-import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
-import { NodeLogger } from '../utils/NodeLogger';
-import {consumerOperationHandlers, ConsumerOperationParams} from '../operations/consumers';
+import { jetstreamManager, ConsumerConfig } from '../../bundled/nats-bundled';
+import { createNatsConnection, closeNatsConnection } from '../../utils/NatsConnection';
+import { NodeLogger } from '../../utils/NodeLogger';
+import { consumerOperationHandlers, ConsumerOperationParams } from '../../operations/consumers';
 
 export class NatsConsumerManager implements INodeType {
 	description: INodeTypeDescription = {
@@ -19,7 +19,8 @@ export class NatsConsumerManager implements INodeType {
 		group: ['transform'],
 		version: 1,
 		description: 'Manage NATS JetStream consumers',
-		subtitle: '{{$parameter["operation"]}} - {{$parameter["streamName"]}} - {{$parameter["consumerName"]}}',
+		subtitle:
+			'{{$parameter["operation"]}} - {{$parameter["streamName"]}} - {{$parameter["consumerName"]}}',
 		defaults: {
 			name: 'NATS Consumer Manager',
 		},
@@ -84,9 +85,9 @@ export class NatsConsumerManager implements INodeType {
 				description: 'Name of the JetStream consumer',
 				displayOptions: {
 					show: {
-						operation: ['get', 'delete']
-					}
-				}
+						operation: ['get', 'delete'],
+					},
+				},
 			},
 			{
 				displayName: 'Consumer Config',
@@ -200,50 +201,55 @@ export class NatsConsumerManager implements INodeType {
 						name: 'description',
 						description: 'A short description of the purpose of this consume',
 						type: 'string',
-						default: ''
+						default: '',
 					},
 					{
 						displayName: 'Ack Wait',
 						name: 'ack_wait',
-						description: 'How long (in nanoseconds) to allow messages to remain un-acknowledged before attempting redelivery',
+						description:
+							'How long (in nanoseconds) to allow messages to remain un-acknowledged before attempting redelivery',
 						type: 'number',
-						default: ''
+						default: '',
 					},
 					{
 						displayName: 'Max Deliver',
 						name: 'max_deliver',
-						description: 'The maximum number of times a message will be delivered to consumers if not acknowledged in time',
+						description:
+							'The maximum number of times a message will be delivered to consumers if not acknowledged in time',
 						type: 'number',
-						default: -1
+						default: -1,
 					},
 					{
 						displayName: 'Max Ack Pending',
 						name: 'max_ack_pending',
-						description: 'The maximum number of messages without acknowledgement that can be outstanding, once this limit is reached message delivery will be suspended',
+						description:
+							'The maximum number of messages without acknowledgement that can be outstanding, once this limit is reached message delivery will be suspended',
 						type: 'number',
-						default: ''
+						default: '',
 					},
 					{
 						displayName: 'Max Waiting',
 						name: 'max_waiting',
-						description: 'The number of pulls that can be outstanding on a pull consumer, pulls received after this is reached are ignored',
+						description:
+							'The number of pulls that can be outstanding on a pull consumer, pulls received after this is reached are ignored',
 						type: 'number',
-						default: ''
+						default: '',
 					},
 					{
 						displayName: 'Replicas',
 						name: 'num_replicas',
-						description: 'When set do not inherit the replica count from the stream but specifically set it to this amount',
+						description:
+							'When set do not inherit the replica count from the stream but specifically set it to this amount',
 						type: 'number',
-						default: ''
+						default: '',
 					},
 					{
 						displayName: 'Filter Subject',
 						name: 'filter_subject',
 						description: 'Deliver only messages that match the subject filter',
 						type: 'string',
-						default: ''
-					}
+						default: '',
+					},
 				],
 			},
 		],
@@ -253,11 +259,11 @@ export class NatsConsumerManager implements INodeType {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 		const credentials = await this.getCredentials('natsApi');
-		
+
 		// Create NodeLogger once for the entire execution
 		const nodeLogger = new NodeLogger(this.logger, this.getNode());
 
-		let nc
+		let nc;
 		try {
 			nc = await createNatsConnection(credentials, nodeLogger);
 			const jsm = await jetstreamManager(nc);
@@ -268,43 +274,43 @@ export class NatsConsumerManager implements INodeType {
 				// Get the handler for this operation
 				const handler = consumerOperationHandlers[operation];
 				if (!handler) {
-					const error = `Unknown operation: ${operation}`
-					if (! this.continueOnFail()) throw error;
+					const error = `Unknown operation: ${operation}`;
+					if (!this.continueOnFail()) throw error;
 
 					returnData.push({
-						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
+						error: new NodeOperationError(this.getNode(), error, { itemIndex: i }),
 						json: {
 							operation,
 						},
-						pairedItem: i
-					})
-					continue
+						pairedItem: i,
+					});
+					continue;
 				}
 
 				// Prepare parameters based on operation requirements
 				const params: ConsumerOperationParams = {
 					streamName: this.getNodeParameter('streamName', i) as string,
-					consumerConfig: this.getNodeParameter('options', i, {}) as ConsumerConfig,
+					consumerConfig: this.getNodeParameter('consumerConfig', i, {}) as ConsumerConfig,
 				};
 
 				try {
-					let result = await handler.execute(jsm, params)
+					let result = await handler.execute(jsm, params);
 
 					// Execute the operation
 					returnData.push({
 						json: result,
 						pairedItem: i,
 					});
-				} catch (error : any) {
-					if (! this.continueOnFail()) throw error;
+				} catch (error: any) {
+					if (!this.continueOnFail()) throw error;
 
 					returnData.push({
-						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
+						error: new NodeOperationError(this.getNode(), error, { itemIndex: i }),
 						json: {
 							params: params,
 						},
-						pairedItem: i
-					})
+						pairedItem: i,
+					});
 				}
 			}
 

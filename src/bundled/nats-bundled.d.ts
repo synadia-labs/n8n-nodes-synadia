@@ -1,7 +1,7 @@
 // Type declarations for bundled NATS.js module
 export * from '@nats-io/nats-core';
 export * from '@nats-io/jetstream';
-export * from '@nats-io/kv'; 
+export * from '@nats-io/kv';
 export * from '@nats-io/obj';
 
 // Re-declare types that might be missing
@@ -20,8 +20,8 @@ export { Objm } from '@nats-io/obj';
 
 // Codec interface
 export interface Codec<T> {
-  encode(d: T): Uint8Array;
-  decode(a: Uint8Array): T;
+	encode(d: T): Uint8Array;
+	decode(a: Uint8Array): T;
 }
 
 // Export type aliases

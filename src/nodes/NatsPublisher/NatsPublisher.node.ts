@@ -6,11 +6,11 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection } from '../bundled/nats-bundled';
-import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
-import { createNatsHeaders, validateSubject } from '../utils/NatsHelpers';
-import { NodeLogger } from '../utils/NodeLogger';
-import {PublishOptions} from "@nats-io/nats-core";
+import { NatsConnection } from '../../bundled/nats-bundled';
+import { createNatsConnection, closeNatsConnection } from '../../utils/NatsConnection';
+import { createNatsHeaders, validateSubject } from '../../utils/NatsHelpers';
+import { NodeLogger } from '../../utils/NodeLogger';
+import { PublishOptions } from '@nats-io/nats-core';
 
 export class NatsPublisher implements INodeType {
 	description: INodeTypeDescription = {
@@ -84,8 +84,8 @@ export class NatsPublisher implements INodeType {
 								description: 'Value to set for the header',
 							},
 						],
-					}
-				]
+					},
+				],
 			},
 			{
 				displayName: 'Options',
@@ -112,22 +112,22 @@ export class NatsPublisher implements INodeType {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 		const credentials = await this.getCredentials('natsApi');
-		
+
 		let nc: NatsConnection;
-		
+
 		// Create NodeLogger once for the entire execution
 		const nodeLogger = new NodeLogger(this.logger, this.getNode());
-		
+
 		try {
 			nc = await createNatsConnection(credentials, nodeLogger);
-			
+
 			for (let i = 0; i < items.length; i++) {
 				try {
 					const subject = this.getNodeParameter('subject', i) as string;
 					const data = this.getNodeParameter('data', i) as string;
 					const options = this.getNodeParameter('options', i, {}) as any;
 					const headers = this.getNodeParameter('headers', i) as any;
-					
+
 					// Validate subject
 					validateSubject(subject);
 
@@ -146,9 +146,8 @@ export class NatsPublisher implements INodeType {
 							subject,
 							timestamp: new Date().toISOString(),
 						},
-						pairedItem: { item: i }
+						pairedItem: { item: i },
 					});
-					
 				} catch (error: any) {
 					if (this.continueOnFail()) {
 						returnData.push({
@@ -163,10 +162,9 @@ export class NatsPublisher implements INodeType {
 					}
 				}
 			}
-			
+
 			// Ensure messages are flushed before closing
 			await nc.flush();
-			
 		} catch (error: any) {
 			throw new NodeOperationError(this.getNode(), `NATS publish failed: ${error.message}`);
 		} finally {
@@ -174,7 +172,7 @@ export class NatsPublisher implements INodeType {
 				await closeNatsConnection(nc, nodeLogger);
 			}
 		}
-		
+
 		return [returnData];
 	}
 }

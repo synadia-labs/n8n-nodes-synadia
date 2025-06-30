@@ -1,4 +1,4 @@
-import { NatsKvManager } from '../../nodes/NatsKvManager.node';
+import { NatsKvManager } from '../../nodes/NatsKvManager/NatsKvManager.node';
 import { IExecuteFunctions, NodeOperationError } from 'n8n-workflow';
 import * as NatsConnection from '../../utils/NatsConnection';
 import { jetstream, jetstreamManager, Kvm } from '../../bundled/nats-bundled';
@@ -17,10 +17,12 @@ describe('NatsKvManager (Simple)', () => {
 
 	beforeEach(() => {
 		node = new NatsKvManager();
-		
+
 		mockExecuteFunctions = {
 			getInputData: jest.fn().mockReturnValue([{ json: { test: 'data' } }]),
-			getCredentials: jest.fn().mockResolvedValue({ connectionType: 'url', servers: 'nats://localhost:4222' }),
+			getCredentials: jest
+				.fn()
+				.mockResolvedValue({ connectionType: 'url', servers: 'nats://localhost:4222' }),
 			getNodeParameter: jest.fn(),
 			getNode: jest.fn().mockReturnValue({
 				id: 'test-node-id',
@@ -51,31 +53,31 @@ describe('NatsKvManager (Simple)', () => {
 	});
 
 	it('should have create, delete, and status operations', () => {
-		const operations = node.description.properties?.find(p => p.name === 'operation') as any;
+		const operations = node.description.properties?.find((p) => p.name === 'operation') as any;
 		expect(operations?.options).toHaveLength(3);
-		expect(operations?.options?.map((op: any) => op.value)).toEqual(['createBucket', 'deleteBucket', 'status']);
+		expect(operations?.options?.map((op: any) => op.value)).toEqual(['create', 'delete', 'get']);
 	});
 
 	it('should require bucket name parameter', () => {
-		const bucketParam = node.description.properties?.find(p => p.name === 'bucket');
+		const bucketParam = node.description.properties?.find((p) => p.name === 'bucket');
 		expect(bucketParam?.required).toBe(true);
 		expect(bucketParam?.type).toBe('string');
 	});
 
-	it('should have options for createBucket operation', () => {
-		const optionsParam = node.description.properties?.find(p => p.name === 'options');
-		expect(optionsParam?.type).toBe('collection');
-		expect(optionsParam?.displayOptions?.show?.operation).toEqual(['createBucket']);
+	it('should have config for create operation', () => {
+		const configParam = node.description.properties?.find((p) => p.name === 'config');
+		expect(configParam?.type).toBe('collection');
+		expect(configParam?.displayOptions?.show?.operation).toEqual(['create']);
 	});
 
 	it('should validate bucket names during execution', async () => {
 		(mockExecuteFunctions.getNodeParameter as jest.Mock)
-			.mockReturnValueOnce('createBucket')
+			.mockReturnValueOnce('create')
 			.mockReturnValueOnce('invalid bucket') // Space in name
 			.mockReturnValueOnce({});
 
 		await expect(node.execute.call(mockExecuteFunctions)).rejects.toThrow(
-			'Bucket name cannot contain spaces'
+			'Bucket name cannot contain spaces',
 		);
 	});
 });

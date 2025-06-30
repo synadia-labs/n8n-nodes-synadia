@@ -1,6 +1,6 @@
-import {Kvm} from '../../bundled/nats-bundled';
-import {KvmOperationHandler, KvmOperationParams} from "../KvmOperationHandler";
-import {IDataObject} from "n8n-workflow";
+import { Kvm } from '../../bundled/nats-bundled';
+import { KvmOperationHandler, KvmOperationParams } from '../KvmOperationHandler';
+import { IDataObject } from 'n8n-workflow';
 
 export class CreateBucketOperationHandler extends KvmOperationHandler {
 	readonly operationName = 'create';

@@ -1,4 +1,4 @@
-import { NatsStreamManager } from '../../nodes/NatsStreamManager.node';
+import { NatsStreamManager } from '../../nodes/NatsStreamManager/NatsStreamManager.node';
 
 describe('NatsStreamManager (Simple)', () => {
 	let node: NatsStreamManager;
@@ -14,34 +14,42 @@ describe('NatsStreamManager (Simple)', () => {
 	});
 
 	it('should have all stream management operations', () => {
-		const operations = node.description.properties?.find(p => p.name === 'operation') as any;
+		const operations = node.description.properties?.find((p) => p.name === 'operation') as any;
 		expect(operations?.options).toHaveLength(6);
 		expect(operations?.options?.map((op: any) => op.value)).toEqual([
-			'createStream', 'deleteStream', 'getInfo', 'listStreams', 'purgeStream', 'updateStream'
+			'create',
+			'delete',
+			'get',
+			'list',
+			'purge',
+			'update',
 		]);
 	});
 
 	it('should require stream name parameter', () => {
-		const streamParam = node.description.properties?.find(p => p.name === 'streamName');
+		const streamParam = node.description.properties?.find((p) => p.name === 'streamName');
 		expect(streamParam?.required).toBe(true);
 		expect(streamParam?.type).toBe('string');
 	});
 
-	it('should have subjects parameter', () => {
-		const subjectsParam = node.description.properties?.find(p => p.name === 'subjects');
-		expect(subjectsParam?.type).toBe('string');
-		expect(subjectsParam?.placeholder).toBe('orders.>, payments.*');
+	it('should have subjects parameter in streamConfig', () => {
+		const streamConfigParam = node.description.properties?.find((p) => p.name === 'streamConfig');
+		expect(streamConfigParam?.type).toBe('collection');
+		const subjectsOption = (streamConfigParam as any)?.options?.find(
+			(opt: any) => opt.name === 'subjects',
+		);
+		expect(subjectsOption?.type).toBe('string');
 	});
 
-	it('should have comprehensive options for stream configuration', () => {
-		const optionsParam = node.description.properties?.find(p => p.name === 'options');
-		expect(optionsParam?.type).toBe('collection');
-		
-		// Check for key options
-		const optionNames = (optionsParam as any)?.options?.map((opt: any) => opt.name);
-		expect(optionNames).toContain('description');
-		expect(optionNames).toContain('retention');
-		expect(optionNames).toContain('storage');
-		expect(optionNames).toContain('replicas');
+	it('should have comprehensive streamConfig for stream configuration', () => {
+		const streamConfigParam = node.description.properties?.find((p) => p.name === 'streamConfig');
+		expect(streamConfigParam?.type).toBe('collection');
+
+		// Check for key config options
+		const configNames = (streamConfigParam as any)?.options?.map((opt: any) => opt.name);
+		expect(configNames).toContain('description');
+		expect(configNames).toContain('retention');
+		expect(configNames).toContain('storage');
+		expect(configNames).toContain('num_replicas');
 	});
 });

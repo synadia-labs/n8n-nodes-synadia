@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
-    "target": "es2020",
+    "target": "es2019",
     "module": "commonjs",
-    "lib": ["es2020"],
-    "outDir": "./dist",
+    "lib": ["es2019", "es2020", "es2022.error"],
+    "outDir": "./dist/",
     "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,

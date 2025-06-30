@@ -1,6 +1,6 @@
-import {ConsumerOperationHandler, ConsumerOperationParams} from '../ConsumerOperationHandler';
-import {JetStreamManager} from '../../bundled/nats-bundled';
-import {IDataObject} from "n8n-workflow";
+import { ConsumerOperationHandler, ConsumerOperationParams } from '../ConsumerOperationHandler';
+import { JetStreamManager } from '../../bundled/nats-bundled';
+import { IDataObject } from 'n8n-workflow';
 
 export class GetInfoOperationHandler extends ConsumerOperationHandler {
 	readonly operationName = 'get';

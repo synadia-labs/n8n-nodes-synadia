@@ -1,6 +1,6 @@
 import { ConsumerOperationHandler, ConsumerOperationParams } from '../ConsumerOperationHandler';
-import {JetStreamManager}  from '../../bundled/nats-bundled';
-import {IDataObject} from "n8n-workflow";
+import { JetStreamManager } from '../../bundled/nats-bundled';
+import { IDataObject } from 'n8n-workflow';
 
 export class CreateConsumerOperationHandler extends ConsumerOperationHandler {
 	readonly operationName = 'create';
@@ -9,7 +9,7 @@ export class CreateConsumerOperationHandler extends ConsumerOperationHandler {
 		const { streamName, consumerConfig } = params;
 
 		if (!consumerConfig) throw new Error('No consumerConfig provided');
-		
+
 		return await jsm.consumers.add(streamName, consumerConfig);
 	}
 }

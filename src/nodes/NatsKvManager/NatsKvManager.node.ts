@@ -6,11 +6,12 @@ import {
 	NodeConnectionType,
 	NodeOperationError,
 } from 'n8n-workflow';
-import {Kvm, KvOptions} from '../bundled/nats-bundled';
-import {closeNatsConnection, createNatsConnection} from '../utils/NatsConnection';
-import {NodeLogger} from '../utils/NodeLogger';
-import {kvmOperationHandlers} from '../operations/kvm';
-import {KvmOperationParams} from "../operations/KvmOperationHandler";
+import { Kvm, KvOptions } from '../../bundled/nats-bundled';
+import { closeNatsConnection, createNatsConnection } from '../../utils/NatsConnection';
+import { NodeLogger } from '../../utils/NodeLogger';
+import { validateBucketName } from '../../utils/NatsHelpers';
+import { kvmOperationHandlers } from '../../operations/kvm';
+import { KvmOperationParams } from '../../operations/KvmOperationHandler';
 
 export class NatsKvManager implements INodeType {
 	description: INodeTypeDescription = {
@@ -144,7 +145,8 @@ export class NatsKvManager implements INodeType {
 						name: 'ttl',
 						type: 'number',
 						default: 0,
-						description: 'The maximum number of millis the key should live in the KV. The server will automatically remove keys older than this amount. Note that deletion of delete markers are not performed',
+						description:
+							'The maximum number of millis the key should live in the KV. The server will automatically remove keys older than this amount. Note that deletion of delete markers are not performed',
 						hint: 'Values older than this will be automatically deleted',
 					},
 				],
@@ -156,67 +158,69 @@ export class NatsKvManager implements INodeType {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 		const credentials = await this.getCredentials('natsApi');
-		
+
 		let nc;
-		
+
 		// Create NodeLogger once for the entire execution
 		const nodeLogger = new NodeLogger(this.logger, this.getNode());
-		
+
 		try {
 			nc = await createNatsConnection(credentials, nodeLogger);
 			const kvManager = new Kvm(nc);
-			
+
 			for (let i = 0; i < items.length; i++) {
 				const operation = this.getNodeParameter('operation', i) as string;
 				const bucket = this.getNodeParameter('bucket', i) as string;
 
+				// Validate bucket name
+				validateBucketName(bucket);
+
 				const handler = kvmOperationHandlers[operation];
 				if (!handler) {
-					const error = `Unknown operation: ${operation}`
-					if (! this.continueOnFail()) throw error;
+					const error = `Unknown operation: ${operation}`;
+					if (!this.continueOnFail()) throw error;
 
 					returnData.push({
-						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
+						error: new NodeOperationError(this.getNode(), error, { itemIndex: i }),
 						json: {
 							operation,
 						},
-						pairedItem: i
-					})
-					continue
+						pairedItem: i,
+					});
+					continue;
 				}
 
-				const params : KvmOperationParams = {
+				const params: KvmOperationParams = {
 					bucket,
 					kvConfig: this.getNodeParameter('config', i, {}) as KvOptions,
-				}
+				};
 
 				try {
-					let result = await handler.execute(kvManager, params)
+					let result = await handler.execute(kvManager, params);
 
 					// Execute the operation
 					returnData.push({
 						json: result,
 						pairedItem: i,
 					});
-				} catch (error : any) {
-					if (! this.continueOnFail()) throw error;
+				} catch (error: any) {
+					if (!this.continueOnFail()) throw error;
 
 					returnData.push({
-						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
+						error: new NodeOperationError(this.getNode(), error, { itemIndex: i }),
 						json: {
 							params: params,
 						},
-						pairedItem: i
-					})
+						pairedItem: i,
+					});
 				}
 			}
-
 		} finally {
 			if (nc!) {
 				await closeNatsConnection(nc, nodeLogger);
 			}
 		}
-		
+
 		return [returnData];
 	}
 }

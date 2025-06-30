@@ -6,11 +6,11 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection, jetstream } from '../bundled/nats-bundled';
-import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
-import { createNatsHeaders, validateSubject } from '../utils/NatsHelpers';
-import { NodeLogger } from '../utils/NodeLogger';
-import {JetStreamPublishOptions} from "@nats-io/jetstream";
+import { NatsConnection, jetstream } from '../../bundled/nats-bundled';
+import { createNatsConnection, closeNatsConnection } from '../../utils/NatsConnection';
+import { createNatsHeaders, validateSubject } from '../../utils/NatsHelpers';
+import { NodeLogger } from '../../utils/NodeLogger';
+import { JetStreamPublishOptions } from '@nats-io/jetstream';
 
 export class NatsStreamPublisher implements INodeType {
 	description: INodeTypeDescription = {
@@ -84,8 +84,8 @@ export class NatsStreamPublisher implements INodeType {
 								description: 'Value to set for the header',
 							},
 						],
-					}
-				]
+					},
+				],
 			},
 		],
 	};
@@ -94,32 +94,32 @@ export class NatsStreamPublisher implements INodeType {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 		const credentials = await this.getCredentials('natsApi');
-		
+
 		let nc: NatsConnection;
-		
+
 		// Create NodeLogger once for the entire execution
 		const nodeLogger = new NodeLogger(this.logger, this.getNode());
-		
+
 		try {
 			nc = await createNatsConnection(credentials, nodeLogger);
 			const js = jetstream(nc);
-			
+
 			for (let i = 0; i < items.length; i++) {
 				try {
 					const subject = this.getNodeParameter('subject', i) as string;
 					const data = this.getNodeParameter('data', i) as string;
 					const headers = this.getNodeParameter('headers', i) as any;
-					
+
 					// Validate subject
 					validateSubject(subject);
-					
+
 					// JetStream publish
 					const pubOptions: Partial<JetStreamPublishOptions> = {
 						headers: createNatsHeaders(headers),
 					};
-					
+
 					const ack = await js.publish(subject, data, pubOptions);
-					
+
 					returnData.push({
 						json: {
 							success: true,
@@ -130,9 +130,8 @@ export class NatsStreamPublisher implements INodeType {
 							duplicate: ack.duplicate,
 							timestamp: new Date().toISOString(),
 						},
-						pairedItem: { item: i }
+						pairedItem: { item: i },
 					});
-					
 				} catch (error: any) {
 					if (this.continueOnFail()) {
 						returnData.push({
@@ -147,18 +146,20 @@ export class NatsStreamPublisher implements INodeType {
 					}
 				}
 			}
-			
+
 			// Ensure messages are flushed before closing
 			await nc.flush();
-			
 		} catch (error: any) {
-			throw new NodeOperationError(this.getNode(), `NATS Stream Publisher failed: ${error.message}`);
+			throw new NodeOperationError(
+				this.getNode(),
+				`NATS Stream Publisher failed: ${error.message}`,
+			);
 		} finally {
 			if (nc!) {
 				await closeNatsConnection(nc, nodeLogger);
 			}
 		}
-		
+
 		return [returnData];
 	}
 }

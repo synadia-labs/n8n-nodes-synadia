@@ -1,5 +1,5 @@
-import {Objm, ObjectStoreOptions} from "../bundled/nats-bundled";
-import {IDataObject} from "n8n-workflow";
+import { Objm, ObjectStoreOptions } from '../bundled/nats-bundled';
+import { IDataObject } from 'n8n-workflow';
 
 export interface OsmOperationParams {
 	bucket: string;
@@ -8,9 +8,6 @@ export interface OsmOperationParams {
 
 export abstract class OsmOperationHandler {
 	abstract readonly operationName: string;
-	
-	abstract execute(
-		osm: Objm,
-		params: OsmOperationParams
-	): Promise<IDataObject>;
+
+	abstract execute(osm: Objm, params: OsmOperationParams): Promise<IDataObject>;
 }

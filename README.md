@@ -87,6 +87,8 @@ npm link n8n-nodes-synadia
 |------|------|-------------|-------------|
 | NATS Subscriber | Trigger | Subscribe to NATS subjects | ✅ Yes |
 | NATS Publisher | Action | Publish messages to NATS | N/A |
+| NATS Stream Consumer | Trigger | Consume from JetStream consumers | ✅ Yes |
+| NATS Stream Publisher | Action | Publish to JetStream streams | N/A |
 | NATS KV Store | Action | Key-Value operations | N/A |
 | NATS KV Manager | Action | Manage KV buckets | N/A |
 | NATS KV Watcher | Trigger | Watch KV changes | ✅ Yes |
@@ -123,17 +125,50 @@ Triggers workflows when messages are received on NATS subjects.
 Publishes messages to NATS subjects.
 
 **Features:**
-- Core NATS and JetStream publishing
+- Core NATS publishing
 - Custom headers support
 - Request-Reply pattern support
-- Message deduplication (JetStream)
-- Optimistic concurrency control (JetStream)
+- Multiple message formats (JSON, String, Binary)
 
 **Use Cases:**
 - Send notifications
 - Trigger microservices
-- Store events in JetStream
 - Distribute work items
+- Real-time messaging
+
+### NATS Stream Consumer
+
+Triggers workflows when consuming messages from existing JetStream consumers.
+
+**Features:**
+- Consume from durable and ephemeral consumers
+- Automatic and manual acknowledgment
+- Configurable delivery policies
+- Pull-based consumption with batch processing
+- Integration with existing JetStream infrastructure
+
+**Use Cases:**
+- Process queued messages from JetStream
+- Implement reliable message processing workflows
+- Handle work queue patterns
+- Stream processing pipelines
+
+### NATS Stream Publisher
+
+Publishes messages directly to JetStream streams.
+
+**Features:**
+- JetStream publishing with persistence guarantees
+- Message deduplication support
+- Stream targeting and subject filtering
+- Optimistic concurrency control
+- Delivery confirmations
+
+**Use Cases:**
+- Store events with persistence guarantees
+- Implement exactly-once delivery patterns
+- Build event sourcing systems
+- Create audit trails
 
 ### NATS KV Store
 
@@ -385,13 +420,15 @@ To connect to Synadia Cloud:
       "name": "Create KV Bucket",
       "type": "n8n-nodes-synadia.natsKvManager",
       "parameters": {
-        "operation": "createBucket",
+        "operation": "create",
         "bucket": "user-sessions",
-        "options": {
+        "config": {
           "description": "User session storage",
-          "maxAge": 3600,
+          "ttl": 3600,
           "storage": "memory",
-          "replicas": 3
+          "replicas": 3,
+          "history": 10,
+          "max_bytes": 1048576
         }
       }
     }
@@ -408,15 +445,17 @@ To connect to Synadia Cloud:
       "name": "Create Events Stream",
       "type": "n8n-nodes-synadia.natsStreamManager",
       "parameters": {
-        "operation": "createStream",
+        "operation": "create",
         "streamName": "EVENTS",
-        "subjects": "events.>, alerts.*",
-        "options": {
+        "streamConfig": {
+          "name": "EVENTS",
+          "subjects": ["events.>", "alerts.*"],
           "description": "Application events stream",
           "retention": "limits",
-          "maxMsgs": 100000,
-          "maxAge": 86400,
-          "storage": "file"
+          "max_msgs": 100000,
+          "max_age": 86400000000000,
+          "storage": "file",
+          "num_replicas": 1
         }
       }
     }
@@ -433,15 +472,54 @@ To connect to Synadia Cloud:
       "name": "Create Event Processor",
       "type": "n8n-nodes-synadia.natsConsumerManager",
       "parameters": {
-        "operation": "createConsumer",
+        "operation": "create",
         "streamName": "EVENTS",
-        "consumerName": "event-processor",
-        "options": {
+        "consumerConfig": {
+          "durable_name": "event-processor",
           "description": "Processes application events",
-          "deliverPolicy": "all",
-          "ackPolicy": "explicit",
-          "maxDeliver": 3,
-          "filterSubject": "events.critical.*"
+          "deliver_policy": "all",
+          "ack_policy": "explicit",
+          "max_deliver": 3,
+          "filter_subject": "events.critical.*",
+          "ack_wait": 30000000000
+        }
+      }
+    }
+  ]
+}
+```
+
+### JetStream Consumer Consumption
+
+```json
+{
+  "nodes": [
+    {
+      "name": "Process Events",
+      "type": "n8n-nodes-synadia.natsStreamConsumer",
+      "parameters": {
+        "streamName": "EVENTS",
+        "consumerName": "event-processor"
+      }
+    }
+  ]
+}
+```
+
+### JetStream Publishing
+
+```json
+{
+  "nodes": [
+    {
+      "name": "Store Event",
+      "type": "n8n-nodes-synadia.natsStreamPublisher",
+      "parameters": {
+        "subject": "events.orders.created",
+        "message": "{{ JSON.stringify($json) }}",
+        "headers": {
+          "msg-id": "{{ $json.orderId }}",
+          "source": "order-service"
         }
       }
     }
@@ -482,10 +560,7 @@ To connect to Synadia Cloud:
         "operation": "put",
         "bucket": "documents",
         "name": "report-{{ $now.toFormat('yyyy-MM-dd') }}.pdf",
-        "data": "{{ $binary.data }}",
-        "options": {
-          "dataType": "binary"
-        }
+        "data": "{{ $binary.data }}"
       }
     }
   ]
@@ -501,8 +576,7 @@ To connect to Synadia Cloud:
     "operation": "put",
     "bucket": "documents",
     "name": "=report-{{ $json.timestamp.toDateTime().format('yyyy-LL-dd') }}.json",
-    "data": "{{ $json.toJsonString() }}",
-    "options": {}
+    "data": "{{ JSON.stringify($json) }}"
   }
 }
 ```
@@ -683,8 +757,10 @@ src/
 ├── credentials/
 │   └── NatsApi.credentials.ts           # NATS connection credentials
 ├── nodes/
-│   ├── NatsSubscriber.node.ts           # Subscriber node implementation
-│   ├── NatsPublisher.node.ts            # Publisher node implementation
+│   ├── NatsSubscriber.node.ts           # Core NATS subscriber trigger
+│   ├── NatsPublisher.node.ts            # Core NATS publisher action
+│   ├── NatsStreamConsumer.node.ts       # JetStream consumer trigger
+│   ├── NatsStreamPublisher.node.ts      # JetStream publisher action
 │   ├── NatsKv.node.ts                   # Key-Value operations
 │   ├── NatsKvManager.node.ts            # KV bucket management
 │   ├── NatsKvWatcher.node.ts            # Watch KV changes
@@ -693,9 +769,17 @@ src/
 │   ├── NatsObjectStoreWatcher.node.ts   # Watch object changes
 │   ├── NatsStreamManager.node.ts        # JetStream stream management
 │   └── NatsConsumerManager.node.ts      # JetStream consumer management
+├── operations/
+│   ├── kv/                             # KV operation handlers
+│   ├── kvm/                            # KV manager operation handlers
+│   ├── os/                             # Object Store operation handlers
+│   ├── osm/                            # Object Store manager operation handlers
+│   ├── stream/                         # Stream operation handlers
+│   └── consumers/                      # Consumer operation handlers
 └── utils/
     ├── NatsConnection.ts                # Connection management
-    └── NatsHelpers.ts                  # Message parsing and encoding
+    ├── NatsHelpers.ts                  # Message parsing and encoding
+    └── NodeLogger.ts                   # Logging utilities
 ```
 
 ## Testing Workflows with Sample Data

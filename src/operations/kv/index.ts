@@ -1,9 +1,9 @@
 import { KvOperationHandler } from '../KvOperationHandler';
-import {DeleteOperationHandler} from "./DeleteOperationHandler";
-import {GetOperationHandler} from "./GetOperationHandler";
-import {ListOperationHandler} from "./ListOperationHandler";
-import {HistoryOperationHandler} from "./HistoryOperationHandler";
-import {PutOperationHandler} from "./PutOperationHandler";
+import { DeleteOperationHandler } from './DeleteOperationHandler';
+import { GetOperationHandler } from './GetOperationHandler';
+import { ListOperationHandler } from './ListOperationHandler';
+import { HistoryOperationHandler } from './HistoryOperationHandler';
+import { PutOperationHandler } from './PutOperationHandler';
 
 export const kvOperationHandlers: Record<string, KvOperationHandler> = {
 	delete: new DeleteOperationHandler(),

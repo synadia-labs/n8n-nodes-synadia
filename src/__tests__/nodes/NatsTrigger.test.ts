@@ -1,4 +1,4 @@
-import { NatsSubscriber } from '../../nodes/NatsSubscriber.node';
+import { NatsSubscriber } from '../../nodes/NatsSubscriber/NatsSubscriber.node';
 import { ITriggerFunctions, ITriggerResponse } from 'n8n-workflow';
 import * as NatsConnection from '../../utils/NatsConnection';
 import { StringCodec } from '../../bundled/nats-bundled';
@@ -20,210 +20,201 @@ jest.mock('../../bundled/nats-bundled', () => ({
 }));
 
 describe('NatsSubscriber', () => {
-  let node: NatsSubscriber;
-  let mockTriggerFunctions: ITriggerFunctions;
-  let mockNatsConnection: any;
-  let mockSubscription: any;
-  let mockEmit: jest.Mock;
-  let mockGetNodeParameter: jest.Mock;
+	let node: NatsSubscriber;
+	let mockTriggerFunctions: ITriggerFunctions;
+	let mockNatsConnection: any;
+	let mockSubscription: any;
+	let mockEmit: jest.Mock;
+	let mockGetNodeParameter: jest.Mock;
 
-  beforeEach(() => {
-    node = new NatsSubscriber();
-    mockEmit = jest.fn();
+	beforeEach(() => {
+		node = new NatsSubscriber();
+		mockEmit = jest.fn();
 
-    // Mock subscription
-    mockSubscription = {
-      unsubscribe: jest.fn(),
-      [Symbol.asyncIterator]: jest.fn().mockReturnValue({
-        async next() {
-          return { done: true };
-        },
-      }),
-    } as any;
+		// Mock subscription
+		mockSubscription = {
+			unsubscribe: jest.fn(),
+			[Symbol.asyncIterator]: jest.fn().mockReturnValue({
+				async next() {
+					return { done: true };
+				},
+			}),
+		} as any;
 
-    // Mock NATS connection
-    mockNatsConnection = {
-      subscribe: jest.fn().mockReturnValue(mockSubscription),
-    } as any;
+		// Mock NATS connection
+		mockNatsConnection = {
+			subscribe: jest.fn().mockReturnValue(mockSubscription),
+		} as any;
 
-    // Mock trigger functions
-    mockGetNodeParameter = jest.fn();
-    mockTriggerFunctions = {
-      getCredentials: jest.fn().mockResolvedValue({ connectionType: 'url', servers: 'nats://localhost:4222' }),
-      getNodeParameter: mockGetNodeParameter,
-      getNode: jest.fn().mockReturnValue({
-        id: 'test-node-id',
-        name: 'Test Node',
-        type: 'n8n-nodes-synadia.natsSubscriber',
-        position: [0, 0],
-        typeVersion: 1,
-      }),
-      emit: mockEmit,
-      helpers: {
-        returnJsonArray: jest.fn((data) => data),
-      },
-      logger: {
-        error: jest.fn(),
-        warn: jest.fn(),
-        info: jest.fn(),
-        debug: jest.fn(),
-      },
-    } as unknown as ITriggerFunctions;
+		// Mock trigger functions
+		mockGetNodeParameter = jest.fn();
+		mockTriggerFunctions = {
+			getCredentials: jest
+				.fn()
+				.mockResolvedValue({ connectionType: 'url', servers: 'nats://localhost:4222' }),
+			getNodeParameter: mockGetNodeParameter,
+			getNode: jest.fn().mockReturnValue({
+				id: 'test-node-id',
+				name: 'Test Node',
+				type: 'n8n-nodes-synadia.natsSubscriber',
+				position: [0, 0],
+				typeVersion: 1,
+			}),
+			emit: mockEmit,
+			helpers: {
+				returnJsonArray: jest.fn((data) => data),
+			},
+			logger: {
+				error: jest.fn(),
+				warn: jest.fn(),
+				info: jest.fn(),
+				debug: jest.fn(),
+			},
+		} as unknown as ITriggerFunctions;
 
-    // Mock createNatsConnection
-    (NatsConnection.createNatsConnection as jest.Mock).mockResolvedValue(mockNatsConnection);
-    (NatsConnection.closeNatsConnection as jest.Mock).mockResolvedValue(undefined);
-  });
+		// Mock createNatsConnection
+		(NatsConnection.createNatsConnection as jest.Mock).mockResolvedValue(mockNatsConnection);
+		(NatsConnection.closeNatsConnection as jest.Mock).mockResolvedValue(undefined);
+	});
 
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
+	afterEach(() => {
+		jest.clearAllMocks();
+	});
 
-  describe('Core NATS Subscription', () => {
-    it('should subscribe to Core NATS subject', async () => {
-      mockGetNodeParameter
-        .mockReturnValueOnce('test.subject') // subject
-        .mockReturnValueOnce(''); // queueGroup
+	describe('Core NATS Subscription', () => {
+		it('should subscribe to Core NATS subject', async () => {
+			mockGetNodeParameter
+				.mockReturnValueOnce('test.subject') // subject
+				.mockReturnValueOnce(''); // queueGroup
 
-      const response = await node.trigger.call(mockTriggerFunctions);
+			const response = await node.trigger.call(mockTriggerFunctions);
 
-      expect(mockNatsConnection.subscribe).toHaveBeenCalledWith(
-        'test.subject',
-        expect.any(Object)
-      );
-      expect(response.closeFunction).toBeDefined();
-      expect(response.manualTriggerFunction).toBeDefined();
-    });
+			expect(mockNatsConnection.subscribe).toHaveBeenCalledWith('test.subject', expect.any(Object));
+			expect(response.closeFunction).toBeDefined();
+			expect(response.manualTriggerFunction).toBeDefined();
+		});
 
-    it('should subscribe with queue group', async () => {
-      mockGetNodeParameter
-        .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('my-queue-group'); // queueGroup
+		it('should subscribe with queue group', async () => {
+			mockGetNodeParameter
+				.mockReturnValueOnce('test.subject')
+				.mockReturnValueOnce('my-queue-group'); // queueGroup
 
-      await node.trigger.call(mockTriggerFunctions);
+			await node.trigger.call(mockTriggerFunctions);
 
-      expect(mockNatsConnection.subscribe).toHaveBeenCalledWith(
-        'test.subject',
-        { queue: 'my-queue-group' }
-      );
-    });
+			expect(mockNatsConnection.subscribe).toHaveBeenCalledWith('test.subject', {
+				queue: 'my-queue-group',
+			});
+		});
 
-    it('should emit messages when received', async () => {
-      const mockMessages = [
-        {
-          subject: 'test.subject',
-          data: new TextEncoder().encode('{"test": 1}'),
-          reply: '',
-          headers: undefined,
-          sid: 1,
-        },
-        {
-          subject: 'test.subject',
-          data: new TextEncoder().encode('{"test": 2}'),
-          reply: '',
-          headers: undefined,
-          sid: 2,
-        },
-      ];
+		it('should emit messages when received', async () => {
+			const mockMessages = [
+				{
+					subject: 'test.subject',
+					data: new TextEncoder().encode('{"test": 1}'),
+					reply: '',
+					headers: undefined,
+					sid: 1,
+				},
+				{
+					subject: 'test.subject',
+					data: new TextEncoder().encode('{"test": 2}'),
+					reply: '',
+					headers: undefined,
+					sid: 2,
+				},
+			];
 
-      // Mock async iterator
-      let messageIndex = 0;
-      mockSubscription[Symbol.asyncIterator] = jest.fn().mockReturnValue({
-        async next() {
-          if (messageIndex < mockMessages.length) {
-            return { value: mockMessages[messageIndex++], done: false };
-          }
-          return { done: true };
-        },
-      });
+			// Mock async iterator
+			let messageIndex = 0;
+			mockSubscription[Symbol.asyncIterator] = jest.fn().mockReturnValue({
+				async next() {
+					if (messageIndex < mockMessages.length) {
+						return { value: mockMessages[messageIndex++], done: false };
+					}
+					return { done: true };
+				},
+			});
 
-      mockGetNodeParameter
-        .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce(''); // queueGroup
+			mockGetNodeParameter.mockReturnValueOnce('test.subject').mockReturnValueOnce(''); // queueGroup
 
-      const response = await node.trigger.call(mockTriggerFunctions);
+			const response = await node.trigger.call(mockTriggerFunctions);
 
-      // Wait for async message processing
-      await new Promise(resolve => setTimeout(resolve, 100));
+			// Wait for async message processing
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
-      expect(mockEmit).toHaveBeenCalledTimes(2);
-      expect(mockEmit).toHaveBeenCalledWith([[
-        expect.objectContaining({
-          json: expect.objectContaining({
-            subject: 'test.subject',
-            data: { test: 1 },
-          }),
-        }),
-      ]]);
-    });
+			expect(mockEmit).toHaveBeenCalledTimes(2);
+			expect(mockEmit).toHaveBeenCalledWith([
+				[
+					expect.objectContaining({
+						json: expect.objectContaining({
+							subject: 'test.subject',
+							data: { test: 1 },
+						}),
+					}),
+				],
+			]);
+		});
+	});
 
-  });
+	describe('Error Handling', () => {
+		it('should validate subject', async () => {
+			mockGetNodeParameter
+				.mockReturnValueOnce('invalid subject') // Invalid subject with space
+				.mockReturnValueOnce('');
 
-  describe('Error Handling', () => {
-    it('should validate subject', async () => {
-      mockGetNodeParameter
-        .mockReturnValueOnce('invalid subject') // Invalid subject with space
-        .mockReturnValueOnce('');
+			await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow(
+				'Subject cannot contain spaces',
+			);
+		});
 
-      await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow(
-        'Subject cannot contain spaces'
-      );
-    });
+		it('should validate queue group when provided', async () => {
+			mockGetNodeParameter.mockReturnValueOnce('test.subject').mockReturnValueOnce('invalid queue'); // Invalid queue group with space
 
-    it('should validate queue group when provided', async () => {
-      mockGetNodeParameter
-        .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('invalid queue'); // Invalid queue group with space
+			await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow();
+		});
 
-      await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow();
-    });
+		it('should handle connection errors', async () => {
+			(NatsConnection.createNatsConnection as jest.Mock).mockRejectedValue(
+				new Error('Connection failed'),
+			);
 
-    it('should handle connection errors', async () => {
-      (NatsConnection.createNatsConnection as jest.Mock).mockRejectedValue(
-        new Error('Connection failed')
-      );
+			mockGetNodeParameter.mockReturnValueOnce('test.subject').mockReturnValueOnce('');
 
-      mockGetNodeParameter
-        .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('');
+			await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow(
+				'Failed to setup NATS subscriber: Connection failed',
+			);
+		});
 
-      await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow(
-        'NATS Subscriber failed: Connection failed'
-      );
-    });
+		it('should close connection on cleanup', async () => {
+			mockGetNodeParameter.mockReturnValueOnce('test.subject').mockReturnValueOnce('');
 
-    it('should close connection on cleanup', async () => {
-      mockGetNodeParameter
-        .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('');
+			const response = await node.trigger.call(mockTriggerFunctions);
+			await response.closeFunction!();
 
-      const response = await node.trigger.call(mockTriggerFunctions);
-      await response.closeFunction!();
+			expect(mockSubscription.unsubscribe).toHaveBeenCalled();
+			expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(
+				mockNatsConnection,
+				expect.any(Object),
+			);
+		});
+	});
 
-      expect(mockSubscription.unsubscribe).toHaveBeenCalled();
-      expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(mockNatsConnection, expect.any(Object));
-    });
-  });
+	describe('Manual Trigger', () => {
+		it('should provide sample data', async () => {
+			mockGetNodeParameter.mockReturnValueOnce('test.subject').mockReturnValueOnce('');
 
-  describe('Manual Trigger', () => {
-    it('should provide sample data', async () => {
-      mockGetNodeParameter
-        .mockReturnValueOnce('test.subject')
-        .mockReturnValueOnce('');
+			const response = await node.trigger.call(mockTriggerFunctions);
+			await response.manualTriggerFunction!();
 
-      const response = await node.trigger.call(mockTriggerFunctions);
-      await response.manualTriggerFunction!();
-
-      expect(mockEmit).toHaveBeenCalledWith([
-        expect.arrayContaining([
-          expect.objectContaining({
-            subject: 'test.subject',
-            data: expect.any(Object),
-            timestamp: expect.any(String),
-          })
-        ])
-      ]);
-    });
-
-  });
+			expect(mockEmit).toHaveBeenCalledWith([
+				expect.arrayContaining([
+					expect.objectContaining({
+						subject: 'test.subject',
+						data: expect.any(Object),
+						timestamp: expect.any(String),
+					}),
+				]),
+			]);
+		});
+	});
 });
