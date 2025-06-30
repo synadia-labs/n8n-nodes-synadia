@@ -140,29 +140,6 @@ export class NatsSubscriber implements INodeType {
 						description: 'Fallback response when output is empty',
 						placeholder: '{"success": true, "message": "Processed"}',
 					},
-					{
-						displayName: 'Reply Encoding',
-						name: 'replyEncoding',
-						type: 'options',
-						options: [
-							{
-								name: 'JSON',
-								value: 'json',
-								description: 'Encode reply as JSON',
-							},
-							{
-								name: 'String',
-								value: 'string',
-								description: 'Send as plain string',
-							},
-							{
-								name: 'Binary',
-								value: 'binary',
-								description: 'Send as binary data',
-							},
-						],
-						default: 'json',
-					},
 				],
 			},
 			{
@@ -184,24 +161,6 @@ export class NatsSubscriber implements INodeType {
 						default: '{\n  "success": true,\n  "message": "Request processed",\n  "timestamp": "{{new Date().toISOString()}}",\n  "echo": "{{$json.data}}"\n}',
 						description: 'Response template with access to request data',
 						hint: 'Use {{$json.data}} for request data, {{new Date().toISOString()}} for timestamp',
-					},
-					{
-						displayName: 'Response Encoding',
-						name: 'responseEncoding',
-						type: 'options',
-						options: [
-							{
-								name: 'JSON',
-								value: 'json',
-								description: 'Send response as JSON',
-							},
-							{
-								name: 'String',
-								value: 'string',
-								description: 'Send response as plain string',
-							},
-						],
-						default: 'json',
 					},
 					{
 						displayName: 'Include Request In Output',

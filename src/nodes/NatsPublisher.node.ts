@@ -8,7 +8,7 @@ import {
 } from 'n8n-workflow';
 import { NatsConnection, jetstream } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
-import { encodeMessage, createNatsHeaders, validateSubject } from '../utils/NatsHelpers';
+import { encodeData, createNatsHeaders, validateSubject } from '../utils/NatsHelpers';
 import { NodeLogger } from '../utils/NodeLogger';
 import { validateStreamName, validateTimeout } from '../utils/ValidationHelpers';
 
@@ -93,29 +93,6 @@ export class NatsPublisher implements INodeType {
 				placeholder: 'Add Option',
 				default: {},
 				options: [
-					{
-						displayName: 'Message Encoding',
-						name: 'encoding',
-						type: 'options',
-						options: [
-							{
-								name: 'JSON',
-								value: 'json',
-								description: 'Encode message as JSON',
-							},
-							{
-								name: 'String',
-								value: 'string',
-								description: 'Send as plain string',
-							},
-							{
-								name: 'Binary',
-								value: 'binary',
-								description: 'Send as binary data',
-							},
-						],
-						default: 'json',
-					},
 					{
 						displayName: 'Headers',
 						name: 'headers',
@@ -238,20 +215,8 @@ export class NatsPublisher implements INodeType {
 						validateStreamName(options.expectedStream);
 					}
 					
-					// Prepare message data
-					let messageData: any;
-					if (options.encoding === 'json') {
-						try {
-							messageData = typeof message === 'string' ? JSON.parse(message) : message;
-						} catch {
-							messageData = message;
-						}
-					} else {
-						messageData = message;
-					}
-					
-					// Encode message
-					const encodedMessage = encodeMessage(messageData, options.encoding || 'json');
+					// Encode message using simplified JSON encoding directly
+					const encodedMessage = encodeData(message);
 					
 					// Prepare headers
 					let headers;
@@ -279,7 +244,7 @@ export class NatsPublisher implements INodeType {
 							json: {
 								success: true,
 								subject,
-								message: messageData,
+								message: message,
 								timestamp: new Date().toISOString(),
 							},
 						});
@@ -312,7 +277,7 @@ export class NatsPublisher implements INodeType {
 							json: {
 								success: true,
 								subject,
-								message: messageData,
+								message: message,
 								stream: ack.stream,
 								sequence: ack.seq,
 								duplicate: ack.duplicate,
