@@ -85,7 +85,22 @@ export class NatsObjectStoreWatcher implements INodeType {
 		
 		const startWatcher = async () => {
 			try {
-				nc = await createNatsConnection(credentials, nodeLogger);
+				// Create connection with monitoring for long-running trigger
+				nc = await createNatsConnection(credentials, nodeLogger, {
+					monitor: true,
+					onError: (error) => {
+						nodeLogger.error('Object store watcher connection lost:', { error });
+					},
+					onReconnect: (server) => {
+						nodeLogger.info(`Object store watcher reconnected to ${server}`);
+					},
+					onDisconnect: (server) => {
+						nodeLogger.warn(`Object store watcher disconnected from ${server}`);
+					},
+					onAsyncError: (error) => {
+						nodeLogger.error('Object store watcher async error (e.g. permission):', { error });
+					}
+				});
 				const js = jetstream(nc);
 				const objManager = new Objm(js);
 				const objectStore = await objManager.open(bucket);

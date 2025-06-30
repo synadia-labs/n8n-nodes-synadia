@@ -10,6 +10,7 @@ import {
 import { jetstream, jetstreamManager, Kvm } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { validateBucketName, validateKeyName, validateNumberRange } from '../utils/ValidationHelpers';
+import { encodeData } from '../utils/NatsHelpers';
 import { NodeLogger } from '../utils/NodeLogger';
 
 export class NatsKv implements INodeType {
@@ -152,34 +153,6 @@ export class NatsKv implements INodeType {
 				placeholder: 'Add Option',
 				default: {},
 				options: [
-					{
-						displayName: 'Value Type',
-						name: 'valueType',
-						type: 'options',
-						options: [
-							{
-								name: 'JSON',
-								value: 'json',
-								description: 'Treat value as JSON',
-							},
-							{
-								name: 'String',
-								value: 'string',
-								description: 'Treat value as string',
-							},
-							{
-								name: 'Binary',
-								value: 'binary',
-								description: 'Treat value as binary (base64)',
-							},
-						],
-						default: 'json',
-						displayOptions: {
-							show: {
-								'/operation': ['put', 'update'],
-							},
-						},
-					},
 					{
 						displayName: 'Revision',
 						name: 'revision',
@@ -417,22 +390,14 @@ export class NatsKv implements INodeType {
 										},
 									});
 								} else {
-									let value: any;
-									const stringValue = new TextDecoder().decode(entry.value);
-									
-									try {
-										value = JSON.parse(stringValue);
-									} catch {
-										value = stringValue;
-									}
-									
+									// Return raw data without automatic parsing - let users handle decoding
 									returnData.push({
 										json: {
 											operation: 'get',
 											bucket,
 											key,
 											found: true,
-											value,
+											value: entry.value,
 											revision: entry.revision,
 											created: new Date(entry.created.getTime()).toISOString(),
 											delta: entry.delta,
@@ -447,15 +412,8 @@ export class NatsKv implements INodeType {
 								const value = this.getNodeParameter('value', i) as string;
 								validateKeyName(key);
 								
-								let encodedValue: Uint8Array;
-								if (options.valueType === 'binary') {
-									encodedValue = new TextEncoder().encode(Buffer.from(value, 'base64').toString());
-								} else if (options.valueType === 'json') {
-									const jsonValue = typeof value === 'string' ? JSON.parse(value) : value;
-									encodedValue = new TextEncoder().encode(JSON.stringify(jsonValue));
-								} else {
-									encodedValue = new TextEncoder().encode(value);
-								}
+								// Use simplified encoding - always JSON encode KV values directly
+								const encodedValue = encodeData(value);
 								
 								const revision = await kv.put(key, encodedValue);
 								
@@ -477,15 +435,8 @@ export class NatsKv implements INodeType {
 								const expectedRevision = options.revision || 0;
 								validateKeyName(key);
 								
-								let encodedValue: Uint8Array;
-								if (options.valueType === 'binary') {
-									encodedValue = new TextEncoder().encode(Buffer.from(value, 'base64').toString());
-								} else if (options.valueType === 'json') {
-									const jsonValue = typeof value === 'string' ? JSON.parse(value) : value;
-									encodedValue = new TextEncoder().encode(JSON.stringify(jsonValue));
-								} else {
-									encodedValue = new TextEncoder().encode(value);
-								}
+								// Use simplified encoding - always JSON encode KV values directly
+								const encodedValue = encodeData(value);
 								
 								const revision = await kv.update(key, encodedValue, expectedRevision);
 								
@@ -558,17 +509,9 @@ export class NatsKv implements INodeType {
 								const iter = await kv.history({ key });
 								
 								for await (const entry of iter) {
-									let value: any;
-									const stringValue = new TextDecoder().decode(entry.value);
-									
-									try {
-										value = JSON.parse(stringValue);
-									} catch {
-										value = stringValue;
-									}
-									
+									// Store raw data without automatic parsing
 									history.push({
-										value,
+										value: entry.value,
 										revision: entry.revision,
 										created: new Date(entry.created.getTime()).toISOString(),
 										operation: entry.operation,

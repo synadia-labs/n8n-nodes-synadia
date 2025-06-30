@@ -188,14 +188,10 @@ export class NatsKvWatcher implements INodeType {
 				return;
 			}
 			
+			// Return raw value data without automatic parsing
 			let value: any = null;
 			if (!options.metadataOnly && entry.value && entry.value.length > 0) {
-				const stringValue = new TextDecoder().decode(entry.value);
-				try {
-					value = JSON.parse(stringValue);
-				} catch {
-					value = stringValue;
-				}
+				value = entry.value;
 			}
 			
 			this.emit([this.helpers.returnJsonArray([{
@@ -212,7 +208,22 @@ export class NatsKvWatcher implements INodeType {
 		
 		const startWatcher = async () => {
 			try {
-				nc = await createNatsConnection(credentials, nodeLogger);
+				// Create connection with monitoring for long-running trigger
+				nc = await createNatsConnection(credentials, nodeLogger, {
+					monitor: true,
+					onError: (error) => {
+						nodeLogger.error('KV watcher connection lost:', { error });
+					},
+					onReconnect: (server) => {
+						nodeLogger.info(`KV watcher reconnected to ${server}`);
+					},
+					onDisconnect: (server) => {
+						nodeLogger.warn(`KV watcher disconnected from ${server}`);
+					},
+					onAsyncError: (error) => {
+						nodeLogger.error('KV watcher async error (e.g. permission):', { error });
+					}
+				});
 				const js = jetstream(nc);
 				const kvManager = new Kvm(js);
 				

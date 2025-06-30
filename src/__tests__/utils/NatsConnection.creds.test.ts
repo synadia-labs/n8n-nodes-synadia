@@ -1,14 +1,14 @@
 import { createNatsConnection } from '../../utils/NatsConnection';
-import { connect, jwtAuthenticator } from '../../bundled/nats-bundled';
+import { connect, credsAuthenticator } from '../../bundled/nats-bundled';
 
 jest.mock('../../bundled/nats-bundled', () => ({
   connect: jest.fn(),
-  jwtAuthenticator: jest.fn(),
+  credsAuthenticator: jest.fn(),
 }));
 
 describe('NatsConnection - Credentials File Support', () => {
 	const mockConnect = connect as jest.MockedFunction<typeof connect>;
-	const mockJwtAuthenticator = jwtAuthenticator as jest.MockedFunction<typeof jwtAuthenticator>;
+	const mockCredsAuthenticator = credsAuthenticator as jest.MockedFunction<typeof credsAuthenticator>;
 	
 	const mockLogger = {
 		error: jest.fn(),
@@ -20,12 +20,12 @@ describe('NatsConnection - Credentials File Support', () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
 		mockConnect.mockResolvedValue({} as any);
-		mockJwtAuthenticator.mockReturnValue({} as any);
+		mockCredsAuthenticator.mockReturnValue({} as any);
 	});
 	
-	describe('credsFile authentication', () => {
+	describe('creds authentication', () => {
 		const validCredsFile = `-----BEGIN NATS USER JWT-----
-eyJ0eXAiOiJKV1QiLCJhbGciOiJlZDI1NTE5LW5rZXkifQ.eyJqdGkiOiJBQ1NFTVVBVE5MTkc1NVpXS1lFS0JYUllGREFGQzZDWDZGTjNSTEFSNzJBSDQ3TlBFUElRIiwiaWF0IjoxNjM5NTc4NjU5LCJpc3MiOiJBQ1ZXRFQzSlpBQ0EzNEFTRERVTjI0TFdEVk5RM1k0RDZVQUtKUDQ0UE5NM0FVNVVDVDQ0VjZLTSIsIm5hbWUiOiJzeXMiLCJzdWIiOiJVQVdFS01VTE5ITlNVS1pLT01HNDJDSE9JTjQ0NFE0UlBCQUtDVEJHWDNOSjRUM1FTQ1EzM1VPVSIsIm5hdHMiOnsicHViIjp7fSwic3ViIjp7fSwidHlwZSI6InVzZXIiLCJ2ZXJzaW9uIjoyfX0.SOME_SIGNATURE
+eyJ0eXAiOiJKV1QiLCJhbGciOiJlZDI1NTE5LW5rZXkifQ.eyJqdGkiOiJBQ1NFTVVBVE5MTkc1NVpXS1lFK0JYUllGREFGQzZDWDZGTjNSTEFSNzJBSDQ3TlBFUElRIiwiaWF0IjoxNjM5NTc4NjU5LCJpc3MiOiJBQ1ZXRFQzSlpBQ0EzNEFTRERVTjI0TFdEVk5RM1k0RDZVQUtKUDQ0UE5NM0FVNVVDVDQ0VjZLTSIsIm5hbWUiOiJzeXMiLCJzdWIiOiJVQVdFK01VTE5ITlNVS1pLT01HNDJDSE9JTjQ0NFE0UlBCQUtDVEJHWDNOSjRUM1FTQ1EzM1VPVSIsIm5hdHMiOnsicHViIjp7fSwic3ViIjp7fSwidHlwZSI6InVzZXIiLCJ2ZXJzaW9uIjoyfX0.SOME_SIGNATURE
 ------END NATS USER JWT------
 
 ************************* IMPORTANT *************************
@@ -40,15 +40,14 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
 		
 		it('should parse valid credentials file', async () => {
 			const credentials = {
-				connectionType: 'credsFile',
-				servers: 'tls://connect.ngs.global',
+				url: 'tls://connect.ngs.global',
+				authenticationType: 'creds',
 				credsFile: validCredsFile,
 			};
 			
 			await createNatsConnection(credentials, mockLogger);
 			
-			expect(mockJwtAuthenticator).toHaveBeenCalledWith(
-				expect.stringContaining('eyJ0eXAiOiJKV1QiLCJhbGciOiJlZDI1NTE5LW5rZXkifQ'),
+			expect(mockCredsAuthenticator).toHaveBeenCalledWith(
 				expect.any(Uint8Array)
 			);
 			
@@ -63,7 +62,7 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
 		it('should handle credentials file with extra whitespace', async () => {
 			const credsWithSpaces = `
 -----BEGIN NATS USER JWT-----
-eyJ0eXAiOiJKV1QiLCJhbGciOiJlZDI1NTE5LW5rZXkifQ.eyJqdGkiOiJBQ1NFTVVBVE5MTkc1NVpXS1lFS0JYUllGREFGQzZDWDZGTjNSTEFSNzJBSDQ3TlBFUElRIiwiaWF0IjoxNjM5NTc4NjU5LCJpc3MiOiJBQ1ZXRFQzSlpBQ0EzNEFTRERVTjI0TFdEVk5RM1k0RDZVQUtKUDQ0UE5NM0FVNVVDVDQ0VjZLTSIsIm5hbWUiOiJzeXMiLCJzdWIiOiJVQVdFS01VTE5ITlNVS1pLT01HNDJDSE9JTjQ0NFE0UlBCQUtDVEJHWDNOSjRUM1FTQ1EzM1VPVSIsIm5hdHMiOnsicHViIjp7fSwic3ViIjp7fSwidHlwZSI6InVzZXIiLCJ2ZXJzaW9uIjoyfX0.SOME_SIGNATURE
+eyJ0eXAiOiJKV1QiLCJhbGciOiJlZDI1NTE5LW5rZXkifQ.eyJqdGkiOiJBQ1NFTVVBVE5MTkc1NVpXS1lFK0JYUllGREFGQzZDWDZGTjNSTEFSNzJBSDQ3TlBFUElRIiwiaWF0IjoxNjM5NTc4NjU5LCJpc3MiOiJBQ1ZXRFQzSlpBQ0EzNEFTRERVTjI0TFdEVk5RM1k0RDZVQUtKUDQ0UE5NM0FVNVVDVDQ0VjZLTSIsIm5hbWUiOiJzeXMiLCJzdWIiOiJVQVdFK01VTE5ITlNVS1pLT01HNDJDSE9JTjQ0NFE0UlBCQUtDVEJHWDNOSjRUM1FTQ1EzM1VPVSIsIm5hdHMiOnsicHViIjp7fSwic3ViIjp7fSwidHlwZSI6InVzZXIiLCJ2ZXJzaW9uIjoyfX0.SOME_SIGNATURE
 ------END NATS USER JWT------
 
 ************************* IMPORTANT *************************
@@ -76,66 +75,75 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
 `;
 			
 			const credentials = {
-				connectionType: 'credsFile',
-				servers: 'tls://connect.ngs.global',
+				url: 'tls://connect.ngs.global',
+				authenticationType: 'creds',
 				credsFile: credsWithSpaces,
 			};
 			
 			await createNatsConnection(credentials, mockLogger);
 			
-			expect(mockJwtAuthenticator).toHaveBeenCalled();
+			expect(mockCredsAuthenticator).toHaveBeenCalled();
 		});
 		
-		it('should throw error for invalid credentials file format', async () => {
+		it('should handle invalid credentials file by letting credsAuthenticator handle it', async () => {
 			const invalidCreds = `This is not a valid credentials file`;
 			
 			const credentials = {
-				connectionType: 'credsFile',
-				servers: 'tls://connect.ngs.global',
+				url: 'tls://connect.ngs.global',
+				authenticationType: 'creds',
 				credsFile: invalidCreds,
 			};
 			
-			await expect(createNatsConnection(credentials, mockLogger)).rejects.toThrow(
-				'Invalid credentials file format'
+			// The credsAuthenticator will handle invalid formats internally
+			await createNatsConnection(credentials, mockLogger);
+			
+			expect(mockCredsAuthenticator).toHaveBeenCalledWith(
+				expect.any(Uint8Array)
 			);
 		});
 		
-		it('should throw error for missing JWT section', async () => {
+		it('should handle missing JWT section by letting credsAuthenticator handle it', async () => {
 			const missingJWT = `-----BEGIN USER NKEY SEED-----
 SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
 ------END USER NKEY SEED------`;
 			
 			const credentials = {
-				connectionType: 'credsFile',
-				servers: 'tls://connect.ngs.global',
+				url: 'tls://connect.ngs.global',
+				authenticationType: 'creds',
 				credsFile: missingJWT,
 			};
 			
-			await expect(createNatsConnection(credentials, mockLogger)).rejects.toThrow(
-				'Invalid credentials file format'
+			// The credsAuthenticator will handle missing sections internally
+			await createNatsConnection(credentials, mockLogger);
+			
+			expect(mockCredsAuthenticator).toHaveBeenCalledWith(
+				expect.any(Uint8Array)
 			);
 		});
 		
-		it('should throw error for missing seed section', async () => {
+		it('should handle missing seed section by letting credsAuthenticator handle it', async () => {
 			const missingSeed = `-----BEGIN NATS USER JWT-----
 eyJ0eXAiOiJKV1QiLCJhbGciOiJlZDI1NTE5LW5rZXkifQ.SOME_JWT
 ------END NATS USER JWT------`;
 			
 			const credentials = {
-				connectionType: 'credsFile',
-				servers: 'tls://connect.ngs.global',
+				url: 'tls://connect.ngs.global',
+				authenticationType: 'creds',
 				credsFile: missingSeed,
 			};
 			
-			await expect(createNatsConnection(credentials, mockLogger)).rejects.toThrow(
-				'Invalid credentials file format'
+			// The credsAuthenticator will handle missing sections internally
+			await createNatsConnection(credentials, mockLogger);
+			
+			expect(mockCredsAuthenticator).toHaveBeenCalledWith(
+				expect.any(Uint8Array)
 			);
 		});
 		
 		it('should work with Synadia Cloud NGS URLs', async () => {
 			const credentials = {
-				connectionType: 'credsFile',
-				servers: 'tls://connect.ngs.global,tls://connect.ngs.global:7422',
+				url: 'tls://connect.ngs.global',
+				authenticationType: 'creds',
 				credsFile: validCredsFile,
 			};
 			
@@ -143,7 +151,7 @@ eyJ0eXAiOiJKV1QiLCJhbGciOiJlZDI1NTE5LW5rZXkifQ.SOME_JWT
 			
 			expect(mockConnect).toHaveBeenCalledWith(
 				expect.objectContaining({
-					servers: ['tls://connect.ngs.global', 'tls://connect.ngs.global:7422'],
+					servers: ['tls://connect.ngs.global'],
 				})
 			);
 		});

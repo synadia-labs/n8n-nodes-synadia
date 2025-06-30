@@ -189,7 +189,7 @@ Triggers workflows when changes occur in a NATS KV bucket.
 Interact with NATS JetStream Object Store for storing large objects and files.
 
 **Features:**
-- Put and get objects using simplified blob API
+- Put and get objects with simplified blob API
 - Object metadata and info retrieval
 - Delete objects and buckets
 - List objects with filtering
