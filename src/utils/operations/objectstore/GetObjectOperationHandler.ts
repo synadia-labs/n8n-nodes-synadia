@@ -13,50 +13,44 @@ export class GetObjectOperationHandler extends ObjectStoreOperationHandler {
 			});
 		}
 		
-		
-		const result = await os.get(params.name);
-		if (result === null) {
+		try {
+			// Use getBlob for simplified binary data retrieval
+			const binaryData = await os.getBlob(params.name);
+			const stringData = new TextDecoder().decode(binaryData);
+			let data: any = stringData;
+			
+			// Try to parse as JSON if requested
+			if (params.options.parseJson) {
+				try {
+					data = JSON.parse(stringData);
+				} catch {
+					// Keep as string if not valid JSON
+				}
+			}
+			
+			// Get object info for metadata
+			const info = await os.info(params.name);
+			
 			return this.createResult({
 				name: params.name,
-				found: false,
+				found: true,
+				data,
+				info: {
+					name: info?.name || params.name,
+					size: info?.size || (binaryData ? binaryData.length : 0),
+					digest: info?.digest,
+					mtime: info?.mtime,
+				},
 			}, params);
-		}
-		
-		// Read the stream data
-		const chunks: Uint8Array[] = [];
-		const reader = result.data.getReader();
-		
-		try {
-			while (true) {
-				const { done, value } = await reader.read();
-				if (done) break;
-				chunks.push(value);
+		} catch (error: any) {
+			// Handle object not found
+			if (error.message && error.message.includes('not found')) {
+				return this.createResult({
+					name: params.name,
+					found: false,
+				}, params);
 			}
-		} finally {
-			reader.releaseLock();
+			throw error;
 		}
-		
-		// Combine chunks
-		const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-		const combined = new Uint8Array(totalLength);
-		let offset = 0;
-		for (const chunk of chunks) {
-			combined.set(chunk, offset);
-			offset += chunk.length;
-		}
-		
-		// Return raw data without automatic parsing - let users handle decoding
-		return this.createResult({
-			name: params.name,
-			found: true,
-			data: combined,
-			info: {
-				name: result.info.name,
-				size: result.info.size,
-				chunks: result.info.chunks,
-				digest: result.info.digest,
-				mtime: result.info.mtime,
-			},
-		}, params);
 	}
 }

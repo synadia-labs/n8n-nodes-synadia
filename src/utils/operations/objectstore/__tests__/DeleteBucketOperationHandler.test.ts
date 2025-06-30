@@ -1,25 +1,31 @@
 import { DeleteBucketOperationHandler } from '../DeleteBucketOperationHandler';
-import { jetstreamManager } from '../../../../bundled/nats-bundled';
+import { jetstream, Objm } from '../../../../bundled/nats-bundled';
 
 jest.mock('../../../../bundled/nats-bundled');
 
 describe('DeleteBucketOperationHandler', () => {
 	let handler: DeleteBucketOperationHandler;
 	let mockNc: any;
-	let mockJsm: any;
+	let mockJs: any;
+	let mockObjManager: any;
+	let mockObjectStore: any;
 
 	beforeEach(() => {
 		handler = new DeleteBucketOperationHandler();
 		
-		mockJsm = {
-			streams: {
-				delete: jest.fn().mockResolvedValue(true),
-			},
+		mockObjectStore = {
+			destroy: jest.fn().mockResolvedValue(true),
 		};
 
+		mockObjManager = {
+			open: jest.fn().mockResolvedValue(mockObjectStore),
+		};
+
+		mockJs = {};
 		mockNc = {};
 
-		(jetstreamManager as jest.Mock).mockResolvedValue(mockJsm);
+		(jetstream as jest.Mock).mockReturnValue(mockJs);
+		(Objm as jest.Mock).mockReturnValue(mockObjManager);
 	});
 
 	afterEach(() => {
@@ -36,8 +42,10 @@ describe('DeleteBucketOperationHandler', () => {
 
 			const result = await handler.execute(mockNc, params);
 
-			expect(jetstreamManager).toHaveBeenCalledWith(mockNc);
-			expect(mockJsm.streams.delete).toHaveBeenCalledWith('OBJ_test-bucket');
+			expect(jetstream).toHaveBeenCalledWith(mockNc);
+			expect(Objm).toHaveBeenCalledWith(mockJs);
+			expect(mockObjManager.open).toHaveBeenCalledWith('test-bucket');
+			expect(mockObjectStore.destroy).toHaveBeenCalled();
 			expect(result).toEqual({
 				operation: 'deleteBucket',
 				bucket: 'test-bucket',
@@ -47,18 +55,19 @@ describe('DeleteBucketOperationHandler', () => {
 
 		it('should handle bucket with special characters', async () => {
 			const params = {
-				bucket: 'my-test_bucket.prod',
+				bucket: 'my-test_bucket.123',
 				options: {},
 				itemIndex: 0,
 			};
 
-			await handler.execute(mockNc, params);
+			const result = await handler.execute(mockNc, params);
 
-			expect(mockJsm.streams.delete).toHaveBeenCalledWith('OBJ_my-test_bucket.prod');
+			expect(mockObjManager.open).toHaveBeenCalledWith('my-test_bucket.123');
+			expect(result.success).toBe(true);
 		});
 
 		it('should return false when deletion fails', async () => {
-			mockJsm.streams.delete.mockResolvedValue(false);
+			mockObjectStore.destroy.mockResolvedValue(false);
 
 			const params = {
 				bucket: 'test-bucket',
@@ -68,13 +77,35 @@ describe('DeleteBucketOperationHandler', () => {
 
 			const result = await handler.execute(mockNc, params);
 
-			expect(result.success).toBe(false);
+			expect(result).toEqual({
+				operation: 'deleteBucket',
+				bucket: 'test-bucket',
+				success: false,
+			});
 		});
-	});
 
-	describe('operationName', () => {
-		it('should have correct operation name', () => {
-			expect(handler.operationName).toBe('deleteBucket');
+		it('should handle deletion errors', async () => {
+			mockObjectStore.destroy.mockRejectedValue(new Error('Bucket not found'));
+
+			const params = {
+				bucket: 'nonexistent-bucket',
+				options: {},
+				itemIndex: 0,
+			};
+
+			await expect(handler.execute(mockNc, params)).rejects.toThrow('Bucket not found');
+		});
+
+		it('should handle object store open errors', async () => {
+			mockObjManager.open.mockRejectedValue(new Error('Failed to open bucket'));
+
+			const params = {
+				bucket: 'test-bucket',
+				options: {},
+				itemIndex: 0,
+			};
+
+			await expect(handler.execute(mockNc, params)).rejects.toThrow('Failed to open bucket');
 		});
 	});
 });

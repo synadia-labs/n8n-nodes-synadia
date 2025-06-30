@@ -6,7 +6,7 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { jetstream, jetstreamManager, Kvm } from '../bundled/nats-bundled';
+import { jetstream, Kvm } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { validateBucketName, validateNumberRange } from '../utils/ValidationHelpers';
 import { NodeLogger } from '../utils/NodeLogger';
@@ -157,7 +157,6 @@ export class NatsKvManager implements INodeType {
 		try {
 			nc = await createNatsConnection(credentials, nodeLogger);
 			const js = jetstream(nc);
-			const jsm = await jetstreamManager(nc);
 			const kvManager = new Kvm(js);
 			
 			for (let i = 0; i < items.length; i++) {
@@ -172,7 +171,7 @@ export class NatsKvManager implements INodeType {
 					let result: any = {};
 					
 					switch (operation) {
-						case 'createBucket':
+						case 'createBucket': {
 							// Validate options
 							if (options.maxAge && options.maxAge < 0) {
 								throw new NodeOperationError(this.getNode(), 'Max age must be non-negative', { itemIndex: i });
@@ -200,8 +199,9 @@ export class NatsKvManager implements INodeType {
 								status: await kv.status(),
 							};
 							break;
+						}
 							
-						case 'deleteBucket':
+						case 'deleteBucket': {
 							const kvToDelete = await kvManager.open(bucket);
 							await kvToDelete.destroy();
 							result = {
@@ -210,8 +210,9 @@ export class NatsKvManager implements INodeType {
 								bucket,
 							};
 							break;
+						}
 							
-						case 'status':
+						case 'status': {
 							const kvStore = await kvManager.open(bucket);
 							const status = await kvStore.status();
 							result = {
@@ -221,6 +222,7 @@ export class NatsKvManager implements INodeType {
 								status,
 							};
 							break;
+						}
 							
 						default:
 							throw new NodeOperationError(this.getNode(), `Unknown operation: ${operation}`, { itemIndex: i });

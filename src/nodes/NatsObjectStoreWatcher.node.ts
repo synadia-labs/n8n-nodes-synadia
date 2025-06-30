@@ -6,7 +6,7 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { NatsConnection, jetstream, jetstreamManager } from '../bundled/nats-bundled';
+import { NatsConnection, jetstream, Objm } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { validateBucketName } from '../utils/ValidationHelpers';
 import { NodeLogger } from '../utils/NodeLogger';
@@ -64,23 +64,6 @@ export class NatsObjectStoreWatcher implements INodeType {
 						description: 'Whether to process all existing objects when the trigger starts',
 						hint: 'Useful for initial data processing or migration',
 					},
-					{
-						displayName: 'Updates Only',
-						name: 'updatesOnly',
-						type: 'boolean',
-						default: false,
-						description: 'Whether to only process new changes, skip existing objects',
-						hint: 'Start monitoring from now, ignore current bucket contents',
-					},
-					{
-						displayName: 'Name Filter',
-						name: 'nameFilter',
-						type: 'string',
-						default: '',
-						placeholder: 'images/*.jpg',
-						description: 'Only process objects matching this pattern (* = any characters)',
-						hint: 'Examples: *.pdf, reports/2024/*, backup-*.zip',
-					},
 				],
 			},
 		],
@@ -95,7 +78,7 @@ export class NatsObjectStoreWatcher implements INodeType {
 		validateBucketName(bucket);
 		
 		let nc: NatsConnection;
-		let subscription: any;
+		let watcher: any;
 		
 		// Create NodeLogger once for the entire trigger lifecycle
 		const nodeLogger = new NodeLogger(this.logger, this.getNode());
@@ -119,86 +102,35 @@ export class NatsObjectStoreWatcher implements INodeType {
 					}
 				});
 				const js = jetstream(nc);
+				const objManager = new Objm(js);
+				const objectStore = await objManager.open(bucket);
 				
-				// Object Store uses the underlying stream events
-				const streamName = `OBJ_${bucket}`;
-				
-				// Create ephemeral consumer configuration
-				const consumerConfig: any = {
-					filter_subject: `$O.${bucket}.M.>`,
-					ack_policy: 'explicit',
+				// Configure watch options
+				const watchOptions: any = {
+					ignoreDeletes: !options.includeDeletes,
 				};
 				
-				// Configure delivery policy
-				if (options.updatesOnly) {
-					consumerConfig.deliver_policy = 'new';
-				} else if (options.includeHistory) {
-					consumerConfig.deliver_policy = 'all';
-				} else {
-					consumerConfig.deliver_policy = 'last_per_subject';
+				// Handle history option
+				if (options.includeHistory) {
+					watchOptions.includeHistory = true;
 				}
 				
-				// Get JetStream manager and create ephemeral consumer
-				const jsm = await jetstreamManager(nc);
-				const consumerInfo = await jsm.consumers.add(streamName, consumerConfig);
+				// Start watching the object store
+				watcher = await objectStore.watch(watchOptions);
 				
-				// Get consumer reference
-				const consumer = await js.consumers.get(consumerInfo.stream_name, consumerInfo.name);
-				
-				// Store consumer for cleanup
-				subscription = consumer as any;
-				
-				// Process messages
+				// Process object change events
 				(async () => {
-					const messageIterator = await consumer.consume();
-					for await (const msg of messageIterator) {
+					for await (const update of watcher) {
 						try {
-							// Parse the subject to get object name
-							const parts = msg.subject.split('.');
-							if (parts.length < 4) continue;
-							
-							const objectName = parts.slice(3).join('.');
-							
-							// Apply name filter if specified
-							if (options.nameFilter) {
-								const regex = new RegExp('^' + options.nameFilter.replace(/\*/g, '.*') + '$');
-								if (!regex.test(objectName)) {
-									msg.ack();
-									continue;
-								}
-							}
-							
-							// Parse headers for metadata
-							const headers = msg.headers || {};
-							const operation = headers.get('X-Nats-Operation') || 'PUT';
-							
-							// Skip deletes if not wanted
-							if (!options.includeDeletes && operation === 'DELETE') {
-								msg.ack();
-								continue;
-							}
-							
-							// Get object info from headers
-							const info = {
-								name: objectName,
-								size: parseInt(headers.get('X-Nats-Object-Size') || '0'),
-								chunks: parseInt(headers.get('X-Nats-Object-Chunks') || '0'),
-								digest: headers.get('X-Nats-Object-Digest') || '',
-								mtime: headers.get('X-Nats-Object-Mtime') || new Date().toISOString(),
-								deleted: operation === 'DELETE',
-							};
-							
+							// Emit the raw update as received from the watcher
 							this.emit([this.helpers.returnJsonArray([{
 								bucket,
-								operation: operation.toLowerCase(),
-								object: info,
+								...update,
 								timestamp: new Date().toISOString(),
 							}])]);
 							
-							msg.ack();
 						} catch (error) {
 							nodeLogger.error('Error processing object store event:', { error });
-							msg.ack();
 						}
 					}
 				})().catch((error) => {
@@ -214,12 +146,12 @@ export class NatsObjectStoreWatcher implements INodeType {
 		
 		async function closeFunction() {
 			try {
-				// Delete ephemeral consumer
-				if (subscription && subscription.delete) {
+				// Stop the watcher if it exists
+				if (watcher && typeof watcher.stop === 'function') {
 					try {
-						await subscription.delete();
+						await watcher.stop();
 					} catch {
-						// Consumer might already be deleted
+						// Watcher might already be stopped
 					}
 				}
 				if (nc) {
@@ -237,18 +169,15 @@ export class NatsObjectStoreWatcher implements INodeType {
 		
 		// Manual trigger function for testing
 		const manualTriggerFunction = async () => {
-			// Provide sample data for object store changes
+			// Provide sample data matching ObjectWatchInfo format
 			const sampleData = {
 				bucket,
-				operation: 'put',
-				object: {
-					name: 'reports/2024/sales-report.pdf',
-					size: 2457600, // ~2.4MB
-					chunks: 20,
-					digest: 'SHA-256=47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=',
-					mtime: new Date().toISOString(),
-					deleted: false,
-				},
+				name: 'reports/2024/sales-report.pdf',
+				size: 2457600, // ~2.4MB
+				chunks: 20,
+				digest: 'SHA-256=47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=',
+				mtime: new Date().toISOString(),
+				deleted: false,
 				timestamp: new Date().toISOString(),
 			};
 			

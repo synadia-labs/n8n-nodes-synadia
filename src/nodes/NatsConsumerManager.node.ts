@@ -43,13 +43,13 @@ export class NatsConsumerManager implements INodeType {
 						name: 'Create Consumer',
 						value: 'createConsumer',
 						description: 'Create a new JetStream consumer',
-						action: 'Create a new JetStream consumer',
+						action: 'Create a new jet stream consumer',
 					},
 					{
 						name: 'Delete Consumer',
 						value: 'deleteConsumer',
 						description: 'Delete a JetStream consumer',
-						action: 'Delete a JetStream consumer',
+						action: 'Delete a jet stream consumer',
 					},
 					{
 						name: 'Get Info',
@@ -122,16 +122,6 @@ export class NatsConsumerManager implements INodeType {
 								description: 'Deliver all messages in the stream',
 							},
 							{
-								name: 'Last',
-								value: 'last',
-								description: 'Deliver only the last message',
-							},
-							{
-								name: 'New',
-								value: 'new',
-								description: 'Deliver only new messages (default)',
-							},
-							{
 								name: 'By Start Sequence',
 								value: 'byStartSequence',
 								description: 'Start from a specific sequence number',
@@ -142,9 +132,19 @@ export class NatsConsumerManager implements INodeType {
 								description: 'Start from a specific time',
 							},
 							{
+								name: 'Last',
+								value: 'last',
+								description: 'Deliver only the last message',
+							},
+							{
 								name: 'Last Per Subject',
 								value: 'lastPerSubject',
 								description: 'Deliver the last message for each subject',
+							},
+							{
+								name: 'New',
+								value: 'new',
+								description: 'Deliver only new messages (default)',
 							},
 						],
 						default: 'new',
@@ -267,14 +267,14 @@ export class NatsConsumerManager implements INodeType {
 						name: 'flowControl',
 						type: 'boolean',
 						default: false,
-						description: 'Enable flow control for the consumer',
+						description: 'Whether to enable flow control for the consumer',
 					},
 					{
 						displayName: 'Headers Only',
 						name: 'headersOnly',
 						type: 'boolean',
 						default: false,
-						description: 'Deliver only headers, not message bodies',
+						description: 'Whether to deliver only headers, not message bodies',
 					},
 				],
 			},
@@ -305,7 +305,7 @@ export class NatsConsumerManager implements INodeType {
 					validateStreamName(streamName);
 					
 					switch (operation) {
-						case 'createConsumer':
+						case 'createConsumer': {
 							const consumerName = this.getNodeParameter('consumerName', i) as string;
 							const options = this.getNodeParameter('options', i, {}) as any;
 							
@@ -383,8 +383,9 @@ export class NatsConsumerManager implements INodeType {
 								info: consumer,
 							};
 							break;
+						}
 							
-						case 'deleteConsumer':
+						case 'deleteConsumer': {
 							const deleteConsumerName = this.getNodeParameter('consumerName', i) as string;
 							validateConsumerName(deleteConsumerName);
 							
@@ -396,8 +397,9 @@ export class NatsConsumerManager implements INodeType {
 								consumerName: deleteConsumerName,
 							};
 							break;
+						}
 							
-						case 'getInfo':
+						case 'getInfo': {
 							const infoConsumerName = this.getNodeParameter('consumerName', i) as string;
 							validateConsumerName(infoConsumerName);
 							
@@ -410,8 +412,9 @@ export class NatsConsumerManager implements INodeType {
 								info,
 							};
 							break;
+						}
 							
-						case 'listConsumers':
+						case 'listConsumers': {
 							const consumers = [];
 							for await (const consumer of jsm.consumers.list(streamName)) {
 								consumers.push(consumer);
@@ -424,6 +427,7 @@ export class NatsConsumerManager implements INodeType {
 								count: consumers.length,
 							};
 							break;
+						}
 							
 						default:
 							throw new NodeOperationError(this.getNode(), `Unknown operation: ${operation}`, { itemIndex: i });

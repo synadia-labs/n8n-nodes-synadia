@@ -43,13 +43,13 @@ export class NatsStreamManager implements INodeType {
 						name: 'Create Stream',
 						value: 'createStream',
 						description: 'Create a new JetStream stream',
-						action: 'Create a new JetStream stream',
+						action: 'Create a new jet stream stream',
 					},
 					{
 						name: 'Delete Stream',
 						value: 'deleteStream',
 						description: 'Delete a JetStream stream',
-						action: 'Delete a JetStream stream',
+						action: 'Delete a jet stream stream',
 					},
 					{
 						name: 'Get Info',
@@ -212,7 +212,7 @@ export class NatsStreamManager implements INodeType {
 						name: 'noAck',
 						type: 'boolean',
 						default: false,
-						description: 'Disable acknowledgments for higher throughput',
+						description: 'Whether to disable acknowledgments for higher throughput',
 					},
 					{
 						displayName: 'Discard Policy',
@@ -266,7 +266,7 @@ export class NatsStreamManager implements INodeType {
 					
 					switch (operation) {
 						case 'createStream':
-						case 'updateStream':
+						case 'updateStream': {
 							const streamName = this.getNodeParameter('streamName', i) as string;
 							const subjectsStr = this.getNodeParameter('subjects', i) as string;
 							const options = this.getNodeParameter('options', i, {}) as any;
@@ -325,8 +325,9 @@ export class NatsStreamManager implements INodeType {
 								};
 							}
 							break;
+						}
 							
-						case 'deleteStream':
+						case 'deleteStream': {
 							const deleteStreamName = this.getNodeParameter('streamName', i) as string;
 							validateStreamName(deleteStreamName);
 							
@@ -337,8 +338,9 @@ export class NatsStreamManager implements INodeType {
 								streamName: deleteStreamName,
 							};
 							break;
+						}
 							
-						case 'getInfo':
+						case 'getInfo': {
 							const infoStreamName = this.getNodeParameter('streamName', i) as string;
 							validateStreamName(infoStreamName);
 							
@@ -350,8 +352,9 @@ export class NatsStreamManager implements INodeType {
 								info,
 							};
 							break;
+						}
 							
-						case 'listStreams':
+						case 'listStreams': {
 							const streams = [];
 							for await (const stream of jsm.streams.list()) {
 								streams.push(stream);
@@ -363,8 +366,9 @@ export class NatsStreamManager implements INodeType {
 								count: streams.length,
 							};
 							break;
+						}
 							
-						case 'purgeStream':
+						case 'purgeStream': {
 							const purgeStreamName = this.getNodeParameter('streamName', i) as string;
 							validateStreamName(purgeStreamName);
 							
@@ -376,6 +380,7 @@ export class NatsStreamManager implements INodeType {
 								purged: purgeResult.purged,
 							};
 							break;
+						}
 							
 						default:
 							throw new NodeOperationError(this.getNode(), `Unknown operation: ${operation}`, { itemIndex: i });

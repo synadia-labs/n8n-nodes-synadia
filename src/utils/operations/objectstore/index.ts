@@ -6,7 +6,6 @@ import { GetObjectOperationHandler } from './GetObjectOperationHandler';
 import { DeleteObjectOperationHandler } from './DeleteObjectOperationHandler';
 import { InfoObjectOperationHandler } from './InfoObjectOperationHandler';
 import { ListObjectsOperationHandler } from './ListObjectsOperationHandler';
-import { LinkObjectOperationHandler } from './LinkObjectOperationHandler';
 import { StatusOperationHandler } from './StatusOperationHandler';
 
 export const objectStoreOperationHandlers: Record<string, ObjectStoreOperationHandler> = {
@@ -17,7 +16,6 @@ export const objectStoreOperationHandlers: Record<string, ObjectStoreOperationHa
 	delete: new DeleteObjectOperationHandler(),
 	info: new InfoObjectOperationHandler(),
 	list: new ListObjectsOperationHandler(),
-	link: new LinkObjectOperationHandler(),
 	status: new StatusOperationHandler(),
 };
 

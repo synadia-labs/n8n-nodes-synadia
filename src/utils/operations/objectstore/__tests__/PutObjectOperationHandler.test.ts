@@ -8,10 +8,9 @@ describe('PutObjectOperationHandler', () => {
 		handler = new PutObjectOperationHandler();
 		
 		mockOs = {
-			put: jest.fn().mockResolvedValue({
+			putBlob: jest.fn().mockResolvedValue({
 				name: 'test-file.txt',
-				size: 1024,
-				chunks: 1,
+				size: 13,
 				digest: 'sha256-abc123',
 				mtime: '2023-01-01T00:00:00Z',
 			}),
@@ -34,15 +33,10 @@ describe('PutObjectOperationHandler', () => {
 
 			const result = await handler.execute(mockOs, params);
 
-			expect(mockOs.put).toHaveBeenCalled();
-			const putCall = mockOs.put.mock.calls[0];
-			expect(putCall[0].name).toBe('test-file.txt');
-			expect(putCall[0].chunkSize).toBe(131072); // Default chunk size
-			
-			// Check that a ReadableStream was created
-			const stream = putCall[1];
-			expect(stream).toBeInstanceOf(ReadableStream);
-
+			expect(mockOs.putBlob).toHaveBeenCalledWith(
+				{ name: 'test-file.txt', description: undefined },
+				new TextEncoder().encode('Hello, World!')
+			);
 			expect(result).toEqual({
 				operation: 'put',
 				bucket: 'test-bucket',
@@ -50,95 +44,161 @@ describe('PutObjectOperationHandler', () => {
 				success: true,
 				info: {
 					name: 'test-file.txt',
-					size: 1024,
-					chunks: 1,
+					size: 13,
 					digest: 'sha256-abc123',
 					mtime: '2023-01-01T00:00:00Z',
 				},
 			});
 		});
 
-		it('should put a JSON object', async () => {
+		it('should put a JSON string object', async () => {
+			const jsonString = '{"key":"value","number":42}';
 			const params = {
 				bucket: 'test-bucket',
-				options: {
-					dataType: 'json',
-				},
+				options: {},
 				itemIndex: 0,
 				name: 'data.json',
-				data: '{"key": "value"}',
+				data: jsonString,
 			};
 
-			await handler.execute(mockOs, params);
+			const result = await handler.execute(mockOs, params);
 
-			const putCall = mockOs.put.mock.calls[0];
-			expect(putCall[0].name).toBe('data.json');
+			expect(mockOs.putBlob).toHaveBeenCalledWith(
+				{ name: 'data.json', description: undefined },
+				new TextEncoder().encode('{"key":"value","number":42}')
+			);
+			expect(result.success).toBe(true);
 		});
 
-		it('should put binary data', async () => {
+		it('should put Buffer data', async () => {
+			const binaryBuffer = Buffer.from('binary content');
 			const params = {
 				bucket: 'test-bucket',
-				options: {
-					dataType: 'binary',
-				},
+				options: {},
 				itemIndex: 0,
-				name: 'binary.dat',
-				data: Buffer.from('Hello').toString('base64'),
+				name: 'binary-file.bin',
+				data: binaryBuffer,
 			};
 
-			await handler.execute(mockOs, params);
+			const result = await handler.execute(mockOs, params);
 
-			const putCall = mockOs.put.mock.calls[0];
-			expect(putCall[0].name).toBe('binary.dat');
+			expect(mockOs.putBlob).toHaveBeenCalledWith(
+				{ name: 'binary-file.bin', description: undefined },
+				new Uint8Array(binaryBuffer)
+			);
+			expect(result.success).toBe(true);
 		});
 
 		it('should handle custom options', async () => {
 			const params = {
 				bucket: 'test-bucket',
 				options: {
-					headers: '{"X-Custom": "value"}',
 					description: 'Test file',
-					chunkSize: 256 * 1024,
+					headers: '{"Content-Type": "text/plain", "Author": "Test"}',
 				},
 				itemIndex: 0,
-				name: 'custom.txt',
-				data: 'Test data',
+				name: 'test-file.txt',
+				data: 'content',
 			};
 
-			await handler.execute(mockOs, params);
+			const result = await handler.execute(mockOs, params);
 
-			const putCall = mockOs.put.mock.calls[0];
-			expect(putCall[0].headers).toEqual({ 'X-Custom': 'value' });
-			expect(putCall[0].description).toBe('Test file');
-			expect(putCall[0].chunkSize).toBe(256 * 1024);
+			expect(mockOs.putBlob).toHaveBeenCalledWith(
+				{
+					name: 'test-file.txt',
+					description: 'Test file',
+					headers: {
+						'Content-Type': 'text/plain',
+						'Author': 'Test',
+					},
+				},
+				new TextEncoder().encode('content')
+			);
+			expect(result.success).toBe(true);
 		});
 
-		it('should throw error if name is missing', async () => {
+		it('should handle Uint8Array data', async () => {
+			const uint8Data = new Uint8Array([72, 101, 108, 108, 111]); // "Hello"
 			const params = {
 				bucket: 'test-bucket',
 				options: {},
 				itemIndex: 0,
-				data: 'Test data',
+				name: 'data.bin',
+				data: uint8Data,
 			};
 
-			await expect(handler.execute(mockOs, params)).rejects.toThrow('Name and data are required for put operation');
+			const result = await handler.execute(mockOs, params);
+
+			expect(mockOs.putBlob).toHaveBeenCalledWith(
+				{ name: 'data.bin', description: undefined },
+				uint8Data
+			);
+			expect(result.success).toBe(true);
 		});
 
-		it('should throw error if data is missing', async () => {
+		it('should handle object data by stringifying', async () => {
+			const objectData = { test: 'value', number: 123 };
+			const params = {
+				bucket: 'test-bucket',
+				options: {},
+				itemIndex: 0,
+				name: 'data.json',
+				data: objectData,
+			};
+
+			const result = await handler.execute(mockOs, params);
+
+			expect(mockOs.putBlob).toHaveBeenCalledWith(
+				{ name: 'data.json', description: undefined },
+				new TextEncoder().encode('{"test":"value","number":123}')
+			);
+			expect(result.success).toBe(true);
+		});
+
+		it('should throw error for missing name', async () => {
+			const params = {
+				bucket: 'test-bucket',
+				options: {},
+				itemIndex: 0,
+				name: '',
+				data: 'content',
+			};
+
+			await expect(handler.execute(mockOs, params)).rejects.toThrow(
+				'Name and data are required for put operation'
+			);
+		});
+
+		it('should throw error for missing data', async () => {
 			const params = {
 				bucket: 'test-bucket',
 				options: {},
 				itemIndex: 0,
 				name: 'test.txt',
+				data: undefined,
 			};
 
-			await expect(handler.execute(mockOs, params)).rejects.toThrow('Name and data are required for put operation');
+			await expect(handler.execute(mockOs, params)).rejects.toThrow(
+				'Name and data are required for put operation'
+			);
 		});
-	});
 
-	describe('operationName', () => {
-		it('should have correct operation name', () => {
-			expect(handler.operationName).toBe('put');
+		it('should handle empty string data', async () => {
+			const params = {
+				bucket: 'test-bucket',
+				options: {},
+				itemIndex: 0,
+				name: 'empty.txt',
+				data: '',
+			};
+
+			const result = await handler.execute(mockOs, params);
+
+			expect(mockOs.putBlob).toHaveBeenCalledWith(
+				{ name: 'empty.txt', description: undefined },
+				new TextEncoder().encode('')
+			);
+			expect(result.success).toBe(true);
 		});
 	});
 });

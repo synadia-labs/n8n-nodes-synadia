@@ -6,7 +6,7 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { jetstream, jetstreamManager, Objm } from '../bundled/nats-bundled';
+import { jetstream, Objm } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { validateBucketName, validateNumberRange } from '../utils/ValidationHelpers';
 import { NodeLogger } from '../utils/NodeLogger';
@@ -42,19 +42,19 @@ export class NatsObjectStoreManager implements INodeType {
 						name: 'Create Bucket',
 						value: 'createBucket',
 						description: 'Create a new Object Store bucket',
-						action: 'Create a new Object Store bucket',
+						action: 'Create a new object store bucket',
 					},
 					{
 						name: 'Delete Bucket',
 						value: 'deleteBucket',
 						description: 'Delete an Object Store bucket',
-						action: 'Delete an Object Store bucket',
+						action: 'Delete an object store bucket',
 					},
 					{
 						name: 'Get Status',
 						value: 'status',
 						description: 'Get status of an Object Store bucket',
-						action: 'Get status of an Object Store bucket',
+						action: 'Get status of an object store bucket',
 					},
 				],
 				default: 'status',
@@ -136,6 +136,7 @@ export class NatsObjectStoreManager implements INodeType {
 		],
 	};
 
+
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
@@ -146,10 +147,56 @@ export class NatsObjectStoreManager implements INodeType {
 		// Create NodeLogger once for the entire execution
 		const nodeLogger = new NodeLogger(this.logger, this.getNode());
 		
+		// Local operation functions
+		const createBucket = async (objManager: any, bucket: string, options: any, itemIndex: number): Promise<any> => {
+			// Validate options
+			if (options.ttl && options.ttl < 0) {
+				throw new NodeOperationError(this.getNode(), 'TTL must be non-negative', { itemIndex });
+			}
+			if (options.replicas) {
+				validateNumberRange(options.replicas, 1, Number.MAX_SAFE_INTEGER, 'Replicas');
+			}
+			
+			const bucketConfig: any = {};
+			if (options.description) bucketConfig.description = options.description;
+			if (options.ttl) bucketConfig.max_age = options.ttl * 1000000000; // Convert to nanoseconds
+			if (options.maxBucketSize && options.maxBucketSize > 0) bucketConfig.max_bytes = options.maxBucketSize;
+			if (options.storage) bucketConfig.storage = options.storage === 'memory' ? 1 : 0; // 0 = file, 1 = memory
+			if (options.replicas) bucketConfig.num_replicas = options.replicas;
+			
+			const objStore = await objManager.create(bucket, bucketConfig);
+			return {
+				success: true,
+				operation: 'createBucket',
+				bucket,
+				status: await objStore.status(),
+			};
+		};
+
+		const deleteBucket = async (objManager: any, bucket: string): Promise<any> => {
+			const objToDelete = await objManager.open(bucket);
+			await objToDelete.destroy();
+			return {
+				success: true,
+				operation: 'deleteBucket',
+				bucket,
+			};
+		};
+
+		const getStatus = async (objManager: any, bucket: string): Promise<any> => {
+			const store = await objManager.open(bucket);
+			const status = await store.status();
+			return {
+				success: true,
+				operation: 'status',
+				bucket,
+				status,
+			};
+		};
+		
 		try {
 			nc = await createNatsConnection(credentials, nodeLogger);
 			const js = jetstream(nc);
-			const jsm = await jetstreamManager(nc);
 			const objManager = new Objm(js);
 			
 			for (let i = 0; i < items.length; i++) {
@@ -161,53 +208,19 @@ export class NatsObjectStoreManager implements INodeType {
 					// Validate bucket name
 					validateBucketName(bucket);
 					
-					let result: any = {};
+					let result: any;
 					
 					switch (operation) {
 						case 'createBucket':
-							// Validate options
-							if (options.ttl && options.ttl < 0) {
-								throw new NodeOperationError(this.getNode(), 'TTL must be non-negative', { itemIndex: i });
-							}
-							if (options.replicas) {
-								validateNumberRange(options.replicas, 1, Number.MAX_SAFE_INTEGER, 'Replicas');
-							}
-							
-							const bucketConfig: any = {};
-							if (options.description) bucketConfig.description = options.description;
-							if (options.ttl) bucketConfig.max_age = options.ttl * 1000000000; // Convert to nanoseconds
-							if (options.maxBucketSize && options.maxBucketSize > 0) bucketConfig.max_bytes = options.maxBucketSize;
-							if (options.storage) bucketConfig.storage = options.storage === 'memory' ? 1 : 0; // 0 = file, 1 = memory
-							if (options.replicas) bucketConfig.num_replicas = options.replicas;
-							
-							const objStore = await objManager.create(bucket, bucketConfig);
-							result = {
-								success: true,
-								operation: 'createBucket',
-								bucket,
-								status: await objStore.status(),
-							};
+							result = await createBucket(objManager, bucket, options, i);
 							break;
 							
 						case 'deleteBucket':
-							const objToDelete = await objManager.open(bucket);
-							await objToDelete.destroy();
-							result = {
-								success: true,
-								operation: 'deleteBucket',
-								bucket,
-							};
+							result = await deleteBucket(objManager, bucket);
 							break;
 							
 						case 'status':
-							const store = await objManager.open(bucket);
-							const status = await store.status();
-							result = {
-								success: true,
-								operation: 'status',
-								bucket,
-								status,
-							};
+							result = await getStatus(objManager, bucket);
 							break;
 							
 						default:

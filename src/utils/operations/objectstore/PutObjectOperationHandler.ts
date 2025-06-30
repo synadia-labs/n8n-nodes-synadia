@@ -6,31 +6,44 @@ export class PutObjectOperationHandler extends ObjectStoreOperationHandler {
 	readonly operationName = 'put';
 	
 	async execute(os: ObjectStore, params: ObjectStoreOperationParams): Promise<ObjectStoreOperationResult> {
-		if (!params.name || !params.data) {
+		if (!params.name || params.data === undefined) {
 			throw new ApplicationError('Name and data are required for put operation', {
 				level: 'warning',
 				tags: { nodeType: 'n8n-nodes-synadia.natsObjectStore' },
 			});
 		}
 		
-		// Use simplified encoding - always JSON encode object data directly
-		const objectData = new TextEncoder().encode(JSON.stringify(params.data));
+		// Use data as provided by the user without conversions
+		let objectData: Uint8Array;
 		
-		const putOptions: any = {
-			headers: params.options.headers ? JSON.parse(params.options.headers) : undefined,
+		if (typeof params.data === 'string') {
+			// String data - encode as UTF-8
+			objectData = new TextEncoder().encode(params.data);
+		} else if (params.data instanceof Uint8Array) {
+			// Binary data already in correct format
+			objectData = params.data;
+		} else if (params.data instanceof Buffer) {
+			// Node.js Buffer - convert to Uint8Array
+			objectData = new Uint8Array(params.data);
+		} else {
+			// Other data types - stringify and encode
+			objectData = new TextEncoder().encode(JSON.stringify(params.data));
+		}
+		
+		// Prepare metadata for putBlob
+		const meta: any = {
+			name: params.name,
 			description: params.options.description,
-			chunkSize: params.options.chunkSize || 128 * 1024,
 		};
 		
-		// Create a readable stream from the data
-		const readable = new ReadableStream({
-			start(controller) {
-				controller.enqueue(objectData);
-				controller.close();
-			}
-		});
+		// Parse headers if provided and add to metadata
+		if (params.options.headers) {
+			const headers = JSON.parse(params.options.headers);
+			meta.headers = headers;
+		}
 		
-		const info = await os.put({ name: params.name, ...putOptions }, readable);
+		// Use putBlob for simplified object storage
+		const info = await os.putBlob(meta, objectData);
 		
 		return this.createResult({
 			name: params.name,
@@ -38,7 +51,6 @@ export class PutObjectOperationHandler extends ObjectStoreOperationHandler {
 			info: {
 				name: info.name,
 				size: info.size,
-				chunks: info.chunks,
 				digest: info.digest,
 				mtime: info.mtime,
 			},

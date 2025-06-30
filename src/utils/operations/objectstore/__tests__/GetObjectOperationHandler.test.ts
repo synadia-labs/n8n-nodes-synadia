@@ -3,33 +3,17 @@ import { GetObjectOperationHandler } from '../GetObjectOperationHandler';
 describe('GetObjectOperationHandler', () => {
 	let handler: GetObjectOperationHandler;
 	let mockOs: any;
-	let mockReader: any;
 
 	beforeEach(() => {
 		handler = new GetObjectOperationHandler();
 		
-		mockReader = {
-			read: jest.fn()
-				.mockResolvedValueOnce({ done: false, value: new TextEncoder().encode('Hello, ') })
-				.mockResolvedValueOnce({ done: false, value: new TextEncoder().encode('World!') })
-				.mockResolvedValueOnce({ done: true }),
-			releaseLock: jest.fn(),
-		};
-
-		const mockStream = {
-			getReader: jest.fn().mockReturnValue(mockReader),
-		};
-
 		mockOs = {
-			get: jest.fn().mockResolvedValue({
-				data: mockStream,
-				info: {
-					name: 'test-file.txt',
-					size: 13,
-					chunks: 1,
-					digest: 'sha256-abc123',
-					mtime: '2023-01-01T00:00:00Z',
-				},
+			getBlob: jest.fn().mockResolvedValue(new TextEncoder().encode('Hello, World!')),
+			info: jest.fn().mockResolvedValue({
+				name: 'test-file.txt',
+				size: 13,
+				digest: 'sha256-abc123',
+				mtime: '2023-01-01T00:00:00Z',
 			}),
 		};
 	});
@@ -49,8 +33,8 @@ describe('GetObjectOperationHandler', () => {
 
 			const result = await handler.execute(mockOs, params);
 
-			expect(mockOs.get).toHaveBeenCalledWith('test-file.txt');
-			expect(mockReader.releaseLock).toHaveBeenCalled();
+			expect(mockOs.getBlob).toHaveBeenCalledWith('test-file.txt');
+			expect(mockOs.info).toHaveBeenCalledWith('test-file.txt');
 			expect(result).toEqual({
 				operation: 'get',
 				bucket: 'test-bucket',
@@ -60,7 +44,6 @@ describe('GetObjectOperationHandler', () => {
 				info: {
 					name: 'test-file.txt',
 					size: 13,
-					chunks: 1,
 					digest: 'sha256-abc123',
 					mtime: '2023-01-01T00:00:00Z',
 				},
@@ -68,9 +51,7 @@ describe('GetObjectOperationHandler', () => {
 		});
 
 		it('should parse JSON if requested', async () => {
-			mockReader.read = jest.fn()
-				.mockResolvedValueOnce({ done: false, value: new TextEncoder().encode('{"key": "value"}') })
-				.mockResolvedValueOnce({ done: true });
+			mockOs.getBlob.mockResolvedValue(new TextEncoder().encode('{"key": "value"}'));
 
 			const params = {
 				bucket: 'test-bucket',
@@ -87,9 +68,7 @@ describe('GetObjectOperationHandler', () => {
 		});
 
 		it('should keep as string if JSON parsing fails', async () => {
-			mockReader.read = jest.fn()
-				.mockResolvedValueOnce({ done: false, value: new TextEncoder().encode('not json') })
-				.mockResolvedValueOnce({ done: true });
+			mockOs.getBlob.mockResolvedValue(new TextEncoder().encode('not json'));
 
 			const params = {
 				bucket: 'test-bucket',
@@ -97,7 +76,7 @@ describe('GetObjectOperationHandler', () => {
 					parseJson: true,
 				},
 				itemIndex: 0,
-				name: 'data.txt',
+				name: 'invalid.json',
 			};
 
 			const result = await handler.execute(mockOs, params);
@@ -106,13 +85,13 @@ describe('GetObjectOperationHandler', () => {
 		});
 
 		it('should handle object not found', async () => {
-			mockOs.get.mockResolvedValue(null);
+			mockOs.getBlob.mockRejectedValue(new Error('Object not found'));
 
 			const params = {
 				bucket: 'test-bucket',
 				options: {},
 				itemIndex: 0,
-				name: 'missing.txt',
+				name: 'missing-file.txt',
 			};
 
 			const result = await handler.execute(mockOs, params);
@@ -120,44 +99,41 @@ describe('GetObjectOperationHandler', () => {
 			expect(result).toEqual({
 				operation: 'get',
 				bucket: 'test-bucket',
-				name: 'missing.txt',
+				name: 'missing-file.txt',
 				found: false,
 			});
 		});
 
-		it('should handle multiple chunks', async () => {
-			mockReader.read = jest.fn()
-				.mockResolvedValueOnce({ done: false, value: new TextEncoder().encode('Chunk 1 ') })
-				.mockResolvedValueOnce({ done: false, value: new TextEncoder().encode('Chunk 2 ') })
-				.mockResolvedValueOnce({ done: false, value: new TextEncoder().encode('Chunk 3') })
-				.mockResolvedValueOnce({ done: true });
+		it('should throw error for missing name', async () => {
+			const params = {
+				bucket: 'test-bucket',
+				options: {},
+				itemIndex: 0,
+				name: '',
+			};
+
+			await expect(handler.execute(mockOs, params)).rejects.toThrow(
+				'Name is required for get operation'
+			);
+		});
+
+		it('should use binary data length when info size is not available', async () => {
+			mockOs.info.mockResolvedValue({
+				name: 'test-file.txt',
+				digest: 'sha256-abc123',
+				mtime: '2023-01-01T00:00:00Z',
+			});
 
 			const params = {
 				bucket: 'test-bucket',
 				options: {},
 				itemIndex: 0,
-				name: 'large-file.txt',
+				name: 'test-file.txt',
 			};
 
 			const result = await handler.execute(mockOs, params);
 
-			expect(result.data).toBe('Chunk 1 Chunk 2 Chunk 3');
-		});
-
-		it('should throw error if name is missing', async () => {
-			const params = {
-				bucket: 'test-bucket',
-				options: {},
-				itemIndex: 0,
-			};
-
-			await expect(handler.execute(mockOs, params)).rejects.toThrow('Name is required for get operation');
-		});
-	});
-
-	describe('operationName', () => {
-		it('should have correct operation name', () => {
-			expect(handler.operationName).toBe('get');
+			expect(result.info.size).toBe(13); // length of 'Hello, World!'
 		});
 	});
 });
