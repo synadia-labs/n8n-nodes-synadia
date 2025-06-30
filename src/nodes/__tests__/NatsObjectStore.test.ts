@@ -66,15 +66,6 @@ jest.mock('../../utils/operations/objectstore', () => ({
 				count: 0,
 			}),
 		},
-		link: {
-			execute: jest.fn().mockResolvedValue({
-				operation: 'link',
-				bucket: 'test-bucket',
-				name: 'link.txt',
-				success: true,
-				linkSource: 'source-bucket/source.txt',
-			}),
-		},
 		status: {
 			execute: jest.fn().mockResolvedValue({
 				operation: 'status',
@@ -268,31 +259,6 @@ describe('NatsObjectStore', () => {
 			}]]);
 		});
 
-		it('should handle link operation with correct context', async () => {
-			(mockExecuteFunctions.getNodeParameter as jest.Mock)
-				.mockImplementation((param: string) => {
-					switch (param) {
-						case 'operation': return 'link';
-						case 'bucket': return 'test-bucket';
-						case 'name': return 'link.txt';
-						case 'linkSource': return 'source-bucket/source.txt';
-						case 'options': return {};
-						default: return '';
-					}
-				});
-
-			const result = await node.execute.call(mockExecuteFunctions);
-
-			expect(objectStoreOperationHandlers.link.execute).toHaveBeenCalledWith(
-				{ os: mockOs, nc: mockNc },
-				expect.objectContaining({
-					bucket: 'test-bucket',
-					name: 'link.txt',
-					sourceBucket: 'source-bucket',
-					sourceName: 'source.txt',
-				})
-			);
-		});
 
 		it('should handle multiple items', async () => {
 			(mockExecuteFunctions.getInputData as jest.Mock).mockReturnValue([
@@ -357,22 +323,6 @@ describe('NatsObjectStore', () => {
 			await expect(node.execute.call(mockExecuteFunctions)).rejects.toThrow('Unknown operation: unknown');
 		});
 
-		it('should handle invalid link source format', async () => {
-			(mockExecuteFunctions.getNodeParameter as jest.Mock)
-				.mockImplementation((param: string) => {
-					switch (param) {
-						case 'operation': return 'link';
-						case 'bucket': return 'test-bucket';
-						case 'name': return 'link.txt';
-						case 'linkSource': return 'invalid-format';
-						case 'options': return {};
-						default: return '';
-					}
-				});
-			(mockExecuteFunctions.continueOnFail as jest.Mock).mockReturnValue(false);
-
-			await expect(node.execute.call(mockExecuteFunctions)).rejects.toThrow('Link source must be in format: bucket-name/object-path');
-		});
 	});
 
 	describe('node description', () => {
@@ -388,7 +338,7 @@ describe('NatsObjectStore', () => {
 
 		it('should have all operations', () => {
 			const operations = node.description.properties.find(p => p.name === 'operation');
-			expect(operations?.options).toHaveLength(9);
+			expect(operations?.options).toHaveLength(8);
 			
 			const operationValues = (operations?.options as any[]).map(o => o.value);
 			expect(operationValues).toContain('createBucket');
@@ -398,7 +348,6 @@ describe('NatsObjectStore', () => {
 			expect(operationValues).toContain('delete');
 			expect(operationValues).toContain('info');
 			expect(operationValues).toContain('list');
-			expect(operationValues).toContain('link');
 			expect(operationValues).toContain('status');
 		});
 	});

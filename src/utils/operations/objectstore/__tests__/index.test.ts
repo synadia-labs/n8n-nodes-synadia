@@ -10,7 +10,6 @@ describe('objectStoreOperationHandlers', () => {
 		expect(objectStoreOperationHandlers.delete).toBeDefined();
 		expect(objectStoreOperationHandlers.info).toBeDefined();
 		expect(objectStoreOperationHandlers.list).toBeDefined();
-		expect(objectStoreOperationHandlers.link).toBeDefined();
 		expect(objectStoreOperationHandlers.status).toBeDefined();
 	});
 
@@ -23,6 +22,6 @@ describe('objectStoreOperationHandlers', () => {
 
 	it('should have correct number of handlers', () => {
 		const handlers = Object.keys(objectStoreOperationHandlers);
-		expect(handlers).toHaveLength(9);
+		expect(handlers).toHaveLength(8);
 	});
 });
