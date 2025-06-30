@@ -88,9 +88,13 @@ npm link n8n-nodes-synadia
 | NATS Subscriber | Trigger | Subscribe to NATS subjects | ✅ Yes |
 | NATS Publisher | Action | Publish messages to NATS | N/A |
 | NATS KV Store | Action | Key-Value operations | N/A |
+| NATS KV Manager | Action | Manage KV buckets | N/A |
 | NATS KV Watcher | Trigger | Watch KV changes | ✅ Yes |
 | NATS Object Store | Action | File/object storage | N/A |
+| NATS Object Store Manager | Action | Manage Object Store buckets | N/A |
 | NATS Object Store Watcher | Trigger | Watch object changes | ✅ Yes |
+| NATS Stream Manager | Action | Manage JetStream streams | N/A |
+| NATS Consumer Manager | Action | Manage JetStream consumers | N/A |
 
 ### NATS Subscriber
 
@@ -136,18 +140,32 @@ Publishes messages to NATS subjects.
 Interact with NATS JetStream Key-Value Store for persistent key-value operations.
 
 **Features:**
-- Create and delete KV buckets
 - Get, put, update, and delete operations
 - Atomic updates with revision checks
 - Key listing and history tracking
-- TTL support for automatic expiration
-- Configurable replication and storage
 
 **Use Cases:**
 - Configuration management
 - Session storage
 - Distributed caching
 - State management
+
+### NATS KV Manager
+
+Manage NATS JetStream Key-Value Store buckets and their configuration.
+
+**Features:**
+- Create KV buckets with custom configuration
+- Delete KV buckets
+- Get bucket status and information
+- Configure TTL, storage type, replicas, and history
+- Set maximum value size limits
+
+**Use Cases:**
+- Infrastructure management
+- Bucket lifecycle management
+- Storage optimization
+- Administrative automation
 
 ### NATS KV Watcher
 
@@ -171,18 +189,33 @@ Triggers workflows when changes occur in a NATS KV bucket.
 Interact with NATS JetStream Object Store for storing large objects and files.
 
 **Features:**
-- Create and delete object store buckets
 - Put and get objects with streaming
 - Object metadata and info retrieval
 - Link objects between buckets
 - List objects with filtering
-- Configurable chunk size and storage
 
 **Use Cases:**
 - File storage and retrieval
 - Binary data management
 - Document storage
 - Media file handling
+
+### NATS Object Store Manager
+
+Manage NATS JetStream Object Store buckets and their configuration.
+
+**Features:**
+- Create Object Store buckets with custom configuration
+- Delete Object Store buckets
+- Get bucket status and information
+- Configure TTL, storage type, replicas, and size limits
+- Set maximum bucket size constraints
+
+**Use Cases:**
+- Infrastructure management
+- Bucket lifecycle management
+- Storage policy enforcement
+- Administrative automation
 
 ### NATS Object Store Watcher
 
@@ -199,6 +232,42 @@ Triggers workflows when changes occur in a NATS Object Store bucket.
 - Media transcoding workflows
 - Backup and archival processes
 - Content management systems
+
+### NATS Stream Manager
+
+Manage NATS JetStream streams and their configuration.
+
+**Features:**
+- Create streams with comprehensive configuration options
+- Delete and purge streams
+- Update stream configuration
+- Get stream information and statistics
+- List all streams in the JetStream context
+- Configure retention policies, storage types, and limits
+
+**Use Cases:**
+- Stream lifecycle management
+- Infrastructure provisioning
+- Capacity planning and monitoring
+- Automated stream administration
+
+### NATS Consumer Manager
+
+Manage NATS JetStream consumers for stream processing.
+
+**Features:**
+- Create consumers with delivery and acknowledgment policies
+- Delete consumers
+- Get consumer information and statistics
+- List all consumers for a stream
+- Configure delivery policies, replay settings, and filtering
+- Set acknowledgment timeouts and retry limits
+
+**Use Cases:**
+- Consumer lifecycle management
+- Microservice deployment automation
+- Stream processing configuration
+- Consumer monitoring and administration
 
 
 ## Authentication
@@ -301,6 +370,79 @@ To connect to Synadia Cloud:
         "key": "app.settings",
         "value": "{{JSON.stringify($json)}}",
         "options": {}
+      }
+    }
+  ]
+}
+```
+
+### KV Bucket Management
+
+```json
+{
+  "nodes": [
+    {
+      "name": "Create KV Bucket",
+      "type": "n8n-nodes-synadia.natsKvManager",
+      "parameters": {
+        "operation": "createBucket",
+        "bucket": "user-sessions",
+        "options": {
+          "description": "User session storage",
+          "maxAge": 3600,
+          "storage": "memory",
+          "replicas": 3
+        }
+      }
+    }
+  ]
+}
+```
+
+### Stream Management
+
+```json
+{
+  "nodes": [
+    {
+      "name": "Create Events Stream",
+      "type": "n8n-nodes-synadia.natsStreamManager",
+      "parameters": {
+        "operation": "createStream",
+        "streamName": "EVENTS",
+        "subjects": "events.>, alerts.*",
+        "options": {
+          "description": "Application events stream",
+          "retention": "limits",
+          "maxMsgs": 100000,
+          "maxAge": 86400,
+          "storage": "file"
+        }
+      }
+    }
+  ]
+}
+```
+
+### Consumer Management
+
+```json
+{
+  "nodes": [
+    {
+      "name": "Create Event Processor",
+      "type": "n8n-nodes-synadia.natsConsumerManager",
+      "parameters": {
+        "operation": "createConsumer",
+        "streamName": "EVENTS",
+        "consumerName": "event-processor",
+        "options": {
+          "description": "Processes application events",
+          "deliverPolicy": "all",
+          "ackPolicy": "explicit",
+          "maxDeliver": 3,
+          "filterSubject": "events.critical.*"
+        }
       }
     }
   ]
@@ -539,17 +681,21 @@ npm run test:watch
 ```
 src/
 ├── credentials/
-│   └── NatsApi.credentials.ts    # NATS connection credentials
+│   └── NatsApi.credentials.ts           # NATS connection credentials
 ├── nodes/
-│   ├── NatsSubscriber.node.ts    # Subscriber node implementation
-│   ├── NatsPublisher.node.ts     # Publisher node implementation
-│   ├── NatsKv.node.ts            # Key-Value operations
-│   ├── NatsKvWatcher.node.ts     # Watch KV changes
-│   ├── NatsObjectStore.node.ts   # Object storage operations
-│   └── NatsObjectStoreWatcher.node.ts  # Watch object changes
+│   ├── NatsSubscriber.node.ts           # Subscriber node implementation
+│   ├── NatsPublisher.node.ts            # Publisher node implementation
+│   ├── NatsKv.node.ts                   # Key-Value operations
+│   ├── NatsKvManager.node.ts            # KV bucket management
+│   ├── NatsKvWatcher.node.ts            # Watch KV changes
+│   ├── NatsObjectStore.node.ts          # Object storage operations
+│   ├── NatsObjectStoreManager.node.ts   # Object Store bucket management
+│   ├── NatsObjectStoreWatcher.node.ts   # Watch object changes
+│   ├── NatsStreamManager.node.ts        # JetStream stream management
+│   └── NatsConsumerManager.node.ts      # JetStream consumer management
 └── utils/
-    ├── NatsConnection.ts         # Connection management
-    └── NatsHelpers.ts           # Message parsing and encoding
+    ├── NatsConnection.ts                # Connection management
+    └── NatsHelpers.ts                  # Message parsing and encoding
 ```
 
 ## Testing Workflows with Sample Data
