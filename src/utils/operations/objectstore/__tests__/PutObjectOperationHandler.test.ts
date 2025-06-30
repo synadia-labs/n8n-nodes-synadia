@@ -51,16 +51,14 @@ describe('PutObjectOperationHandler', () => {
 			});
 		});
 
-		it('should put a JSON object', async () => {
-			const jsonData = { key: 'value', number: 42 };
+		it('should put a JSON string object', async () => {
+			const jsonString = '{"key":"value","number":42}';
 			const params = {
 				bucket: 'test-bucket',
-				options: {
-					dataType: 'json',
-				},
+				options: {},
 				itemIndex: 0,
 				name: 'data.json',
-				data: JSON.stringify(jsonData),
+				data: jsonString,
 			};
 
 			const result = await handler.execute(mockOs, params);
@@ -72,23 +70,21 @@ describe('PutObjectOperationHandler', () => {
 			expect(result.success).toBe(true);
 		});
 
-		it('should put binary data', async () => {
-			const binaryData = Buffer.from('binary content').toString('base64');
+		it('should put Buffer data', async () => {
+			const binaryBuffer = Buffer.from('binary content');
 			const params = {
 				bucket: 'test-bucket',
-				options: {
-					dataType: 'binary',
-				},
+				options: {},
 				itemIndex: 0,
 				name: 'binary-file.bin',
-				data: binaryData,
+				data: binaryBuffer,
 			};
 
 			const result = await handler.execute(mockOs, params);
 
 			expect(mockOs.putBlob).toHaveBeenCalledWith(
 				{ name: 'binary-file.bin', description: undefined },
-				new Uint8Array(Buffer.from(binaryData, 'base64'))
+				new Uint8Array(binaryBuffer)
 			);
 			expect(result.success).toBe(true);
 		});
@@ -121,22 +117,40 @@ describe('PutObjectOperationHandler', () => {
 			expect(result.success).toBe(true);
 		});
 
-		it('should handle JSON string data', async () => {
+		it('should handle Uint8Array data', async () => {
+			const uint8Data = new Uint8Array([72, 101, 108, 108, 111]); // "Hello"
 			const params = {
 				bucket: 'test-bucket',
-				options: {
-					dataType: 'json',
-				},
+				options: {},
+				itemIndex: 0,
+				name: 'data.bin',
+				data: uint8Data,
+			};
+
+			const result = await handler.execute(mockOs, params);
+
+			expect(mockOs.putBlob).toHaveBeenCalledWith(
+				{ name: 'data.bin', description: undefined },
+				uint8Data
+			);
+			expect(result.success).toBe(true);
+		});
+
+		it('should handle object data by stringifying', async () => {
+			const objectData = { test: 'value', number: 123 };
+			const params = {
+				bucket: 'test-bucket',
+				options: {},
 				itemIndex: 0,
 				name: 'data.json',
-				data: '{"test": "value"}',
+				data: objectData,
 			};
 
 			const result = await handler.execute(mockOs, params);
 
 			expect(mockOs.putBlob).toHaveBeenCalledWith(
 				{ name: 'data.json', description: undefined },
-				new TextEncoder().encode('{"test":"value"}')
+				new TextEncoder().encode('{"test":"value","number":123}')
 			);
 			expect(result.success).toBe(true);
 		});

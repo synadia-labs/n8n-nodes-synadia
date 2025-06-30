@@ -129,8 +129,8 @@ export class NatsObjectStore implements INodeType {
 				typeOptions: {
 					rows: 4,
 				},
-				description: 'Content to store in the object (text, JSON, or base64 for binary)',
-				hint: 'For files, use binary mode and provide base64 encoded data',
+				description: 'Content to store in the object',
+				hint: 'Provide the data as you want it stored - string, JSON, or binary data',
 			},
 			{
 				displayName: 'Options',
@@ -139,34 +139,6 @@ export class NatsObjectStore implements INodeType {
 				placeholder: 'Add Option',
 				default: {},
 				options: [
-					{
-						displayName: 'Data Type',
-						name: 'dataType',
-						type: 'options',
-						options: [
-							{
-								name: 'String',
-								value: 'string',
-								description: 'Treat data as string',
-							},
-							{
-								name: 'JSON',
-								value: 'json',
-								description: 'Treat data as JSON',
-							},
-							{
-								name: 'Binary',
-								value: 'binary',
-								description: 'Treat data as binary (base64)',
-							},
-						],
-						default: 'string',
-						displayOptions: {
-							show: {
-								'/operation': ['put'],
-							},
-						},
-					},
 					{
 						displayName: 'Description',
 						name: 'description',

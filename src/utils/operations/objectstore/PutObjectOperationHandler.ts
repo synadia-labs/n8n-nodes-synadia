@@ -13,18 +13,21 @@ export class PutObjectOperationHandler extends ObjectStoreOperationHandler {
 			});
 		}
 		
+		// Use data as provided by the user without conversions
 		let objectData: Uint8Array;
-		const dataType = params.options.dataType || 'string';
 		
-		if (dataType === 'binary') {
-			// For binary data, decode base64 and convert to Uint8Array
-			const buffer = Buffer.from(params.data, 'base64');
-			objectData = new Uint8Array(buffer);
-		} else if (dataType === 'json') {
-			const jsonData = typeof params.data === 'string' ? JSON.parse(params.data) : params.data;
-			objectData = new TextEncoder().encode(JSON.stringify(jsonData));
-		} else {
+		if (typeof params.data === 'string') {
+			// String data - encode as UTF-8
 			objectData = new TextEncoder().encode(params.data);
+		} else if (params.data instanceof Uint8Array) {
+			// Binary data already in correct format
+			objectData = params.data;
+		} else if (params.data instanceof Buffer) {
+			// Node.js Buffer - convert to Uint8Array
+			objectData = new Uint8Array(params.data);
+		} else {
+			// Other data types - stringify and encode
+			objectData = new TextEncoder().encode(JSON.stringify(params.data));
 		}
 		
 		// Prepare metadata for putBlob

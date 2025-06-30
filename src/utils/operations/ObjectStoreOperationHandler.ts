@@ -4,7 +4,7 @@ export interface ObjectStoreOperationParams {
 	options: any;
 	itemIndex: number;
 	name?: string;
-	data?: string;
+	data?: string | Uint8Array | Buffer | any;
 	sourceBucket?: string;
 	sourceName?: string;
 }
