@@ -40,18 +40,6 @@ export class NatsObjectStore implements INodeType {
 				noDataExpression: true,
 				options: [
 					{
-						name: 'Create Bucket',
-						value: 'createBucket',
-						description: 'Create a new bucket for storing objects',
-						action: 'Create a new bucket for storing objects',
-					},
-					{
-						name: 'Delete Bucket',
-						value: 'deleteBucket',
-						description: 'Delete an object store bucket',
-						action: 'Delete an object store bucket',
-					},
-					{
 						name: 'Delete Object',
 						value: 'delete',
 						description: 'Delete an object from the bucket',
@@ -68,12 +56,6 @@ export class NatsObjectStore implements INodeType {
 						value: 'get',
 						description: 'Download an object from the bucket',
 						action: 'Download an object from the bucket',
-					},
-					{
-						name: 'Get Status',
-						value: 'status',
-						description: 'Get status of an object store bucket',
-						action: 'Get status of an object store bucket',
 					},
 					{
 						name: 'List Objects',
@@ -146,10 +128,10 @@ export class NatsObjectStore implements INodeType {
 						default: '',
 						displayOptions: {
 							show: {
-								'/operation': ['createBucket', 'put'],
+								'/operation': ['put'],
 							},
 						},
-						description: 'Human-readable description for the bucket or object',
+						description: 'Human-readable description for the object',
 						placeholder: 'Company financial reports archive',
 					},
 					{
@@ -164,68 +146,6 @@ export class NatsObjectStore implements INodeType {
 						},
 						description: 'Custom metadata headers as JSON (e.g., {"Content-Type": "application/pdf"})',
 						placeholder: '{"author": "John Doe", "department": "Sales"}',
-					},
-					{
-						displayName: 'TTL (Seconds)',
-						name: 'ttl',
-						type: 'number',
-						default: 0,
-						displayOptions: {
-							show: {
-								'/operation': ['createBucket'],
-							},
-						},
-						description: 'Automatically delete objects after this many seconds (0 = never expire)',
-						hint: 'Useful for temporary files or cache data',
-					},
-					{
-						displayName: 'Max Bucket Size',
-						name: 'maxBucketSize',
-						type: 'number',
-						default: -1,
-						displayOptions: {
-							show: {
-								'/operation': ['createBucket'],
-							},
-						},
-						description: 'Maximum total size of all objects in the bucket in bytes',
-						hint: 'Use -1 for unlimited. Example: 1073741824 for 1GB',
-					},
-					{
-						displayName: 'Replicas',
-						name: 'replicas',
-						type: 'number',
-						default: 1,
-						displayOptions: {
-							show: {
-								'/operation': ['createBucket'],
-							},
-						},
-						description: 'Number of data copies to maintain for redundancy',
-						hint: 'Higher values increase durability but use more storage',
-					},
-					{
-						displayName: 'Storage',
-						name: 'storage',
-						type: 'options',
-						options: [
-							{
-								name: 'File',
-								value: 'file',
-							},
-							{
-								name: 'Memory',
-								value: 'memory',
-							},
-						],
-						default: 'file',
-						displayOptions: {
-							show: {
-								'/operation': ['createBucket'],
-							},
-						},
-						description: 'Where to store the data',
-						hint: 'File: persistent storage, Memory: faster but temporary',
 					},
 				],
 			},
@@ -255,10 +175,16 @@ export class NatsObjectStore implements INodeType {
 					// Validate bucket name
 					validateBucketName(bucket);
 					
+					// Only allow object operations, not bucket operations
+					const supportedOperations = ['put', 'get', 'delete', 'info', 'list'];
+					if (!supportedOperations.includes(operation)) {
+						throw new NodeOperationError(this.getNode(), `Unsupported operation: ${operation}. Use NATS Object Store Manager for bucket operations.`, { itemIndex: i });
+					}
+					
 					const handler = objectStoreOperationHandlers[operation];
 					
 					if (!handler) {
-						throw new NodeOperationError(this.getNode(), `Unknown operation: ${operation}`);
+						throw new NodeOperationError(this.getNode(), `Unknown operation: ${operation}`, { itemIndex: i });
 					}
 					
 					// Prepare parameters for the operation
@@ -276,17 +202,10 @@ export class NatsObjectStore implements INodeType {
 					}
 					
 					
-					let result;
-					
-					if (operation === 'createBucket' || operation === 'deleteBucket') {
-						// These operations need the connection directly
-						result = await handler.execute(nc, params);
-					} else {
-						// Other operations just need ObjectStore
-						const objManager = new Objm(js);
-						const os = await objManager.open(bucket);
-						result = await handler.execute(os, params);
-					}
+					// All operations need ObjectStore (no bucket operations here)
+					const objManager = new Objm(js);
+					const os = await objManager.open(bucket);
+					const result = await handler.execute(os, params);
 					
 					returnData.push({ json: result });
 					

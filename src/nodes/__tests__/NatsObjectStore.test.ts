@@ -8,21 +8,6 @@ jest.mock('../../utils/NatsConnection');
 jest.mock('../../bundled/nats-bundled');
 jest.mock('../../utils/operations/objectstore', () => ({
 	objectStoreOperationHandlers: {
-		createBucket: {
-			execute: jest.fn().mockResolvedValue({
-				operation: 'createBucket',
-				bucket: 'test-bucket',
-				success: true,
-				status: { bucket: 'test-bucket', size: 0, objects: 0 },
-			}),
-		},
-		deleteBucket: {
-			execute: jest.fn().mockResolvedValue({
-				operation: 'deleteBucket',
-				bucket: 'test-bucket',
-				success: true,
-			}),
-		},
 		put: {
 			execute: jest.fn().mockResolvedValue({
 				operation: 'put',
@@ -131,66 +116,6 @@ describe('NatsObjectStore', () => {
 	});
 
 	describe('execute', () => {
-		it('should create a bucket', async () => {
-			(mockExecuteFunctions.getNodeParameter as jest.Mock)
-				.mockImplementation((param: string, index: number, defaultValue?: any) => {
-					switch (param) {
-						case 'operation': return 'createBucket';
-						case 'bucket': return 'test-bucket';
-						case 'options': return {};
-						default: return defaultValue;
-					}
-				});
-
-			const result = await node.execute.call(mockExecuteFunctions);
-
-			expect(createNatsConnection).toHaveBeenCalled();
-			expect(objectStoreOperationHandlers.createBucket.execute).toHaveBeenCalledWith(
-				mockNc,
-				expect.objectContaining({
-					bucket: 'test-bucket',
-					options: {},
-				})
-			);
-			expect(result).toEqual([[{
-				json: {
-					operation: 'createBucket',
-					bucket: 'test-bucket',
-					success: true,
-					status: { bucket: 'test-bucket', size: 0, objects: 0 },
-				},
-			}]]);
-			expect(closeNatsConnection).toHaveBeenCalledWith(mockNc, expect.any(Object));
-		});
-
-		it('should delete a bucket', async () => {
-			(mockExecuteFunctions.getNodeParameter as jest.Mock)
-				.mockImplementation((param: string) => {
-					switch (param) {
-						case 'operation': return 'deleteBucket';
-						case 'bucket': return 'test-bucket';
-						case 'options': return {};
-						default: return '';
-					}
-				});
-
-			const result = await node.execute.call(mockExecuteFunctions);
-
-			expect(objectStoreOperationHandlers.deleteBucket.execute).toHaveBeenCalledWith(
-				mockNc,
-				expect.objectContaining({
-					bucket: 'test-bucket',
-				})
-			);
-			expect(result).toEqual([[{
-				json: {
-					operation: 'deleteBucket',
-					bucket: 'test-bucket',
-					success: true,
-				},
-			}]]);
-		});
-
 		it('should put an object', async () => {
 			(mockExecuteFunctions.getNodeParameter as jest.Mock)
 				.mockImplementation((param: string) => {
@@ -301,7 +226,7 @@ describe('NatsObjectStore', () => {
 
 			expect(result).toEqual([[{
 				json: {
-					error: 'Unknown operation: unknown',
+					error: 'Unsupported operation: unknown. Use NATS Object Store Manager for bucket operations.',
 					operation: 'unknown',
 					bucket: 'test-bucket',
 				},
@@ -320,7 +245,7 @@ describe('NatsObjectStore', () => {
 				});
 			(mockExecuteFunctions.continueOnFail as jest.Mock).mockReturnValue(false);
 
-			await expect(node.execute.call(mockExecuteFunctions)).rejects.toThrow('Unknown operation: unknown');
+			await expect(node.execute.call(mockExecuteFunctions)).rejects.toThrow('Unsupported operation: unknown. Use NATS Object Store Manager for bucket operations.');
 		});
 
 	});
@@ -336,19 +261,21 @@ describe('NatsObjectStore', () => {
 			}]);
 		});
 
-		it('should have all operations', () => {
+		it('should have object operations only', () => {
 			const operations = node.description.properties.find(p => p.name === 'operation');
-			expect(operations?.options).toHaveLength(8);
+			expect(operations?.options).toHaveLength(5);
 			
 			const operationValues = (operations?.options as any[]).map(o => o.value);
-			expect(operationValues).toContain('createBucket');
-			expect(operationValues).toContain('deleteBucket');
 			expect(operationValues).toContain('put');
 			expect(operationValues).toContain('get');
 			expect(operationValues).toContain('delete');
 			expect(operationValues).toContain('info');
 			expect(operationValues).toContain('list');
-			expect(operationValues).toContain('status');
+			
+			// Should NOT contain bucket operations
+			expect(operationValues).not.toContain('createBucket');
+			expect(operationValues).not.toContain('deleteBucket');
+			expect(operationValues).not.toContain('status');
 		});
 	});
 });
