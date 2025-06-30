@@ -1,7 +1,10 @@
-# n8n-nodes-synadia Project Guide
+# n8n-nodes-Synadia Project Guide
 
 ## Project Overview
 This is the official Synadia nodes package for n8n, providing NATS messaging system integration. The package includes nodes for Core NATS, JetStream, Key-Value store, Object Store, and Request/Reply patterns.
+
+## Documentation Notes
+- The only place to find documentation we can rely on about nats.js is https://nats-io.github.io/nats.js/
 
 ## Project Structure
 ```
