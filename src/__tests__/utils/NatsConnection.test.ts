@@ -1,4 +1,4 @@
-import { createNatsConnection, closeNatsConnection, monitorNatsConnection, isConnectionAlive, ConnectionMonitoringOptions } from '../../utils/NatsConnection';
+import { createNatsConnection, closeNatsConnection } from '../../utils/NatsConnection';
 import { connect, credsAuthenticator, usernamePasswordAuthenticator, tokenAuthenticator } from '../../bundled/nats-bundled';
 
 jest.mock('../../bundled/nats-bundled', () => ({
@@ -161,7 +161,11 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
     it('should handle close operation gracefully', async () => {
       const mockNatsConnection = {
         drain: jest.fn().mockResolvedValue(undefined),
+<<<<<<< HEAD
         isClosed: jest.fn().mockReturnValue(false),
+=======
+        close: jest.fn().mockResolvedValue(undefined),
+>>>>>>> main
       } as any;
 
       await closeNatsConnection(mockNatsConnection, mockLogger);
@@ -173,7 +177,11 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
     it('should handle errors gracefully', async () => {
       const mockNatsConnection = {
         drain: jest.fn().mockRejectedValue(new Error('Drain failed')),
+<<<<<<< HEAD
         isClosed: jest.fn().mockReturnValue(false),
+=======
+        close: jest.fn().mockResolvedValue(undefined),
+>>>>>>> main
       } as any;
 
       await closeNatsConnection(mockNatsConnection, mockLogger);
@@ -184,6 +192,7 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
       );
     });
 
+<<<<<<< HEAD
     it('should not drain if connection is already closed', async () => {
       const mockNatsConnection = {
         drain: jest.fn(),
@@ -201,12 +210,19 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
       const mockNatsConnection = {
         drain: jest.fn().mockRejectedValue(new Error('connection closed')),
         isClosed: jest.fn().mockReturnValue(false),
+=======
+    it('should not log errors for connection already closed', async () => {
+      const mockNatsConnection = {
+        drain: jest.fn().mockRejectedValue(new Error('connection closed')),
+        close: jest.fn().mockResolvedValue(undefined),
+>>>>>>> main
       } as any;
 
       await closeNatsConnection(mockNatsConnection, mockLogger);
 
       expect(mockLogger.error).not.toHaveBeenCalled();
     });
+<<<<<<< HEAD
   });
 
   describe('monitorNatsConnection', () => {
@@ -357,5 +373,7 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
       expect(mockNatsConnection.status).not.toHaveBeenCalled();
       expect(mockNatsConnection.closed).not.toHaveBeenCalled();
     });
+=======
+>>>>>>> main
   });
 });
