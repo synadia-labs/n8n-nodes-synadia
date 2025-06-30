@@ -1,0 +1,299 @@
+import { ListStreamsOperationHandler } from '../../../operations/stream/ListStreamsOperationHandler';
+import { createMockJetStreamManager, sampleStreamInfo, createNotFoundError, createPermissionError } from '../testUtils';
+
+describe('ListStreamsOperationHandler', () => {
+  let handler: ListStreamsOperationHandler;
+  let mockJSM: ReturnType<typeof createMockJetStreamManager>;
+
+  beforeEach(() => {
+    handler = new ListStreamsOperationHandler();
+    mockJSM = createMockJetStreamManager();
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('operationName', () => {
+    it('should have correct operation name', () => {
+      expect(handler.operationName).toBe('list');
+    });
+  });
+
+  describe('execute', () => {
+    it('should list all streams when no subject filter provided', async () => {
+      const expectedStreams = [
+        { ...sampleStreamInfo, config: { ...sampleStreamInfo.config, name: 'STREAM-1' } },
+        { ...sampleStreamInfo, config: { ...sampleStreamInfo.config, name: 'STREAM-2' } },
+        { ...sampleStreamInfo, config: { ...sampleStreamInfo.config, name: 'STREAM-3' } },
+      ];
+      
+      const mockIterator = {
+        [Symbol.asyncIterator]: jest.fn().mockImplementation(async function* () {
+          for (const stream of expectedStreams) {
+            yield stream;
+          }
+        }),
+      };
+      
+      mockJSM.streams.list.mockResolvedValue(mockIterator as any);
+
+      const result = await handler.execute(mockJSM, {});
+
+      expect(mockJSM.streams.list).toHaveBeenCalledWith(undefined);
+      expect(result).toEqual({
+        streams: expectedStreams,
+        count: expectedStreams.length,
+      });
+    });
+
+    it('should list streams with subject filter', async () => {
+      const subjectFilter = 'orders.*';
+      const expectedStreams = [
+        { ...sampleStreamInfo, config: { ...sampleStreamInfo.config, name: 'ORDERS-STREAM', subjects: ['orders.*'] } },
+        { ...sampleStreamInfo, config: { ...sampleStreamInfo.config, name: 'ORDERS-ARCHIVE', subjects: ['orders.archived.*'] } },
+      ];
+      
+      const mockIterator = {
+        [Symbol.asyncIterator]: jest.fn().mockImplementation(async function* () {
+          for (const stream of expectedStreams) {
+            yield stream;
+          }
+        }),
+      };
+      
+      mockJSM.streams.list.mockResolvedValue(mockIterator as any);
+
+      const result = await handler.execute(mockJSM, { subject: subjectFilter });
+
+      expect(mockJSM.streams.list).toHaveBeenCalledWith(subjectFilter);
+      expect(result).toEqual({
+        streams: expectedStreams,
+        count: expectedStreams.length,
+      });
+    });
+
+    it('should handle empty stream list', async () => {
+      const mockIterator = {
+        [Symbol.asyncIterator]: jest.fn().mockImplementation(async function* () {
+          // Empty iterator
+        }),
+      };
+      
+      mockJSM.streams.list.mockResolvedValue(mockIterator as any);
+
+      const result = await handler.execute(mockJSM, {});
+
+      expect(mockJSM.streams.list).toHaveBeenCalledWith(undefined);
+      expect(result).toEqual({
+        streams: [],
+        count: 0,
+      });
+    });
+
+    it('should handle single stream result', async () => {
+      const expectedStreams = [
+        { ...sampleStreamInfo, config: { ...sampleStreamInfo.config, name: 'SINGLE-STREAM' } },
+      ];
+      
+      const mockIterator = {
+        [Symbol.asyncIterator]: jest.fn().mockImplementation(async function* () {
+          yield expectedStreams[0];
+        }),
+      };
+      
+      mockJSM.streams.list.mockResolvedValue(mockIterator as any);
+
+      const result = await handler.execute(mockJSM, {});
+
+      expect(result).toEqual({
+        streams: expectedStreams,
+        count: 1,
+      });
+    });
+
+    it('should handle large number of streams', async () => {
+      const expectedStreams = Array.from({ length: 100 }, (_, i) => ({
+        ...sampleStreamInfo,
+        config: {
+          ...sampleStreamInfo.config,
+          name: `STREAM-${i + 1}`,
+          subjects: [`subject${i + 1}.*`],
+        },
+      }));
+      
+      const mockIterator = {
+        [Symbol.asyncIterator]: jest.fn().mockImplementation(async function* () {
+          for (const stream of expectedStreams) {
+            yield stream;
+          }
+        }),
+      };
+      
+      mockJSM.streams.list.mockResolvedValue(mockIterator as any);
+
+      const result = await handler.execute(mockJSM, {});
+
+      expect(result).toEqual({
+        streams: expectedStreams,
+        count: 100,
+      });
+    });
+
+    it('should list streams with various configurations', async () => {
+      const expectedStreams = [
+        {
+          ...sampleStreamInfo,
+          config: {
+            ...sampleStreamInfo.config,
+            name: 'MEMORY-STREAM',
+            storage: 'memory' as const,
+          },
+        },
+        {
+          ...sampleStreamInfo,
+          config: {
+            ...sampleStreamInfo.config,
+            name: 'FILE-STREAM',
+            storage: 'file' as const,
+          },
+        },
+        {
+          ...sampleStreamInfo,
+          config: {
+            ...sampleStreamInfo.config,
+            name: 'WORKQUEUE-STREAM',
+            retention: 'workqueue' as const,
+          },
+        },
+      ];
+      
+      const mockIterator = {
+        [Symbol.asyncIterator]: jest.fn().mockImplementation(async function* () {
+          for (const stream of expectedStreams) {
+            yield stream;
+          }
+        }),
+      };
+      
+      mockJSM.streams.list.mockResolvedValue(mockIterator as any);
+
+      const result = await handler.execute(mockJSM, {});
+
+      expect(result.streams).toHaveLength(3);
+      expect((result.streams as any[])[0].config.storage).toBe('memory');
+      expect((result.streams as any[])[1].config.storage).toBe('file');
+      expect((result.streams as any[])[2].config.retention).toBe('workqueue');
+    });
+
+    it('should handle streams with wildcard subjects', async () => {
+      const subjectFilter = 'events.>';
+      const expectedStreams = [
+        {
+          ...sampleStreamInfo,
+          config: {
+            ...sampleStreamInfo.config,
+            name: 'EVENTS-STREAM',
+            subjects: ['events.>', 'alerts.*'],
+          },
+        },
+      ];
+      
+      const mockIterator = {
+        [Symbol.asyncIterator]: jest.fn().mockImplementation(async function* () {
+          yield expectedStreams[0];
+        }),
+      };
+      
+      mockJSM.streams.list.mockResolvedValue(mockIterator as any);
+
+      const result = await handler.execute(mockJSM, { subject: subjectFilter });
+
+      expect(mockJSM.streams.list).toHaveBeenCalledWith(subjectFilter);
+      expect(result.streams).toHaveLength(1);
+      expect((result.streams as any[])[0].config.subjects).toContain('events.>');
+    });
+
+    it('should propagate JetStream not enabled errors', async () => {
+      const jetStreamError = new Error('JetStream not enabled for account');
+      (jetStreamError as any).code = '503';
+      
+      mockJSM.streams.list.mockRejectedValue(jetStreamError);
+
+      await expect(handler.execute(mockJSM, {})).rejects.toThrow('JetStream not enabled for account');
+      expect(mockJSM.streams.list).toHaveBeenCalledWith(undefined);
+    });
+
+    it('should propagate permission errors', async () => {
+      const permissionError = createPermissionError('Permission denied for stream listing');
+      
+      mockJSM.streams.list.mockRejectedValue(permissionError);
+
+      await expect(handler.execute(mockJSM, {})).rejects.toThrow('Permission denied for stream listing');
+    });
+
+    it('should handle network timeout errors', async () => {
+      const timeoutError = new Error('Stream list timeout');
+      (timeoutError as any).code = 'TIMEOUT';
+      
+      mockJSM.streams.list.mockRejectedValue(timeoutError);
+
+      await expect(handler.execute(mockJSM, {})).rejects.toThrow('Stream list timeout');
+    });
+
+    it('should handle iterator errors during iteration', async () => {
+      const mockIterator = {
+        [Symbol.asyncIterator]: jest.fn().mockImplementation(async function* () {
+          yield { ...sampleStreamInfo, config: { ...sampleStreamInfo.config, name: 'STREAM-1' } };
+          throw new Error('Iterator error during stream listing');
+        }),
+      };
+      
+      mockJSM.streams.list.mockResolvedValue(mockIterator as any);
+
+      await expect(handler.execute(mockJSM, {})).rejects.toThrow('Iterator error during stream listing');
+    });
+
+    it('should handle empty subject filter', async () => {
+      const expectedStreams = [
+        { ...sampleStreamInfo, config: { ...sampleStreamInfo.config, name: 'ALL-STREAM' } },
+      ];
+      
+      const mockIterator = {
+        [Symbol.asyncIterator]: jest.fn().mockImplementation(async function* () {
+          yield expectedStreams[0];
+        }),
+      };
+      
+      mockJSM.streams.list.mockResolvedValue(mockIterator as any);
+
+      const result = await handler.execute(mockJSM, { subject: '' });
+
+      expect(mockJSM.streams.list).toHaveBeenCalledWith('');
+      expect(result.streams).toHaveLength(1);
+    });
+
+    it('should preserve stream order', async () => {
+      const expectedStreams = [
+        { ...sampleStreamInfo, config: { ...sampleStreamInfo.config, name: 'ALPHA-STREAM' } },
+        { ...sampleStreamInfo, config: { ...sampleStreamInfo.config, name: 'BETA-STREAM' } },
+        { ...sampleStreamInfo, config: { ...sampleStreamInfo.config, name: 'GAMMA-STREAM' } },
+      ];
+      
+      const mockIterator = {
+        [Symbol.asyncIterator]: jest.fn().mockImplementation(async function* () {
+          for (const stream of expectedStreams) {
+            yield stream;
+          }
+        }),
+      };
+      
+      mockJSM.streams.list.mockResolvedValue(mockIterator as any);
+
+      const result = await handler.execute(mockJSM, {});
+
+      const streamNames = (result.streams as any[]).map(s => s.config.name);
+      expect(streamNames).toEqual(['ALPHA-STREAM', 'BETA-STREAM', 'GAMMA-STREAM']);
+    });
+  });
+});
