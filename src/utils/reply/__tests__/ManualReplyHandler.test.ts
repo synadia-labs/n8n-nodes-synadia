@@ -10,7 +10,7 @@ jest.mock('../../../bundled/nats-bundled', () => ({
 }));
 
 jest.mock('../../NatsHelpers', () => ({
-	encodeMessage: jest.fn((data, encoding) => {
+	encodeData: jest.fn((data) => {
 		// Match the behavior expected by the test
 		const str = JSON.stringify(data);
 		return new TextEncoder().encode(str);

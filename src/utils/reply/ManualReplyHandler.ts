@@ -1,7 +1,7 @@
 import { ReplyHandler, ReplyHandlerContext } from './ReplyHandler';
 import { Msg, StringCodec } from '../../bundled/nats-bundled';
 import { INodeExecutionData, Logger } from 'n8n-workflow';
-import { encodeMessage, createNatsHeaders } from '../NatsHelpers';
+import { encodeData, createNatsHeaders } from '../NatsHelpers';
 
 export class ManualReplyHandler extends ReplyHandler {
 	readonly mode = 'manual';
@@ -80,8 +80,8 @@ export class ManualReplyHandler extends ReplyHandler {
 						replyHeaders = createNatsHeaders(item.json.replyHeaders as Record<string, string>);
 					}
 					
-					// Encode and send reply
-					const encodedReply = encodeMessage(replyData, replyOptions.replyEncoding as any || 'json');
+					// Encode and send reply using simplified JSON encoding
+					const encodedReply = encodeData(replyData);
 					msg.respond(encodedReply, { headers: replyHeaders });
 					
 					// Remove from pending

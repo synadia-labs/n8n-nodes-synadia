@@ -162,34 +162,6 @@ export class NatsObjectStore implements INodeType {
 				default: {},
 				options: [
 					{
-						displayName: 'Data Type',
-						name: 'dataType',
-						type: 'options',
-						options: [
-							{
-								name: 'String',
-								value: 'string',
-								description: 'Treat data as string',
-							},
-							{
-								name: 'JSON',
-								value: 'json',
-								description: 'Treat data as JSON',
-							},
-							{
-								name: 'Binary',
-								value: 'binary',
-								description: 'Treat data as binary (base64)',
-							},
-						],
-						default: 'string',
-						displayOptions: {
-							show: {
-								'/operation': ['put'],
-							},
-						},
-					},
-					{
 						displayName: 'Description',
 						name: 'description',
 						type: 'string',
