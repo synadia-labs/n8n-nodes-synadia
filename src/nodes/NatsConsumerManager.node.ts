@@ -6,11 +6,10 @@ import {
 	NodeOperationError,
 	NodeConnectionType,
 } from 'n8n-workflow';
-import { jetstreamManager } from '../bundled/nats-bundled';
+import { jetstreamManager, ConsumerConfig } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
-import { validateStreamName, validateConsumerName, validateNumberRange } from '../utils/ValidationHelpers';
-import { validateSubject } from '../utils/NatsHelpers';
 import { NodeLogger } from '../utils/NodeLogger';
+import {consumerOperationHandlers, ConsumerOperationParams} from '../operations/consumers';
 
 export class NatsConsumerManager implements INodeType {
 	description: INodeTypeDescription = {
@@ -40,31 +39,31 @@ export class NatsConsumerManager implements INodeType {
 				noDataExpression: true,
 				options: [
 					{
-						name: 'Create Consumer',
-						value: 'createConsumer',
+						name: 'Create',
+						value: 'create',
 						description: 'Create a new JetStream consumer',
 						action: 'Create a new jet stream consumer',
 					},
 					{
-						name: 'Delete Consumer',
-						value: 'deleteConsumer',
+						name: 'Delete',
+						value: 'delete',
 						description: 'Delete a JetStream consumer',
 						action: 'Delete a jet stream consumer',
 					},
 					{
-						name: 'Get Info',
-						value: 'getInfo',
+						name: 'Get',
+						value: 'get',
 						description: 'Get information about a consumer',
 						action: 'Get information about a consumer',
 					},
 					{
-						name: 'List Consumers',
-						value: 'listConsumers',
+						name: 'List',
+						value: 'list',
 						description: 'List all consumers for a stream',
 						action: 'List all consumers for a stream',
 					},
 				],
-				default: 'getInfo',
+				default: 'get',
 			},
 			{
 				displayName: 'Stream Name',
@@ -81,78 +80,29 @@ export class NatsConsumerManager implements INodeType {
 				name: 'consumerName',
 				type: 'string',
 				default: '',
-				required: true,
-				placeholder: 'order-processor',
-				description: 'Name of the consumer',
-				hint: 'Consumer names should contain no spaces or dots',
+				placeholder: 'my-consumer',
+				description: 'Name of the JetStream consumer',
 				displayOptions: {
-					hide: {
-						operation: ['listConsumers'],
-					},
-				},
+					show: {
+						operation: ['get', 'delete']
+					}
+				}
 			},
 			{
-				displayName: 'Options',
-				name: 'options',
+				displayName: 'Consumer Config',
+				name: 'consumerConfig',
 				type: 'collection',
-				placeholder: 'Add Option',
+				placeholder: 'Add Consumer Config',
 				default: {},
 				displayOptions: {
 					show: {
-						operation: ['createConsumer'],
+						operation: ['create'],
 					},
 				},
 				options: [
 					{
-						displayName: 'Description',
-						name: 'description',
-						type: 'string',
-						default: '',
-						description: 'Description of the consumer',
-						placeholder: 'Order processing consumer',
-					},
-					{
-						displayName: 'Delivery Policy',
-						name: 'deliverPolicy',
-						type: 'options',
-						options: [
-							{
-								name: 'All',
-								value: 'all',
-								description: 'Deliver all messages in the stream',
-							},
-							{
-								name: 'By Start Sequence',
-								value: 'byStartSequence',
-								description: 'Start from a specific sequence number',
-							},
-							{
-								name: 'By Start Time',
-								value: 'byStartTime',
-								description: 'Start from a specific time',
-							},
-							{
-								name: 'Last',
-								value: 'last',
-								description: 'Deliver only the last message',
-							},
-							{
-								name: 'Last Per Subject',
-								value: 'lastPerSubject',
-								description: 'Deliver the last message for each subject',
-							},
-							{
-								name: 'New',
-								value: 'new',
-								description: 'Deliver only new messages (default)',
-							},
-						],
-						default: 'new',
-						description: 'Policy for which messages to deliver',
-					},
-					{
 						displayName: 'Acknowledgment Policy',
-						name: 'ackPolicy',
+						name: 'ack_policy',
 						type: 'options',
 						options: [
 							{
@@ -172,110 +122,128 @@ export class NatsConsumerManager implements INodeType {
 							},
 						],
 						default: 'explicit',
-						description: 'Policy for message acknowledgment',
+						description: 'The type of acknowledgment required by the Consumer',
 					},
 					{
-						displayName: 'Replay Policy',
-						name: 'replayPolicy',
+						displayName: 'Delivery Policy',
+						name: 'deliver_policy',
 						type: 'options',
 						options: [
 							{
-								name: 'Instant',
-								value: 'instant',
-								description: 'Replay messages as fast as possible',
+								name: 'All',
+								value: 'all',
+								description: 'Deliver all messages in the stream',
 							},
 							{
-								name: 'Original',
-								value: 'original',
-								description: 'Replay messages at original timing',
+								name: 'By Start Sequence',
+								value: 'by_start_sequence',
+								description: 'Start from a specific sequence number',
+							},
+							{
+								name: 'By Start Time',
+								value: 'by_start_time',
+								description: 'Start from a specific time',
+							},
+							{
+								name: 'Last',
+								value: 'last',
+								description: 'Deliver only the last message',
+							},
+							{
+								name: 'Last Per Subject',
+								value: 'last_per_subject',
+								description: 'Deliver the last message for each subject',
+							},
+							{
+								name: 'New',
+								value: 'new',
+								description: 'Deliver only new messages (default)',
 							},
 						],
-						default: 'instant',
-						description: 'Policy for replaying messages',
+						default: 'new',
+						description: 'Where to start consuming messages on the stream',
 					},
 					{
-						displayName: 'Filter Subject',
-						name: 'filterSubject',
+						displayName: 'Durable Name',
+						name: 'durable_name',
 						type: 'string',
 						default: '',
-						description: 'Only deliver messages matching this subject filter',
-						placeholder: 'orders.new',
-						hint: 'Leave empty to receive all subjects from the stream',
+						placeholder: 'order-processor',
+						description: 'A unique name for a durable consumer',
+						hint: 'Consumer names should contain no spaces or dots',
+					},
+					{
+						displayName: 'Name',
+						name: 'name',
+						type: 'string',
+						default: '',
+						placeholder: 'order-processor',
+						description: 'The consumer name',
+						hint: 'Consumer names should contain no spaces or dots',
 					},
 					{
 						displayName: 'Start Sequence',
-						name: 'startSequence',
+						name: 'opt_start_seq',
 						type: 'number',
-						default: 0,
-						description: 'Sequence number to start from (for By Start Sequence policy)',
-						displayOptions: {
-							show: {
-								deliverPolicy: ['byStartSequence'],
-							},
-						},
+						default: '',
+						description: 'The sequence from which to start delivery messages',
 					},
 					{
 						displayName: 'Start Time',
-						name: 'startTime',
+						name: 'opt_start_time',
 						type: 'string',
 						default: '',
-						description: 'ISO timestamp to start from (for By Start Time policy)',
-						placeholder: '2023-01-01T00:00:00Z',
-						displayOptions: {
-							show: {
-								deliverPolicy: ['byStartTime'],
-							},
-						},
+						description: 'The date time from which to start delivering messages',
+					},
+					{
+						displayName: 'Description',
+						name: 'description',
+						description: 'A short description of the purpose of this consume',
+						type: 'string',
+						default: ''
+					},
+					{
+						displayName: 'Ack Wait',
+						name: 'ack_wait',
+						description: 'How long (in nanoseconds) to allow messages to remain un-acknowledged before attempting redelivery',
+						type: 'number',
+						default: ''
 					},
 					{
 						displayName: 'Max Deliver',
-						name: 'maxDeliver',
+						name: 'max_deliver',
+						description: 'The maximum number of times a message will be delivered to consumers if not acknowledged in time',
 						type: 'number',
-						default: -1,
-						description: 'Maximum number of delivery attempts (-1 = unlimited)',
-					},
-					{
-						displayName: 'Acknowledgment Wait (Seconds)',
-						name: 'ackWait',
-						type: 'number',
-						default: 30,
-						description: 'How long to wait for acknowledgment before redelivery',
-					},
-					{
-						displayName: 'Max Waiting',
-						name: 'maxWaiting',
-						type: 'number',
-						default: 512,
-						description: 'Maximum number of outstanding acknowledgments',
+						default: -1
 					},
 					{
 						displayName: 'Max Ack Pending',
-						name: 'maxAckPending',
+						name: 'max_ack_pending',
+						description: 'The maximum number of messages without acknowledgement that can be outstanding, once this limit is reached message delivery will be suspended',
 						type: 'number',
-						default: 1000,
-						description: 'Maximum number of pending acknowledgments',
+						default: ''
 					},
 					{
-						displayName: 'Idle Heartbeat (Seconds)',
-						name: 'idleHeartbeat',
+						displayName: 'Max Waiting',
+						name: 'max_waiting',
+						description: 'The number of pulls that can be outstanding on a pull consumer, pulls received after this is reached are ignored',
 						type: 'number',
-						default: 0,
-						description: 'Interval for idle heartbeats (0 = disabled)',
+						default: ''
 					},
 					{
-						displayName: 'Flow Control',
-						name: 'flowControl',
-						type: 'boolean',
-						default: false,
-						description: 'Whether to enable flow control for the consumer',
+						displayName: 'Replicas',
+						name: 'num_replicas',
+						description: 'When set do not inherit the replica count from the stream but specifically set it to this amount',
+						type: 'number',
+						default: ''
 					},
 					{
-						displayName: 'Headers Only',
-						name: 'headersOnly',
-						type: 'boolean',
-						default: false,
-						description: 'Whether to deliver only headers, not message bodies',
-					},
+						displayName: 'Filter Subject',
+						name: 'filter_subject',
+						description: 'Deliver only messages that match the subject filter',
+						type: 'string',
+						default: ''
+					}
 				],
 			},
 		],
@@ -286,186 +254,65 @@ export class NatsConsumerManager implements INodeType {
 		const returnData: INodeExecutionData[] = [];
 		const credentials = await this.getCredentials('natsApi');
 		
-		let nc;
-		
 		// Create NodeLogger once for the entire execution
 		const nodeLogger = new NodeLogger(this.logger, this.getNode());
-		
+
+		let nc
 		try {
 			nc = await createNatsConnection(credentials, nodeLogger);
 			const jsm = await jetstreamManager(nc);
-			
+
 			for (let i = 0; i < items.length; i++) {
-				try {
-					const operation = this.getNodeParameter('operation', i) as string;
-					const streamName = this.getNodeParameter('streamName', i) as string;
-					let result: any = {};
-					
-					// Validate stream name
-					validateStreamName(streamName);
-					
-					switch (operation) {
-						case 'createConsumer': {
-							const consumerName = this.getNodeParameter('consumerName', i) as string;
-							const options = this.getNodeParameter('options', i, {}) as any;
-							
-							// Validate consumer name
-							validateConsumerName(consumerName);
-							
-							// Validate options
-							if (options.filterSubject) {
-								validateSubject(options.filterSubject);
-							}
-							if (options.startSequence && options.startSequence < 0) {
-								throw new NodeOperationError(this.getNode(), 'Start sequence must be non-negative', { itemIndex: i });
-							}
-							if (options.maxDeliver && options.maxDeliver < -1) {
-								throw new NodeOperationError(this.getNode(), 'Max deliver must be -1 or positive', { itemIndex: i });
-							}
-							if (options.ackWait && options.ackWait <= 0) {
-								throw new NodeOperationError(this.getNode(), 'Ack wait must be positive', { itemIndex: i });
-							}
-							if (options.maxWaiting) {
-								validateNumberRange(options.maxWaiting, 1, Number.MAX_SAFE_INTEGER, 'Max waiting');
-							}
-							if (options.maxAckPending) {
-								validateNumberRange(options.maxAckPending, 1, Number.MAX_SAFE_INTEGER, 'Max ack pending');
-							}
-							
-							const consumerConfig: any = {
-								durable_name: consumerName,
-							};
-							
-							if (options.description) consumerConfig.description = options.description;
-							if (options.deliverPolicy) {
-								switch (options.deliverPolicy) {
-									case 'all':
-										consumerConfig.deliver_policy = 'all';
-										break;
-									case 'last':
-										consumerConfig.deliver_policy = 'last';
-										break;
-									case 'new':
-										consumerConfig.deliver_policy = 'new';
-										break;
-									case 'byStartSequence':
-										consumerConfig.deliver_policy = 'by_start_sequence';
-										consumerConfig.opt_start_seq = options.startSequence || 1;
-										break;
-									case 'byStartTime':
-										consumerConfig.deliver_policy = 'by_start_time';
-										if (options.startTime) {
-											consumerConfig.opt_start_time = options.startTime;
-										}
-										break;
-									case 'lastPerSubject':
-										consumerConfig.deliver_policy = 'last_per_subject';
-										break;
-								}
-							}
-							if (options.ackPolicy) consumerConfig.ack_policy = options.ackPolicy;
-							if (options.replayPolicy) consumerConfig.replay_policy = options.replayPolicy;
-							if (options.filterSubject) consumerConfig.filter_subject = options.filterSubject;
-							if (options.maxDeliver && options.maxDeliver > 0) consumerConfig.max_deliver = options.maxDeliver;
-							if (options.ackWait) consumerConfig.ack_wait = options.ackWait * 1000000000; // Convert to nanoseconds
-							if (options.maxWaiting) consumerConfig.max_waiting = options.maxWaiting;
-							if (options.maxAckPending) consumerConfig.max_ack_pending = options.maxAckPending;
-							if (options.idleHeartbeat) consumerConfig.idle_heartbeat = options.idleHeartbeat * 1000000000;
-							if (options.flowControl) consumerConfig.flow_control = options.flowControl;
-							if (options.headersOnly) consumerConfig.headers_only = options.headersOnly;
-							
-							const consumer = await jsm.consumers.add(streamName, consumerConfig);
-							result = {
-								success: true,
-								operation: 'createConsumer',
-								streamName,
-								consumerName,
-								info: consumer,
-							};
-							break;
-						}
-							
-						case 'deleteConsumer': {
-							const deleteConsumerName = this.getNodeParameter('consumerName', i) as string;
-							validateConsumerName(deleteConsumerName);
-							
-							const deleted = await jsm.consumers.delete(streamName, deleteConsumerName);
-							result = {
-								success: deleted,
-								operation: 'deleteConsumer',
-								streamName,
-								consumerName: deleteConsumerName,
-							};
-							break;
-						}
-							
-						case 'getInfo': {
-							const infoConsumerName = this.getNodeParameter('consumerName', i) as string;
-							validateConsumerName(infoConsumerName);
-							
-							const info = await jsm.consumers.info(streamName, infoConsumerName);
-							result = {
-								success: true,
-								operation: 'getInfo',
-								streamName,
-								consumerName: infoConsumerName,
-								info,
-							};
-							break;
-						}
-							
-						case 'listConsumers': {
-							const consumers = [];
-							for await (const consumer of jsm.consumers.list(streamName)) {
-								consumers.push(consumer);
-							}
-							result = {
-								success: true,
-								operation: 'listConsumers',
-								streamName,
-								consumers,
-								count: consumers.length,
-							};
-							break;
-						}
-							
-						default:
-							throw new NodeOperationError(this.getNode(), `Unknown operation: ${operation}`, { itemIndex: i });
-					}
-					
+				const operation = this.getNodeParameter('operation', i) as string;
+
+				// Get the handler for this operation
+				const handler = consumerOperationHandlers[operation];
+				if (!handler) {
+					const error = `Unknown operation: ${operation}`
+					if (! this.continueOnFail()) throw error;
+
 					returnData.push({
+						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
 						json: {
-							...result,
-							timestamp: new Date().toISOString(),
+							operation,
 						},
-						pairedItem: { item: i },
+						pairedItem: i
+					})
+					continue
+				}
+
+				// Prepare parameters based on operation requirements
+				const params: ConsumerOperationParams = {
+					streamName: this.getNodeParameter('streamName', i) as string,
+					consumerConfig: this.getNodeParameter('options', i, {}) as ConsumerConfig,
+				};
+
+				try {
+					let result = await handler.execute(jsm, params)
+
+					// Execute the operation
+					returnData.push({
+						json: result,
+						pairedItem: i,
 					});
-					
-				} catch (error: any) {
-					if (this.continueOnFail()) {
-						returnData.push({
-							json: {
-								error: error.message,
-								operation: this.getNodeParameter('operation', i) as string,
-								streamName: this.getNodeParameter('streamName', i) as string,
-								consumerName: this.getNodeParameter('consumerName', i, '') as string,
-							},
-							pairedItem: { item: i },
-						});
-					} else {
-						throw error;
-					}
+				} catch (error : any) {
+					if (! this.continueOnFail()) throw error;
+
+					returnData.push({
+						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
+						json: {
+							params: params,
+						},
+						pairedItem: i
+					})
 				}
 			}
-			
-		} catch (error: any) {
-			throw new NodeOperationError(this.getNode(), `NATS Consumer Manager failed: ${error.message}`);
+
+			return [returnData];
 		} finally {
-			if (nc!) {
-				await closeNatsConnection(nc, nodeLogger);
+			if (nc) {
+				await closeNatsConnection(nc!, nodeLogger);
 			}
 		}
-		
-		return [returnData];
 	}
 }

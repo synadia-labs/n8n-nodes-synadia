@@ -9,7 +9,6 @@ import {
 import { NatsConnection, Msg, jetstream } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
 import { parseNatsMessage } from '../utils/NatsHelpers';
-import { validateStreamName, validateConsumerName } from '../utils/ValidationHelpers';
 import { NodeLogger } from '../utils/NodeLogger';
 
 export class NatsStreamConsumer implements INodeType {
@@ -67,10 +66,6 @@ export class NatsStreamConsumer implements INodeType {
 
 		// Create NodeLogger once for the entire trigger
 		const nodeLogger = new NodeLogger(this.logger, this.getNode());
-
-		// Validate inputs
-		validateStreamName(streamName);
-		validateConsumerName(consumerName);
 
 		const closeFunction = async () => {
 			if (messageIterator) {

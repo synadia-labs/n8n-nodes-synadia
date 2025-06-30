@@ -1,5 +1,5 @@
-import { INodeExecutionData, ApplicationError } from 'n8n-workflow';
-import { Msg, headers } from '../bundled/nats-bundled';
+import {INodeExecutionData, ApplicationError, IDataObject} from 'n8n-workflow';
+import { Msg, MsgHdrs, MsgHdrsImpl } from '../bundled/nats-bundled';
 
 export interface NatsMessage {
 	subject: string;
@@ -40,16 +40,16 @@ export function encodeData(data: any): Uint8Array {
 	return new TextEncoder().encode(JSON.stringify(data));
 }
 
-export function createNatsHeaders(headersObj?: Record<string, string>): any {
-	if (!headersObj || Object.keys(headersObj).length === 0) {
-		return undefined;
+export function createNatsHeaders(headers: IDataObject): MsgHdrs {
+	const values = headers.headerValues as IDataObject[];
+	const result = new MsgHdrsImpl();
+	if (values !== undefined) {
+		for (const value of values) {
+			//@ts-ignore
+			result.append(value.key, value.value);
+		}
 	}
-	
-	const h = headers();
-	for (const [key, value] of Object.entries(headersObj)) {
-		h.append(key, value);
-	}
-	return h;
+	return new MsgHdrsImpl()
 }
 
 export function validateSubject(subject: string): void {

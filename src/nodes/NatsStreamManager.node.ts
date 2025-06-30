@@ -3,14 +3,14 @@ import {
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
-	NodeOperationError,
 	NodeConnectionType,
+	NodeOperationError,
 } from 'n8n-workflow';
-import { jetstreamManager } from '../bundled/nats-bundled';
-import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
-import { validateStreamName, validateNumberRange } from '../utils/ValidationHelpers';
-import { validateSubject } from '../utils/NatsHelpers';
-import { NodeLogger } from '../utils/NodeLogger';
+import {jetstreamManager, StreamConfig} from '../bundled/nats-bundled';
+import {closeNatsConnection, createNatsConnection} from '../utils/NatsConnection';
+import {NodeLogger} from '../utils/NodeLogger';
+import {StreamOperationParams} from "../operations/StreamOperationHandler";
+import {streamOperationHandlers} from "../operations/stream";
 
 export class NatsStreamManager implements INodeType {
 	description: INodeTypeDescription = {
@@ -41,42 +41,42 @@ export class NatsStreamManager implements INodeType {
 				options: [
 					{
 						name: 'Create Stream',
-						value: 'createStream',
+						value: 'create',
 						description: 'Create a new JetStream stream',
 						action: 'Create a new jet stream stream',
 					},
 					{
 						name: 'Delete Stream',
-						value: 'deleteStream',
+						value: 'delete',
 						description: 'Delete a JetStream stream',
 						action: 'Delete a jet stream stream',
 					},
 					{
 						name: 'Get Info',
-						value: 'getInfo',
+						value: 'get',
 						description: 'Get information about a stream',
 						action: 'Get information about a stream',
 					},
 					{
 						name: 'List Streams',
-						value: 'listStreams',
+						value: 'list',
 						description: 'List all streams',
 						action: 'List all streams',
 					},
 					{
 						name: 'Purge Stream',
-						value: 'purgeStream',
+						value: 'purge',
 						description: 'Purge all messages from a stream',
 						action: 'Purge all messages from a stream',
 					},
 					{
 						name: 'Update Stream',
-						value: 'updateStream',
+						value: 'update',
 						description: 'Update stream configuration',
 						action: 'Update stream configuration',
 					},
 				],
-				default: 'getInfo',
+				default: 'get',
 			},
 			{
 				displayName: 'Stream Name',
@@ -89,37 +89,45 @@ export class NatsStreamManager implements INodeType {
 				hint: 'Stream names should be uppercase and contain no spaces or dots',
 				displayOptions: {
 					hide: {
-						operation: ['listStreams'],
+						operation: ['get', 'update', 'delete', 'purge'],
 					},
 				},
 			},
 			{
-				displayName: 'Subjects',
-				name: 'subjects',
+				displayName: 'Subject',
+				name: 'subject',
 				type: 'string',
 				default: '',
-				required: true,
-				placeholder: 'orders.>, payments.*',
-				description: 'Comma-separated list of subjects for the stream',
-				hint: 'Use > for multi-token wildcard, * for single token wildcard',
+				placeholder: 'orders.my-order',
+				description: 'An optional subject for which to list the stream',
 				displayOptions: {
 					show: {
-						operation: ['createStream', 'updateStream'],
+						operation: ['list'],
 					},
 				},
 			},
 			{
-				displayName: 'Options',
-				name: 'options',
+				displayName: 'Config',
+				name: 'streamConfig',
 				type: 'collection',
 				placeholder: 'Add Option',
 				default: {},
 				displayOptions: {
 					show: {
-						operation: ['createStream', 'updateStream'],
+						operation: ['create', 'update'],
 					},
 				},
 				options: [
+					{
+						displayName: 'Subjects',
+						name: 'subjects',
+						type: 'string',
+						typeOptions: {
+							multipleValues: true,
+						},
+						default: '',
+						description: 'A list of subjects to consume, supports wildcards',
+					},
 					{
 						displayName: 'Description',
 						name: 'description',
@@ -127,6 +135,96 @@ export class NatsStreamManager implements INodeType {
 						default: '',
 						description: 'Description of the stream',
 						placeholder: 'Order processing stream',
+					},
+					{
+						displayName: 'Max Messages Per Subject',
+						name: 'max_msgs_per_subject',
+						type: 'number',
+						default: -1,
+						description: 'For wildcard streams ensure that for every unique subject this many messages are kept - a per subject retention limit',
+					},
+					{
+						displayName: 'Max Messages',
+						name: 'max_msgs',
+						type: 'number',
+						default: -1,
+						description: 'How many messages may be in a stream, oldest messages will be removed if the stream exceeds this size (-1 for unlimited)',
+					},
+					{
+						displayName: 'Max Age (Seconds)',
+						name: 'max_age',
+						type: 'number',
+						default: 0,
+						description: 'Maximum age of messages in seconds (0 = unlimited)',
+					},
+					{
+						displayName: 'Max Bytes',
+						name: 'max_bytes',
+						type: 'number',
+						default: -1,
+						description: 'Maximum total size in bytes (-1 = unlimited)',
+					},
+					{
+						displayName: 'Max Message Size',
+						name: 'max_msg_size',
+						type: 'number',
+						default: -1,
+						description: 'Maximum size of a single message (-1 = unlimited)',
+					},
+					{
+						displayName: 'Discard Policy',
+						name: 'discard',
+						type: 'options',
+						options: [
+							{
+								name: 'Old',
+								value: 'old',
+								description: 'Discard oldest messages when limits reached',
+							},
+							{
+								name: 'New',
+								value: 'new',
+								description: 'Discard new messages when limits reached',
+							},
+						],
+						default: 'old',
+						description: 'Policy for discarding messages when limits are reached',
+					},
+					{
+						displayName: 'Discard New Per Subject',
+						name: 'discard_new_per_subject',
+						type: 'boolean',
+						default: false,
+						description: 'Whether messages should be discarded on a per subject basis',
+					},
+					{
+						displayName: 'No Acknowledgment',
+						name: 'no_ack',
+						type: 'boolean',
+						default: false,
+						description: 'Whether to disable acknowledgments for higher throughput',
+					},
+					{
+						displayName: 'Duplicate Window',
+						name: 'duplicate_window',
+						type: 'number',
+						default: 0,
+						description: 'Window for duplicate message detection in nanoseconds',
+					},
+					{
+						displayName: 'Replicas',
+						name: 'num_replicas',
+						type: 'number',
+						default: 1,
+						description: 'Number of replicas for the stream',
+						hint: 'Higher numbers provide better fault tolerance',
+					},
+					{
+						displayName: 'Name',
+						name: 'name',
+						type: 'string',
+						default: '',
+						description: 'A unique name for the Stream',
 					},
 					{
 						displayName: 'Retention Policy',
@@ -172,74 +270,38 @@ export class NatsStreamManager implements INodeType {
 						description: 'Storage backend for the stream',
 					},
 					{
-						displayName: 'Max Messages',
-						name: 'maxMsgs',
+						displayName: 'Max Consumers',
+						name: 'max_consumers',
 						type: 'number',
 						default: -1,
-						description: 'Maximum number of messages to store (-1 = unlimited)',
+						description: 'How many Consumers can be defined for a given Stream. -1 for unlimited.',
 					},
 					{
-						displayName: 'Max Bytes',
-						name: 'maxBytes',
-						type: 'number',
-						default: -1,
-						description: 'Maximum total size in bytes (-1 = unlimited)',
-					},
-					{
-						displayName: 'Max Age (Seconds)',
-						name: 'maxAge',
-						type: 'number',
-						default: 0,
-						description: 'Maximum age of messages in seconds (0 = unlimited)',
-					},
-					{
-						displayName: 'Max Message Size',
-						name: 'maxMsgSize',
-						type: 'number',
-						default: -1,
-						description: 'Maximum size of a single message (-1 = unlimited)',
-					},
-					{
-						displayName: 'Replicas',
-						name: 'replicas',
-						type: 'number',
-						default: 1,
-						description: 'Number of replicas for the stream',
-						hint: 'Higher numbers provide better fault tolerance',
-					},
-					{
-						displayName: 'No Acknowledgment',
-						name: 'noAck',
-						type: 'boolean',
-						default: false,
-						description: 'Whether to disable acknowledgments for higher throughput',
-					},
-					{
-						displayName: 'Discard Policy',
-						name: 'discard',
-						type: 'options',
+						displayName: 'Placement',
+						name: 'placement',
+						type: 'collection',
+						default: {},
+						description: 'Placement directives to consider when placing replicas of this stream, random placement when unset',
 						options: [
 							{
-								name: 'Old',
-								value: 'old',
-								description: 'Discard oldest messages when limits reached',
+								displayName: 'Cluster',
+								name: 'cluster',
+								type: 'string',
+								default: '',
+								description: 'The cluster to place the stream on'
 							},
 							{
-								name: 'New',
-								value: 'new',
-								description: 'Discard new messages when limits reached',
-							},
-						],
-						default: 'old',
-						description: 'Policy for discarding messages when limits are reached',
-					},
-					{
-						displayName: 'Duplicate Window (Seconds)',
-						name: 'duplicateWindow',
-						type: 'number',
-						default: 120,
-						description: 'Window for duplicate message detection in seconds',
-					},
+								displayName: 'Tags',
+								name: 'tags',
+								type: 'string',
+								typeOptions: {
+									multipleValues: true,
+								},
+								default: [],
+								description: 'Tags matching server configuration'
+							}
+						]
+					}
 				],
 			},
 		],
@@ -260,153 +322,48 @@ export class NatsStreamManager implements INodeType {
 			const jsm = await jetstreamManager(nc);
 			
 			for (let i = 0; i < items.length; i++) {
-				try {
-					const operation = this.getNodeParameter('operation', i) as string;
-					let result: any = {};
-					
-					switch (operation) {
-						case 'createStream':
-						case 'updateStream': {
-							const streamName = this.getNodeParameter('streamName', i) as string;
-							const subjectsStr = this.getNodeParameter('subjects', i) as string;
-							const options = this.getNodeParameter('options', i, {}) as any;
-							
-							// Validate stream name and subjects
-							validateStreamName(streamName);
-							const subjects = subjectsStr.split(',').map(s => s.trim());
-							subjects.forEach(subject => validateSubject(subject));
-							
-							// Validate numeric options
-							if (options.maxMsgs && options.maxMsgs < -1) {
-								throw new NodeOperationError(this.getNode(), 'Max messages must be -1 or positive', { itemIndex: i });
-							}
-							if (options.maxBytes && options.maxBytes < -1) {
-								throw new NodeOperationError(this.getNode(), 'Max bytes must be -1 or positive', { itemIndex: i });
-							}
-							if (options.maxAge && options.maxAge < 0) {
-								throw new NodeOperationError(this.getNode(), 'Max age must be non-negative', { itemIndex: i });
-							}
-							if (options.replicas) {
-								validateNumberRange(options.replicas, 1, Number.MAX_SAFE_INTEGER, 'Replicas');
-							}
-							
-							const streamConfig: any = {
-								name: streamName,
-								subjects,
-							};
-							
-							if (options.description) streamConfig.description = options.description;
-							if (options.retention) streamConfig.retention = options.retention;
-							if (options.storage) streamConfig.storage = options.storage === 'memory' ? 1 : 0;
-							if (options.maxMsgs && options.maxMsgs > 0) streamConfig.max_msgs = options.maxMsgs;
-							if (options.maxBytes && options.maxBytes > 0) streamConfig.max_bytes = options.maxBytes;
-							if (options.maxAge) streamConfig.max_age = options.maxAge * 1000000000; // Convert to nanoseconds
-							if (options.maxMsgSize && options.maxMsgSize > 0) streamConfig.max_msg_size = options.maxMsgSize;
-							if (options.replicas) streamConfig.num_replicas = options.replicas;
-							if (options.noAck) streamConfig.no_ack = options.noAck;
-							if (options.discard) streamConfig.discard = options.discard;
-							if (options.duplicateWindow) streamConfig.duplicate_window = options.duplicateWindow * 1000000000;
-							
-							if (operation === 'createStream') {
-								const stream = await jsm.streams.add(streamConfig);
-								result = {
-									success: true,
-									operation: 'createStream',
-									streamName,
-									info: stream,
-								};
-							} else {
-								const stream = await jsm.streams.update(streamName, streamConfig);
-								result = {
-									success: true,
-									operation: 'updateStream',
-									streamName,
-									info: stream,
-								};
-							}
-							break;
-						}
-							
-						case 'deleteStream': {
-							const deleteStreamName = this.getNodeParameter('streamName', i) as string;
-							validateStreamName(deleteStreamName);
-							
-							const deleted = await jsm.streams.delete(deleteStreamName);
-							result = {
-								success: deleted,
-								operation: 'deleteStream',
-								streamName: deleteStreamName,
-							};
-							break;
-						}
-							
-						case 'getInfo': {
-							const infoStreamName = this.getNodeParameter('streamName', i) as string;
-							validateStreamName(infoStreamName);
-							
-							const info = await jsm.streams.info(infoStreamName);
-							result = {
-								success: true,
-								operation: 'getInfo',
-								streamName: infoStreamName,
-								info,
-							};
-							break;
-						}
-							
-						case 'listStreams': {
-							const streams = [];
-							for await (const stream of jsm.streams.list()) {
-								streams.push(stream);
-							}
-							result = {
-								success: true,
-								operation: 'listStreams',
-								streams,
-								count: streams.length,
-							};
-							break;
-						}
-							
-						case 'purgeStream': {
-							const purgeStreamName = this.getNodeParameter('streamName', i) as string;
-							validateStreamName(purgeStreamName);
-							
-							const purgeResult = await jsm.streams.purge(purgeStreamName);
-							result = {
-								success: true,
-								operation: 'purgeStream',
-								streamName: purgeStreamName,
-								purged: purgeResult.purged,
-							};
-							break;
-						}
-							
-						default:
-							throw new NodeOperationError(this.getNode(), `Unknown operation: ${operation}`, { itemIndex: i });
-					}
-					
+				// Get the handler for this operation
+				const operation = this.getNodeParameter('operation', i) as string;
+				const handler = streamOperationHandlers[operation];
+				if (!handler) {
+					const error = `Unknown operation: ${operation}`
+					if (! this.continueOnFail()) throw error;
+
 					returnData.push({
+						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
 						json: {
-							...result,
-							timestamp: new Date().toISOString(),
+							operation,
 						},
-						pairedItem: { item: i },
-					});
+						pairedItem: i
+					})
+					continue
+				}
 					
-				} catch (error: any) {
-					if (this.continueOnFail()) {
-						returnData.push({
-							json: {
-								error: error.message,
-								operation: this.getNodeParameter('operation', i) as string,
-								streamName: this.getNodeParameter('streamName', i, '') as string,
-							},
-							pairedItem: { item: i },
-						});
-					} else {
-						throw error;
-					}
+					// Prepare parameters based on operation requirements
+					const params: StreamOperationParams = {
+						streamName: this.getNodeParameter('streamName', i) as string,
+						streamConfig: this.getNodeParameter('config', i) as StreamConfig,
+						subject: this.getNodeParameter('subject', i) as string,
+					};
+
+				try {
+					let result = await handler.execute(jsm, params)
+
+					// Execute the operation
+					returnData.push({
+						json: result,
+						pairedItem: i,
+					});
+				} catch (error : any) {
+					if (! this.continueOnFail()) throw error;
+
+					returnData.push({
+						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
+						json: {
+							params: params,
+						},
+						pairedItem: i
+					})
 				}
 			}
 			

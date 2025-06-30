@@ -3,12 +3,10 @@ import {
 	INodeType,
 	INodeTypeDescription,
 	ITriggerResponse,
-	NodeOperationError,
-	NodeConnectionType,
+	NodeConnectionType, IDataObject,
 } from 'n8n-workflow';
 import { NatsConnection, jetstream, Objm } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
-import { validateBucketName } from '../utils/ValidationHelpers';
 import { NodeLogger } from '../utils/NodeLogger';
 
 export class NatsObjectStoreWatcher implements INodeType {
@@ -74,9 +72,6 @@ export class NatsObjectStoreWatcher implements INodeType {
 		const bucket = this.getNodeParameter('bucket') as string;
 		const options = this.getNodeParameter('options', {}) as any;
 		
-		// Validate bucket name
-		validateBucketName(bucket);
-		
 		let nc: NatsConnection;
 		let watcher: any;
 		
@@ -84,62 +79,46 @@ export class NatsObjectStoreWatcher implements INodeType {
 		const nodeLogger = new NodeLogger(this.logger, this.getNode());
 		
 		const startWatcher = async () => {
-			try {
-				// Create connection with monitoring for long-running trigger
-				nc = await createNatsConnection(credentials, nodeLogger, {
-					monitor: true,
-					onError: (error) => {
-						nodeLogger.error('Object store watcher connection lost:', { error });
-					},
-					onReconnect: (server) => {
-						nodeLogger.info(`Object store watcher reconnected to ${server}`);
-					},
-					onDisconnect: (server) => {
-						nodeLogger.warn(`Object store watcher disconnected from ${server}`);
-					},
-					onAsyncError: (error) => {
-						nodeLogger.error('Object store watcher async error (e.g. permission):', { error });
-					}
-				});
-				const js = jetstream(nc);
-				const objManager = new Objm(js);
-				const objectStore = await objManager.open(bucket);
-				
-				// Configure watch options
-				const watchOptions: any = {
-					ignoreDeletes: !options.includeDeletes,
-				};
-				
-				// Handle history option
-				if (options.includeHistory) {
-					watchOptions.includeHistory = true;
+			// Create connection with monitoring for long-running trigger
+			nc = await createNatsConnection(credentials, nodeLogger, {
+				monitor: true,
+				onError: (error) => {
+					nodeLogger.error('Object store watcher connection lost:', { error });
+				},
+				onReconnect: (server) => {
+					nodeLogger.info(`Object store watcher reconnected to ${server}`);
+				},
+				onDisconnect: (server) => {
+					nodeLogger.warn(`Object store watcher disconnected from ${server}`);
+				},
+				onAsyncError: (error) => {
+					nodeLogger.error('Object store watcher async error (e.g. permission):', { error });
 				}
-				
-				// Start watching the object store
-				watcher = await objectStore.watch(watchOptions);
-				
-				// Process object change events
-				(async () => {
-					for await (const update of watcher) {
-						try {
-							// Emit the raw update as received from the watcher
-							this.emit([this.helpers.returnJsonArray([{
-								bucket,
-								...update,
-								timestamp: new Date().toISOString(),
-							}])]);
-							
-						} catch (error) {
-							nodeLogger.error('Error processing object store event:', { error });
-						}
-					}
-				})().catch((error) => {
-					nodeLogger.error('Object store watcher error:', { error });
-				});
-				
-			} catch (error: any) {
-				throw new NodeOperationError(this.getNode(), `Failed to start object store watcher: ${error.message}`);
+			});
+			const js = jetstream(nc);
+			const objManager = new Objm(js);
+			const objectStore = await objManager.open(bucket);
+
+			// Configure watch options
+			const watchOptions: any = {
+				ignoreDeletes: !options.includeDeletes,
+			};
+
+			// Handle history option
+			if (options.includeHistory) {
+				watchOptions.includeHistory = true;
 			}
+
+			// Start watching the object store
+			watcher = await objectStore.watch(watchOptions);
+
+			// Process object change events
+			(async () => {
+				for await (const update of watcher) {
+					let result: IDataObject = {...update}
+					this.emit([this.helpers.returnJsonArray([result])]);
+				}
+			})();
 		};
 		
 		await startWatcher();
@@ -171,14 +150,12 @@ export class NatsObjectStoreWatcher implements INodeType {
 		const manualTriggerFunction = async () => {
 			// Provide sample data matching ObjectWatchInfo format
 			const sampleData = {
-				bucket,
 				name: 'reports/2024/sales-report.pdf',
 				size: 2457600, // ~2.4MB
 				chunks: 20,
 				digest: 'SHA-256=47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=',
 				mtime: new Date().toISOString(),
 				deleted: false,
-				timestamp: new Date().toISOString(),
 			};
 			
 			this.emit([this.helpers.returnJsonArray([sampleData])]);

@@ -8,9 +8,9 @@ import {
 } from 'n8n-workflow';
 import { NatsConnection, jetstream } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
-import { encodeMessage, createNatsHeaders, validateSubject } from '../utils/NatsHelpers';
+import { createNatsHeaders, validateSubject } from '../utils/NatsHelpers';
 import { NodeLogger } from '../utils/NodeLogger';
-import { validateStreamName, validateTimeout } from '../utils/ValidationHelpers';
+import {JetStreamPublishOptions} from "@nats-io/jetstream";
 
 export class NatsStreamPublisher implements INodeType {
 	description: INodeTypeDescription = {
@@ -44,53 +44,48 @@ export class NatsStreamPublisher implements INodeType {
 				hint: 'Use dots for hierarchy: orders.new, sensors.temperature.room1',
 			},
 			{
-				displayName: 'Message',
-				name: 'message',
+				displayName: 'Data',
+				name: 'data',
 				type: 'string',
 				typeOptions: {
 					rows: 4,
 				},
 				default: '{{ $json }}',
-				description: 'Message content to publish',
+				description: 'Data to publish',
 				hint: 'Supports expressions like {{ $json }} to use input data',
 			},
 			{
-				displayName: 'Stream Name',
-				name: 'streamName',
-				type: 'string',
-				default: '',
-				description: 'Target stream name (auto-detected if not specified)',
-				placeholder: 'ORDERS',
-				hint: 'Leave empty to let JetStream find the appropriate stream',
-			},
-			{
-				displayName: 'Options',
-				name: 'options',
-				type: 'collection',
-				placeholder: 'Add Option',
+				displayName: 'Headers',
+				name: 'headers',
+				type: 'fixedCollection',
+				typeOptions: {
+					multipleValues: true,
+				},
 				default: {},
+				description: 'Headers to add to the message',
+				placeholder: 'Add Headers',
+				hint: 'Headers can be used for routing and metadata',
 				options: [
 					{
-						displayName: 'Headers',
-						name: 'headers',
-						type: 'json',
-						typeOptions: {
-							rows: 4,
-						},
-						default: '{}',
-						description: 'Custom headers as JSON object',
-						placeholder: '{"X-Order-Type": "express", "X-Priority": "high"}',
-						hint: 'Headers can be used for routing and metadata',
-					},
-					{
-						displayName: 'Timeout (Ms)',
-						name: 'timeout',
-						type: 'number',
-						default: 5000,
-						description: 'Maximum time to wait for acknowledgment (milliseconds)',
-						hint: 'Message will timeout if not acknowledged in time',
-					},
-				],
+						name: 'headerValues',
+						displayName: 'Header',
+						values: [
+							{
+								displayName: 'Name',
+								name: 'name',
+								type: 'string',
+								default: 'Name of the header',
+							},
+							{
+								displayName: 'Value',
+								name: 'value',
+								type: 'string',
+								default: '',
+								description: 'Value to set for the header',
+							},
+						],
+					}
+				]
 			},
 		],
 	};
@@ -112,59 +107,30 @@ export class NatsStreamPublisher implements INodeType {
 			for (let i = 0; i < items.length; i++) {
 				try {
 					const subject = this.getNodeParameter('subject', i) as string;
-					const message = this.getNodeParameter('message', i) as string;
-					const streamName = this.getNodeParameter('streamName', i, '') as string;
-					const options = this.getNodeParameter('options', i, {}) as any;
+					const data = this.getNodeParameter('data', i) as string;
+					const headers = this.getNodeParameter('headers', i) as any;
 					
 					// Validate subject
 					validateSubject(subject);
 					
-					// Validate timeout if specified
-					if (options.timeout) {
-						validateTimeout(options.timeout, 'Timeout');
-					}
-					
-					// Validate stream name if specified
-					if (streamName) {
-						validateStreamName(streamName);
-					}
-					
-					
-					// Encode message using JSON encoding
-					const encodedMessage = encodeMessage(message, 'json');
-					
-					// Prepare headers
-					let headers;
-					if (options.headers) {
-						try {
-							const headersObj = typeof options.headers === 'string' 
-								? JSON.parse(options.headers) 
-								: options.headers;
-							headers = createNatsHeaders(headersObj);
-						} catch (e: any) {
-							throw new NodeOperationError(this.getNode(), `Invalid headers JSON: ${e.message}`, { itemIndex: i });
-						}
-					}
-					
 					// JetStream publish
-					const pubOptions: any = { 
-						headers,
-						timeout: options.timeout || 5000,
+					const pubOptions: Partial<JetStreamPublishOptions> = {
+						headers: createNatsHeaders(headers),
 					};
 					
-					
-					const ack = await js.publish(subject, encodedMessage, pubOptions);
+					const ack = await js.publish(subject, data, pubOptions);
 					
 					returnData.push({
 						json: {
 							success: true,
 							subject,
-							message: message,
+							data: data,
 							stream: ack.stream,
 							sequence: ack.seq,
 							duplicate: ack.duplicate,
 							timestamp: new Date().toISOString(),
 						},
+						pairedItem: { item: i }
 					});
 					
 				} catch (error: any) {

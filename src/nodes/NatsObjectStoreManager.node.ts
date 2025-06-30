@@ -8,8 +8,10 @@ import {
 } from 'n8n-workflow';
 import { jetstream, Objm } from '../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
-import { validateBucketName, validateNumberRange } from '../utils/ValidationHelpers';
 import { NodeLogger } from '../utils/NodeLogger';
+import {osmOperationHandlers} from "../operations/osm";
+import {OsmOperationParams} from "../operations/OsmOperationHandler";
+import {ObjectStoreOptions} from "nats";
 
 export class NatsObjectStoreManager implements INodeType {
 	description: INodeTypeDescription = {
@@ -39,25 +41,25 @@ export class NatsObjectStoreManager implements INodeType {
 				noDataExpression: true,
 				options: [
 					{
-						name: 'Create Bucket',
-						value: 'createBucket',
+						name: 'Create',
+						value: 'create',
 						description: 'Create a new Object Store bucket',
 						action: 'Create a new object store bucket',
 					},
 					{
-						name: 'Delete Bucket',
-						value: 'deleteBucket',
+						name: 'Delete',
+						value: 'delete',
 						description: 'Delete an Object Store bucket',
 						action: 'Delete an object store bucket',
 					},
 					{
-						name: 'Get Status',
-						value: 'status',
+						name: 'Get',
+						value: 'get',
 						description: 'Get status of an Object Store bucket',
 						action: 'Get status of an object store bucket',
 					},
 				],
-				default: 'status',
+				default: 'get',
 			},
 			{
 				displayName: 'Bucket Name',
@@ -70,14 +72,14 @@ export class NatsObjectStoreManager implements INodeType {
 				hint: 'Bucket names can only contain alphanumeric characters, dashes, and underscores',
 			},
 			{
-				displayName: 'Options',
-				name: 'options',
+				displayName: 'Config',
+				name: 'config',
 				type: 'collection',
-				placeholder: 'Add Option',
+				placeholder: 'Add Config Option',
 				default: {},
 				displayOptions: {
 					show: {
-						operation: ['createBucket'],
+						operation: ['create'],
 					},
 				},
 				options: [
@@ -99,7 +101,7 @@ export class NatsObjectStoreManager implements INodeType {
 					},
 					{
 						displayName: 'Max Bucket Size (Bytes)',
-						name: 'maxBucketSize',
+						name: 'max_bytes',
 						type: 'number',
 						default: -1,
 						description: 'Maximum total size of the bucket in bytes (-1 = unlimited)',
@@ -147,112 +149,54 @@ export class NatsObjectStoreManager implements INodeType {
 		// Create NodeLogger once for the entire execution
 		const nodeLogger = new NodeLogger(this.logger, this.getNode());
 		
-		// Local operation functions
-		const createBucket = async (objManager: any, bucket: string, options: any, itemIndex: number): Promise<any> => {
-			// Validate options
-			if (options.ttl && options.ttl < 0) {
-				throw new NodeOperationError(this.getNode(), 'TTL must be non-negative', { itemIndex });
-			}
-			if (options.replicas) {
-				validateNumberRange(options.replicas, 1, Number.MAX_SAFE_INTEGER, 'Replicas');
-			}
-			
-			const bucketConfig: any = {};
-			if (options.description) bucketConfig.description = options.description;
-			if (options.ttl) bucketConfig.max_age = options.ttl * 1000000000; // Convert to nanoseconds
-			if (options.maxBucketSize && options.maxBucketSize > 0) bucketConfig.max_bytes = options.maxBucketSize;
-			if (options.storage) bucketConfig.storage = options.storage === 'memory' ? 1 : 0; // 0 = file, 1 = memory
-			if (options.replicas) bucketConfig.num_replicas = options.replicas;
-			
-			const objStore = await objManager.create(bucket, bucketConfig);
-			return {
-				success: true,
-				operation: 'createBucket',
-				bucket,
-				status: await objStore.status(),
-			};
-		};
-
-		const deleteBucket = async (objManager: any, bucket: string): Promise<any> => {
-			const objToDelete = await objManager.open(bucket);
-			await objToDelete.destroy();
-			return {
-				success: true,
-				operation: 'deleteBucket',
-				bucket,
-			};
-		};
-
-		const getStatus = async (objManager: any, bucket: string): Promise<any> => {
-			const store = await objManager.open(bucket);
-			const status = await store.status();
-			return {
-				success: true,
-				operation: 'status',
-				bucket,
-				status,
-			};
-		};
-		
 		try {
 			nc = await createNatsConnection(credentials, nodeLogger);
 			const js = jetstream(nc);
-			const objManager = new Objm(js);
+			const osm = new Objm(js);
 			
 			for (let i = 0; i < items.length; i++) {
-				try {
-					const operation = this.getNodeParameter('operation', i) as string;
-					const bucket = this.getNodeParameter('bucket', i) as string;
-					const options = this.getNodeParameter('options', i, {}) as any;
-					
-					// Validate bucket name
-					validateBucketName(bucket);
-					
-					let result: any;
-					
-					switch (operation) {
-						case 'createBucket':
-							result = await createBucket(objManager, bucket, options, i);
-							break;
-							
-						case 'deleteBucket':
-							result = await deleteBucket(objManager, bucket);
-							break;
-							
-						case 'status':
-							result = await getStatus(objManager, bucket);
-							break;
-							
-						default:
-							throw new NodeOperationError(this.getNode(), `Unknown operation: ${operation}`, { itemIndex: i });
-					}
-					
+				const operation = this.getNodeParameter('operation', i) as string;
+				const handler = osmOperationHandlers[operation];
+				if (!handler) {
+					const error = `Unknown operation: ${operation}`
+					if (! this.continueOnFail()) throw error;
+
 					returnData.push({
+						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
 						json: {
-							...result,
-							timestamp: new Date().toISOString(),
+							operation,
 						},
-						pairedItem: { item: i },
-					});
-					
-				} catch (error: any) {
-					if (this.continueOnFail()) {
-						returnData.push({
-							json: {
-								error: error.message,
-								operation: this.getNodeParameter('operation', i) as string,
-								bucket: this.getNodeParameter('bucket', i) as string,
-							},
-							pairedItem: { item: i },
-						});
-					} else {
-						throw error;
-					}
+						pairedItem: i
+					})
+					continue
 				}
+
+				const params : OsmOperationParams = {
+					bucket: this.getNodeParameter('bucket', i) as string,
+					objConfig: this.getNodeParameter('config', i, {}) as ObjectStoreOptions,
+				}
+
+				try {
+					let result = await handler.execute(osm, params)
+
+					// Execute the operation
+					returnData.push({
+						json: result,
+						pairedItem: i,
+					});
+				} catch (error : any) {
+					if (! this.continueOnFail()) throw error;
+
+					returnData.push({
+						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
+						json: {
+							params: params,
+						},
+						pairedItem: i
+					})
+				}
+
 			}
-			
-		} catch (error: any) {
-			throw new NodeOperationError(this.getNode(), `NATS Object Store Manager failed: ${error.message}`);
 		} finally {
 			if (nc!) {
 				await closeNatsConnection(nc, nodeLogger);

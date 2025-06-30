@@ -3,13 +3,14 @@ import {
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
-	NodeOperationError,
 	NodeConnectionType,
+	NodeOperationError,
 } from 'n8n-workflow';
-import { jetstream, Kvm } from '../bundled/nats-bundled';
-import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
-import { validateBucketName, validateNumberRange } from '../utils/ValidationHelpers';
-import { NodeLogger } from '../utils/NodeLogger';
+import {Kvm, KvOptions} from '../bundled/nats-bundled';
+import {closeNatsConnection, createNatsConnection} from '../utils/NatsConnection';
+import {NodeLogger} from '../utils/NodeLogger';
+import {kvmOperationHandlers} from '../operations/kvm';
+import {KvmOperationParams} from "../operations/KvmOperationHandler";
 
 export class NatsKvManager implements INodeType {
 	description: INodeTypeDescription = {
@@ -40,24 +41,24 @@ export class NatsKvManager implements INodeType {
 				options: [
 					{
 						name: 'Create Bucket',
-						value: 'createBucket',
+						value: 'create',
 						description: 'Create a new KV bucket',
 						action: 'Create a new KV bucket',
 					},
 					{
 						name: 'Delete Bucket',
-						value: 'deleteBucket',
+						value: 'delete',
 						description: 'Delete a KV bucket',
 						action: 'Delete a KV bucket',
 					},
 					{
 						name: 'Get Status',
-						value: 'status',
+						value: 'get',
 						description: 'Get status of a KV bucket',
 						action: 'Get status of a KV bucket',
 					},
 				],
-				default: 'status',
+				default: 'get',
 			},
 			{
 				displayName: 'Bucket Name',
@@ -70,14 +71,14 @@ export class NatsKvManager implements INodeType {
 				hint: 'Bucket names can only contain alphanumeric characters, dashes, and underscores',
 			},
 			{
-				displayName: 'Options',
-				name: 'options',
+				displayName: 'Config',
+				name: 'config',
 				type: 'collection',
-				placeholder: 'Add Option',
+				placeholder: 'Add Configuration Option',
 				default: {},
 				displayOptions: {
 					show: {
-						operation: ['createBucket'],
+						operation: ['create'],
 					},
 				},
 				options: [
@@ -90,12 +91,19 @@ export class NatsKvManager implements INodeType {
 						placeholder: 'User preferences bucket',
 					},
 					{
-						displayName: 'Max Age (Seconds)',
-						name: 'maxAge',
+						displayName: 'History Per Key',
+						name: 'history',
 						type: 'number',
-						default: 0,
-						description: 'Maximum age of values in seconds (0 = unlimited)',
-						hint: 'Values older than this will be automatically deleted',
+						default: 1,
+						description: 'Number of historical values to keep per key',
+						hint: 'Set to 1 to only keep the latest value',
+					},
+					{
+						displayName: 'Max Size (Bytes)',
+						name: 'max_bytes',
+						type: 'number',
+						default: -1,
+						description: 'The maximum size of the bucket',
 					},
 					{
 						displayName: 'Max Value Size (Bytes)',
@@ -105,12 +113,12 @@ export class NatsKvManager implements INodeType {
 						description: 'Maximum size of a single value in bytes (-1 = unlimited)',
 					},
 					{
-						displayName: 'History Per Key',
-						name: 'history',
+						displayName: 'Replicas',
+						name: 'replicas',
 						type: 'number',
 						default: 1,
-						description: 'Number of historical values to keep per key',
-						hint: 'Set to 1 to only keep the latest value',
+						description: 'Number of replicas for the bucket',
+						hint: 'Higher numbers provide better fault tolerance',
 					},
 					{
 						displayName: 'Storage Type',
@@ -132,12 +140,12 @@ export class NatsKvManager implements INodeType {
 						description: 'Storage backend for the bucket',
 					},
 					{
-						displayName: 'Replicas',
-						name: 'replicas',
+						displayName: 'TTL (Seconds)',
+						name: 'ttl',
 						type: 'number',
-						default: 1,
-						description: 'Number of replicas for the bucket',
-						hint: 'Higher numbers provide better fault tolerance',
+						default: 0,
+						description: 'The maximum number of millis the key should live in the KV. The server will automatically remove keys older than this amount. Note that deletion of delete markers are not performed',
+						hint: 'Values older than this will be automatically deleted',
 					},
 				],
 			},
@@ -156,104 +164,53 @@ export class NatsKvManager implements INodeType {
 		
 		try {
 			nc = await createNatsConnection(credentials, nodeLogger);
-			const js = jetstream(nc);
-			const kvManager = new Kvm(js);
+			const kvManager = new Kvm(nc);
 			
 			for (let i = 0; i < items.length; i++) {
-				try {
-					const operation = this.getNodeParameter('operation', i) as string;
-					const bucket = this.getNodeParameter('bucket', i) as string;
-					const options = this.getNodeParameter('options', i, {}) as any;
-					
-					// Validate bucket name
-					validateBucketName(bucket);
-					
-					let result: any = {};
-					
-					switch (operation) {
-						case 'createBucket': {
-							// Validate options
-							if (options.maxAge && options.maxAge < 0) {
-								throw new NodeOperationError(this.getNode(), 'Max age must be non-negative', { itemIndex: i });
-							}
-							if (options.history) {
-								validateNumberRange(options.history, 1, Number.MAX_SAFE_INTEGER, 'History per key');
-							}
-							if (options.replicas) {
-								validateNumberRange(options.replicas, 1, Number.MAX_SAFE_INTEGER, 'Replicas');
-							}
-							
-							const bucketConfig: any = {};
-							if (options.description) bucketConfig.description = options.description;
-							if (options.maxAge) bucketConfig.max_age = options.maxAge * 1000000000; // Convert to nanoseconds
-							if (options.maxValueSize && options.maxValueSize > 0) bucketConfig.max_value_size = options.maxValueSize;
-							if (options.history) bucketConfig.history = options.history;
-							if (options.storage) bucketConfig.storage = options.storage === 'memory' ? 1 : 0; // 0 = file, 1 = memory
-							if (options.replicas) bucketConfig.num_replicas = options.replicas;
-							
-							const kv = await kvManager.create(bucket, bucketConfig);
-							result = {
-								success: true,
-								operation: 'createBucket',
-								bucket,
-								status: await kv.status(),
-							};
-							break;
-						}
-							
-						case 'deleteBucket': {
-							const kvToDelete = await kvManager.open(bucket);
-							await kvToDelete.destroy();
-							result = {
-								success: true,
-								operation: 'deleteBucket',
-								bucket,
-							};
-							break;
-						}
-							
-						case 'status': {
-							const kvStore = await kvManager.open(bucket);
-							const status = await kvStore.status();
-							result = {
-								success: true,
-								operation: 'status',
-								bucket,
-								status,
-							};
-							break;
-						}
-							
-						default:
-							throw new NodeOperationError(this.getNode(), `Unknown operation: ${operation}`, { itemIndex: i });
-					}
-					
+				const operation = this.getNodeParameter('operation', i) as string;
+				const bucket = this.getNodeParameter('bucket', i) as string;
+
+				const handler = kvmOperationHandlers[operation];
+				if (!handler) {
+					const error = `Unknown operation: ${operation}`
+					if (! this.continueOnFail()) throw error;
+
 					returnData.push({
+						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
 						json: {
-							...result,
-							timestamp: new Date().toISOString(),
+							operation,
 						},
-						pairedItem: { item: i },
+						pairedItem: i
+					})
+					continue
+				}
+
+				const params : KvmOperationParams = {
+					bucket,
+					kvConfig: this.getNodeParameter('config', i, {}) as KvOptions,
+				}
+
+				try {
+					let result = await handler.execute(kvManager, params)
+
+					// Execute the operation
+					returnData.push({
+						json: result,
+						pairedItem: i,
 					});
-					
-				} catch (error: any) {
-					if (this.continueOnFail()) {
-						returnData.push({
-							json: {
-								error: error.message,
-								operation: this.getNodeParameter('operation', i) as string,
-								bucket: this.getNodeParameter('bucket', i) as string,
-							},
-							pairedItem: { item: i },
-						});
-					} else {
-						throw error;
-					}
+				} catch (error : any) {
+					if (! this.continueOnFail()) throw error;
+
+					returnData.push({
+						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
+						json: {
+							params: params,
+						},
+						pairedItem: i
+					})
 				}
 			}
-			
-		} catch (error: any) {
-			throw new NodeOperationError(this.getNode(), `NATS KV Manager failed: ${error.message}`);
+
 		} finally {
 			if (nc!) {
 				await closeNatsConnection(nc, nodeLogger);

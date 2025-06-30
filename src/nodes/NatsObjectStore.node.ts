@@ -3,14 +3,14 @@ import {
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
-	NodeOperationError,
 	NodeConnectionType,
+	NodeOperationError,
 } from 'n8n-workflow';
-import { jetstream, Objm } from '../bundled/nats-bundled';
-import { createNatsConnection, closeNatsConnection } from '../utils/NatsConnection';
-import { objectStoreOperationHandlers } from '../utils/operations/objectstore';
-import { validateBucketName, validateObjectName } from '../utils/ValidationHelpers';
-import { NodeLogger } from '../utils/NodeLogger';
+import {Objm} from '../bundled/nats-bundled';
+import {closeNatsConnection, createNatsConnection} from '../utils/NatsConnection';
+import {NodeLogger} from '../utils/NodeLogger';
+import {OsOperationParams} from "../operations/OsOperationHandler";
+import {osOperationHandlers} from "../operations/os";
 
 export class NatsObjectStore implements INodeType {
 	description: INodeTypeDescription = {
@@ -112,42 +112,7 @@ export class NatsObjectStore implements INodeType {
 					rows: 4,
 				},
 				description: 'Content to store in the object',
-				hint: 'Provide the data as you want it stored - string, JSON, or binary data',
-			},
-			{
-				displayName: 'Options',
-				name: 'options',
-				type: 'collection',
-				placeholder: 'Add Option',
-				default: {},
-				options: [
-					{
-						displayName: 'Description',
-						name: 'description',
-						type: 'string',
-						default: '',
-						displayOptions: {
-							show: {
-								'/operation': ['put'],
-							},
-						},
-						description: 'Human-readable description for the object',
-						placeholder: 'Company financial reports archive',
-					},
-					{
-						displayName: 'Headers',
-						name: 'headers',
-						type: 'json',
-						default: '{}',
-						displayOptions: {
-							show: {
-								'/operation': ['put'],
-							},
-						},
-						description: 'Custom metadata headers as JSON (e.g., {"Content-Type": "application/pdf"})',
-						placeholder: '{"author": "John Doe", "department": "Sales"}',
-					},
-				],
+				hint: 'Provide the data as you want it stored',
 			},
 		],
 	};
@@ -164,69 +129,59 @@ export class NatsObjectStore implements INodeType {
 		
 		try {
 			nc = await createNatsConnection(credentials, nodeLogger);
-			const js = jetstream(nc);
+			const osm = new Objm(nc)
 			
 			for (let i = 0; i < items.length; i++) {
+				const bucket = this.getNodeParameter('bucket', i) as string;
+				const os = await osm.open(bucket);
+
+				const operation = this.getNodeParameter('operation', i) as string;
+				const handler = osOperationHandlers[operation];
+				if (!handler) {
+					const error = `Unknown operation: ${operation}`
+					if (! this.continueOnFail()) throw error;
+
+					returnData.push({
+						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
+						json: {
+							operation,
+						},
+						pairedItem: i
+					})
+					continue
+				}
+					
+				// Prepare parameters for the operation
+				const params: OsOperationParams = {
+					name: this.getNodeParameter('name', i) as string,
+				};
+
+				const data = this.getNodeParameter('data', i, '') as string;
+				if (data != '') {
+					params.data = new TextEncoder().encode(data)
+				}
+
 				try {
-					const operation = this.getNodeParameter('operation', i) as string;
-					const bucket = this.getNodeParameter('bucket', i) as string;
-					const options = this.getNodeParameter('options', i, {}) as any;
-					
-					// Validate bucket name
-					validateBucketName(bucket);
-					
-					// Only allow object operations, not bucket operations
-					const supportedOperations = ['put', 'get', 'delete', 'info', 'list'];
-					if (!supportedOperations.includes(operation)) {
-						throw new NodeOperationError(this.getNode(), `Unsupported operation: ${operation}. Use NATS Object Store Manager for bucket operations.`, { itemIndex: i });
-					}
-					
-					const handler = objectStoreOperationHandlers[operation];
-					
-					if (!handler) {
-						throw new NodeOperationError(this.getNode(), `Unknown operation: ${operation}`, { itemIndex: i });
-					}
-					
-					// Prepare parameters for the operation
-					const params: any = {
-						bucket,
-						options,
-						itemIndex: i,
-						name: this.getNodeParameter('name', i, '') as string,
-						data: this.getNodeParameter('data', i, '') as string,
-					};
-					
-					// Validate object name for operations that require it
-					if (['put', 'get', 'delete', 'info'].includes(operation) && params.name) {
-						validateObjectName(params.name);
-					}
-					
-					
-					// All operations need ObjectStore (no bucket operations here)
-					const objManager = new Objm(js);
-					const os = await objManager.open(bucket);
-					const result = await handler.execute(os, params);
-					
-					returnData.push({ json: result });
-					
-				} catch (error: any) {
-					if (this.continueOnFail()) {
-						returnData.push({
-							json: {
-								error: error.message,
-								operation: this.getNodeParameter('operation', i) as string,
-								bucket: this.getNodeParameter('bucket', i) as string,
-							},
-							pairedItem: { item: i },
-						});
-					} else {
-						throw error;
-					}
+					let result = await handler.execute(os, params)
+
+					// Execute the operation
+					returnData.push({
+						json: result,
+						pairedItem: i,
+					});
+				} catch (error : any) {
+					if (! this.continueOnFail()) throw error;
+
+					returnData.push({
+						error: new NodeOperationError(this.getNode(), error, {itemIndex: i}),
+						json: {
+							params: params,
+						},
+						pairedItem: i
+					})
 				}
 			}
-			
-		} catch (error: any) {
-			throw new NodeOperationError(this.getNode(), `NATS Object Store operation failed: ${error.message}`);
+
 		} finally {
 			if (nc!) {
 				await closeNatsConnection(nc, nodeLogger);
