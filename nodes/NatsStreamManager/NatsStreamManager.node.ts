@@ -279,31 +279,21 @@ export class NatsStreamManager implements INodeType {
 						description: 'How many Consumers can be defined for a given Stream. -1 for unlimited.',
 					},
 					{
-						displayName: 'Placement',
-						name: 'placement',
-						type: 'collection',
-						default: {},
-						description:
-							'Placement directives to consider when placing replicas of this stream, random placement when unset',
-						options: [
-							{
-								displayName: 'Cluster',
-								name: 'cluster',
-								type: 'string',
-								default: '',
-								description: 'The cluster to place the stream on',
-							},
-							{
-								displayName: 'Tags',
-								name: 'tags',
-								type: 'string',
-								typeOptions: {
-									multipleValues: true,
-								},
-								default: [],
-								description: 'Tags matching server configuration',
-							},
-						],
+						displayName: 'Placement Cluster',
+						name: 'placement_cluster',
+						type: 'string',
+						default: '',
+						description: 'The cluster to place the stream on (placement directives)',
+					},
+					{
+						displayName: 'Placement Tags',
+						name: 'placement_tags',
+						type: 'string',
+						typeOptions: {
+							multipleValues: true,
+						},
+						default: [],
+						description: 'Tags matching server configuration (placement directives)',
 					},
 				],
 			},
