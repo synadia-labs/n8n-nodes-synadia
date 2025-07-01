@@ -14,7 +14,7 @@ export class NatsObjectStoreWatcher implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'NATS Object Store Watcher',
 		name: 'natsObjectStoreWatcher',
-		icon: 'file:../icons/nats.svg',
+		icon: 'file:../../icons/nats.svg',
 		group: ['trigger'],
 		version: 1,
 		description: 'Watch for object changes in NATS Object Store buckets and trigger workflows',

@@ -15,7 +15,7 @@ export class NatsConsumerManager implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'NATS Consumer Manager',
 		name: 'natsConsumerManager',
-		icon: 'file:../icons/nats.svg',
+		icon: 'file:../../icons/nats.svg',
 		group: ['transform'],
 		version: 1,
 		description: 'Manage NATS JetStream consumers',

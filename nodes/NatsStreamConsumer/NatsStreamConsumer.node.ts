@@ -19,7 +19,7 @@ export class NatsStreamConsumer implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'NATS Stream Consumer',
 		name: 'natsStreamConsumer',
-		icon: 'file:../icons/nats.svg',
+		icon: 'file:../../icons/nats.svg',
 		group: ['trigger'],
 		version: 1,
 		description: 'Consume messages from existing NATS JetStream consumers',

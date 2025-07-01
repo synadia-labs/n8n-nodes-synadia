@@ -16,7 +16,7 @@ export class NatsStreamPublisher implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'NATS Stream Publisher',
 		name: 'natsStreamPublisher',
-		icon: 'file:../icons/nats.svg',
+		icon: 'file:../../icons/nats.svg',
 		group: ['output'],
 		version: 1,
 		description: 'Publish messages to NATS JetStream streams with guaranteed delivery',

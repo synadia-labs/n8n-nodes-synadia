@@ -16,7 +16,7 @@ export class NatsObjectStore implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'NATS Object Store',
 		name: 'natsObjectStore',
-		icon: 'file:../icons/nats.svg',
+		icon: 'file:../../icons/nats.svg',
 		group: ['transform'],
 		version: 1,
 		description: 'Store and retrieve objects (files, data) in NATS JetStream Object Store',

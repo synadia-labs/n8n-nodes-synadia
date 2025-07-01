@@ -17,7 +17,7 @@ export class NatsKvManager implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'NATS KV Manager',
 		name: 'natsKvManager',
-		icon: 'file:../icons/nats.svg',
+		icon: 'file:../../icons/nats.svg',
 		group: ['transform'],
 		version: 1,
 		description: 'Manage NATS JetStream Key-Value Store buckets',

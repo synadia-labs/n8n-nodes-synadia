@@ -15,7 +15,7 @@ export class NatsSubscriber implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'NATS Subscriber',
 		name: 'natsSubscriber',
-		icon: 'file:../icons/nats.svg',
+		icon: 'file:../../icons/nats.svg',
 		group: ['trigger'],
 		version: 1,
 		description: 'Subscribe to NATS subjects and trigger workflows on messages',

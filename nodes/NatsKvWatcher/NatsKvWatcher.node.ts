@@ -17,7 +17,7 @@ export class NatsKvWatcher implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'NATS KV Watcher',
 		name: 'natsKvWatcher',
-		icon: 'file:../icons/nats.svg',
+		icon: 'file:../../icons/nats.svg',
 		group: ['trigger'],
 		version: 1,
 		description: 'Watch for changes in NATS KV buckets and trigger workflows',
