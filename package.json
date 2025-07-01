@@ -12,15 +12,15 @@
   },
   "homepage": "https://github.com/synadia-labs/n8n-nodes-synadia#readme",
   "scripts": {
-    "lint": "eslint 'src/**/*.ts' package.json",
-    "lintfix": "eslint 'src/**/*.ts' package.json --fix",
+    "lint": "eslint .",
+    "lintfix": "eslint . --fix",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "build": "node esbuild.config.mjs && npx rimraf dist && tsc && gulp build:icons build:bundle",
     "dev": "tsc --watch",
-    "format": "prettier 'src/**/*.ts' --write",
-    "prepublishOnly": "npm run build && npm run lint -c .eslintrc.prepublish.js 'src/**/*.ts' package.json"
+    "format": "prettier 'credentials/**/*.ts' 'nodes/**/*.ts' 'utils/**/*.ts' --write",
+    "prepublishOnly": "npm run build && npm run lint -c .eslintrc.prepublish.js"
   },
   "keywords": [
     "n8n",
@@ -39,7 +39,7 @@
   "n8n": {
     "n8nNodesApiVersion": 1,
     "credentials": [
-      "dist/credentials/NatsApi.credentials.js"
+      "dist/credentials/NatsApi/NatsApi.credentials.js"
     ],
     "nodes": [
       "dist/nodes/NatsSubscriber.node.js",

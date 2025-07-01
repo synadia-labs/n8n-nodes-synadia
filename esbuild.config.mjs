@@ -1,9 +1,9 @@
 import esbuild from 'esbuild';
 
 await esbuild.build({
-  entryPoints: ['src/bundled/nats-bundle-entry.ts'],
+  entryPoints: ['bundled/nats-bundle-entry.ts'],
   bundle: true,
-  outfile: 'src/bundled/nats-bundled.js',
+  outfile: 'bundled/nats-bundled.js',
   platform: 'node',
   target: 'node16',
   format: 'cjs',

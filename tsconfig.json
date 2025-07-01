@@ -4,7 +4,7 @@
     "module": "commonjs",
     "lib": ["es2019", "es2020", "es2022.error"],
     "outDir": "./dist/",
-    "rootDir": "./src",
+    "rootDir": "./",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -16,6 +16,6 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+  "include": ["./**/*"],
+  "exclude": ["node_modules", "dist", "coverage", "examples", "**/*.test.ts"]
 }
