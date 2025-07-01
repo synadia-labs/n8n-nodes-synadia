@@ -42,18 +42,14 @@
       "dist/credentials/NatsApi/NatsApi.credentials.js"
     ],
     "nodes": [
-      "dist/nodes/NatsSubscriber/NatsSubscriber.node.js",
-      "dist/nodes/NatsStreamConsumer/NatsStreamConsumer.node.js",
-      "dist/nodes/NatsPublisher/NatsPublisher.node.js",
-      "dist/nodes/NatsStreamPublisher/NatsStreamPublisher.node.js",
+      "dist/nodes/Nats/NatsTrigger.node.js",
+      "dist/nodes/NatsJetstream/NatsJetstreamTrigger.node.js",
+      "dist/nodes/Nats/Nats.node.js",
+      "dist/nodes/NatsJetstream/NatsJetstream.node.js",
       "dist/nodes/NatsKv/NatsKv.node.js",
-      "dist/nodes/NatsKvManager/NatsKvManager.node.js",
-      "dist/nodes/NatsKvWatcher/NatsKvWatcher.node.js",
+      "dist/nodes/NatsKv/NatsKvTrigger.node.js",
       "dist/nodes/NatsObjectStore/NatsObjectStore.node.js",
-      "dist/nodes/NatsObjectStoreManager/NatsObjectStoreManager.node.js",
-      "dist/nodes/NatsObjectStoreWatcher/NatsObjectStoreWatcher.node.js",
-      "dist/nodes/NatsStreamManager/NatsStreamManager.node.js",
-      "dist/nodes/NatsConsumerManager/NatsConsumerManager.node.js"
+      "dist/nodes/NatsObjectStore/NatsObjectStoreTrigger.node.js"
     ]
   },
   "dependencies": {

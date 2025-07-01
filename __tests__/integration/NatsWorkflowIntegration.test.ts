@@ -1,10 +1,12 @@
 import { IExecuteFunctions, ITriggerFunctions, INodeExecutionData, INode } from 'n8n-workflow';
-import { NatsSubscriber } from '../../nodes/NatsSubscriber/NatsSubscriber.node';
-import { NatsPublisher } from '../../nodes/NatsPublisher/NatsPublisher.node';
+import { NatsTrigger } from '../../nodes/Nats/NatsTrigger.node';
+import { Nats } from '../../nodes/Nats/Nats.node';
 import { NatsKv } from '../../nodes/NatsKv/NatsKv.node';
-import { NatsKvWatcher } from '../../nodes/NatsKvWatcher/NatsKvWatcher.node';
+import { NatsKvTrigger } from '../../nodes/NatsKv/NatsKvTrigger.node';
 import { NatsObjectStore } from '../../nodes/NatsObjectStore/NatsObjectStore.node';
-import { NatsObjectStoreWatcher } from '../../nodes/NatsObjectStoreWatcher/NatsObjectStoreWatcher.node';
+import { NatsObjectStoreTrigger } from '../../nodes/NatsObjectStore/NatsObjectStoreTrigger.node';
+import { NatsJetstream } from '../../nodes/NatsJetstream/NatsJetstream.node';
+import { NatsJetstreamTrigger } from '../../nodes/NatsJetstream/NatsJetstreamTrigger.node';
 import * as NatsConnection from '../../utils/NatsConnection';
 import {
 	connect,
@@ -287,8 +289,8 @@ describe('NATS Nodes Integration Tests', () => {
 	describe('Core NATS Pub/Sub Workflow', () => {
 		it('should successfully publish and receive messages', async () => {
 			// Create nodes
-			const publisher = new NatsPublisher();
-			const trigger = new NatsSubscriber();
+			const publisher = new Nats();
+			const trigger = new NatsTrigger();
 
 			// Setup trigger to receive messages
 			const triggerFunctions = createMockTriggerFunctions({
@@ -355,7 +357,7 @@ describe('NATS Nodes Integration Tests', () => {
 		});
 
 		it('should handle queue groups correctly', async () => {
-			const trigger = new NatsSubscriber();
+			const trigger = new NatsTrigger();
 			const triggerFunctions = createMockTriggerFunctions({
 				subject: 'work.queue',
 				subscriptionType: 'core',
@@ -385,7 +387,7 @@ describe('NATS Nodes Integration Tests', () => {
 			for (const auth of authMethods) {
 				jest.clearAllMocks();
 
-				const trigger = new NatsSubscriber();
+				const trigger = new NatsTrigger();
 				const triggerFunctions = createMockTriggerFunctions({
 					subject: 'test.subject',
 					subscriptionType: 'core',
@@ -412,7 +414,7 @@ describe('NATS Nodes Integration Tests', () => {
 
 	describe('Performance and Scalability', () => {
 		it('should handle high message throughput', async () => {
-			const trigger = new NatsSubscriber();
+			const trigger = new NatsTrigger();
 			const triggerFunctions = createMockTriggerFunctions({
 				subject: 'high.throughput.>',
 				subscriptionType: 'core',
@@ -451,6 +453,7 @@ describe('NATS Nodes Integration Tests', () => {
 			// Execute multiple operations concurrently
 			const operations = Array.from({ length: 10 }, (_, i) => {
 				const functions = createMockExecuteFunctions({
+					resource: 'key',
 					operation: 'put',
 					bucket: 'concurrent',
 					key: `key-${i}`,
@@ -470,9 +473,10 @@ describe('NATS Nodes Integration Tests', () => {
 	describe('Manual Testing Helpers', () => {
 		it('should provide realistic sample data for all triggers', async () => {
 			const triggers = [
-				{ node: new NatsSubscriber(), params: { subject: 'test', subscriptionType: 'core' } },
-				{ node: new NatsKvWatcher(), params: { bucket: 'test-bucket', options: {} } },
-				{ node: new NatsObjectStoreWatcher(), params: { bucket: 'test-bucket', options: {} } },
+				{ node: new NatsTrigger(), params: { subject: 'test', subscriptionType: 'core' } },
+				{ node: new NatsKvTrigger(), params: { bucket: 'test-bucket', options: {} } },
+				{ node: new NatsObjectStoreTrigger(), params: { bucket: 'test-bucket', options: {} } },
+				{ node: new NatsJetstreamTrigger(), params: { streamName: 'TEST_STREAM', consumerName: 'test-consumer', options: {} } },
 			];
 
 			for (const { node, params } of triggers) {

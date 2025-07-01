@@ -78,9 +78,10 @@ export async function createNatsConnection(
 			break;
 		case 'creds':
 			if (creds.credsFile) {
-				connectionOptions.authenticator = credsAuthenticator(
-					new TextEncoder().encode(creds.credsFile),
-				);
+				logger.warn(creds.credsFile);
+				console.log(creds.credsFile);
+
+				connectionOptions.authenticator = credsAuthenticator(Buffer.from(creds.credsFile));
 			}
 			break;
 		case 'none':

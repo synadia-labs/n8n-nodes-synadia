@@ -1,19 +1,23 @@
 import { INodeType } from 'n8n-workflow';
-import { NatsSubscriber } from '../../nodes/NatsSubscriber/NatsSubscriber.node';
-import { NatsPublisher } from '../../nodes/NatsPublisher/NatsPublisher.node';
+import { NatsTrigger } from '../../nodes/Nats/NatsTrigger.node';
+import { Nats } from '../../nodes/Nats/Nats.node';
 import { NatsKv } from '../../nodes/NatsKv/NatsKv.node';
 import { NatsObjectStore } from '../../nodes/NatsObjectStore/NatsObjectStore.node';
-import { NatsKvWatcher } from '../../nodes/NatsKvWatcher/NatsKvWatcher.node';
-import { NatsObjectStoreWatcher } from '../../nodes/NatsObjectStoreWatcher/NatsObjectStoreWatcher.node';
+import { NatsKvTrigger } from '../../nodes/NatsKv/NatsKvTrigger.node';
+import { NatsObjectStoreTrigger } from '../../nodes/NatsObjectStore/NatsObjectStoreTrigger.node';
+import { NatsJetstream } from '../../nodes/NatsJetstream/NatsJetstream.node';
+import { NatsJetstreamTrigger } from '../../nodes/NatsJetstream/NatsJetstreamTrigger.node';
 
 describe('n8n Node Behavior Tests', () => {
 	const nodes: Array<{ name: string; instance: INodeType; isTrigger: boolean }> = [
-		{ name: 'NatsSubscriber', instance: new NatsSubscriber(), isTrigger: true },
-		{ name: 'NatsPublisher', instance: new NatsPublisher(), isTrigger: false },
+		{ name: 'NatsTrigger', instance: new NatsTrigger(), isTrigger: true },
+		{ name: 'Nats', instance: new Nats(), isTrigger: false },
 		{ name: 'NatsKv', instance: new NatsKv(), isTrigger: false },
 		{ name: 'NatsObjectStore', instance: new NatsObjectStore(), isTrigger: false },
-		{ name: 'NatsKvWatcher', instance: new NatsKvWatcher(), isTrigger: true },
-		{ name: 'NatsObjectStoreWatcher', instance: new NatsObjectStoreWatcher(), isTrigger: true },
+		{ name: 'NatsKvTrigger', instance: new NatsKvTrigger(), isTrigger: true },
+		{ name: 'NatsObjectStoreTrigger', instance: new NatsObjectStoreTrigger(), isTrigger: true },
+		{ name: 'NatsJetstream', instance: new NatsJetstream(), isTrigger: false },
+		{ name: 'NatsJetstreamTrigger', instance: new NatsJetstreamTrigger(), isTrigger: true },
 	];
 
 	describe('Node Description Validation', () => {
@@ -85,9 +89,10 @@ describe('n8n Node Behavior Tests', () => {
 
 	describe('Manual Trigger Functions', () => {
 		const triggerNodes = [
-			{ name: 'NatsSubscriber', instance: new NatsSubscriber() },
-			{ name: 'NatsKvWatcher', instance: new NatsKvWatcher() },
-			{ name: 'NatsObjectStoreWatcher', instance: new NatsObjectStoreWatcher() },
+			{ name: 'NatsTrigger', instance: new NatsTrigger() },
+			{ name: 'NatsKvTrigger', instance: new NatsKvTrigger() },
+			{ name: 'NatsObjectStoreTrigger', instance: new NatsObjectStoreTrigger() },
+			{ name: 'NatsJetstreamTrigger', instance: new NatsJetstreamTrigger() },
 		];
 
 		triggerNodes.forEach(({ name }) => {
