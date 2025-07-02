@@ -1,0 +1,148 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+        type: string
+      pre-release:
+        description: 'Is this a pre-release?'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+    
+    permissions:
+      contents: write
+      id-token: write
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        registry-url: 'https://registry.npmjs.org'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run tests
+      run: npm run test:coverage
+      
+    - name: Run linting
+      run: npm run lint
+      
+    - name: Build package
+      run: npm run build
+      
+    - name: Verify build
+      run: |
+        echo "Verifying build artifacts..."
+        test -f dist/index.js || (echo "ERROR: dist/index.js not found" && exit 1)
+        test -d dist/nodes || (echo "ERROR: dist/nodes directory not found" && exit 1)
+        test -d dist/credentials || (echo "ERROR: dist/credentials directory not found" && exit 1)
+        test -d dist/icons || (echo "ERROR: dist/icons directory not found" && exit 1)
+        echo "Build verification passed!"
+        
+    - name: Extract version from tag
+      if: github.ref_type == 'tag'
+      id: extract_version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Extracted version: $VERSION"
+        
+    - name: Use manual version
+      if: github.event_name == 'workflow_dispatch'
+      id: manual_version
+      run: |
+        VERSION="${{ github.event.inputs.version }}"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Manual version: $VERSION"
+        
+    - name: Update package.json version
+      run: |
+        VERSION="${{ steps.extract_version.outputs.version || steps.manual_version.outputs.version }}"
+        npm version $VERSION --no-git-tag-version
+        echo "Updated package.json to version $VERSION"
+        
+    - name: Create release notes
+      id: release_notes
+      run: |
+        VERSION="${{ steps.extract_version.outputs.version || steps.manual_version.outputs.version }}"
+        
+        # Generate release notes from commits since last tag
+        LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        if [ -n "$LAST_TAG" ]; then
+          echo "Generating release notes since $LAST_TAG"
+          COMMITS=$(git log --pretty=format:"- %s (%h)" $LAST_TAG..HEAD)
+        else
+          echo "No previous tag found, showing recent commits"
+          COMMITS=$(git log --pretty=format:"- %s (%h)" -10)
+        fi
+        
+        cat > release_notes.md << EOF
+        # Release v$VERSION
+        
+        ## What's Changed
+        $COMMITS
+        
+        ## Installation
+        \`\`\`bash
+        npm install n8n-nodes-synadia@$VERSION
+        \`\`\`
+        
+        ## Features
+        - NATS Core messaging (publish/subscribe)
+        - JetStream persistence and consumption
+        - Key-Value store operations
+        - Object Store file handling
+        - Request-Reply patterns
+        - Comprehensive trigger nodes for workflow automation
+        
+        **Full Changelog**: https://github.com/synadia-labs/n8n-nodes-synadia/compare/$LAST_TAG...v$VERSION
+        EOF
+        
+        echo "release_notes_file=release_notes.md" >> $GITHUB_OUTPUT
+        
+    - name: Publish to npm
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      run: |
+        if [[ "${{ github.event.inputs.pre-release }}" == "true" ]]; then
+          npm publish --tag beta
+          echo "Published as pre-release (beta tag)"
+        else
+          npm publish
+          echo "Published to npm"
+        fi
+        
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('v{0}', github.event.inputs.version) }}
+        name: Release v${{ steps.extract_version.outputs.version || steps.manual_version.outputs.version }}
+        body_path: ${{ steps.release_notes.outputs.release_notes_file }}
+        draft: false
+        prerelease: ${{ github.event.inputs.pre-release == 'true' }}
+        files: |
+          dist/**/*
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

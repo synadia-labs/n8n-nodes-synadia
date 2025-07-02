@@ -1,0 +1,176 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, develop, review ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  quality-checks:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Check code formatting
+      run: |
+        echo "Checking code formatting with Prettier..."
+        npm run format -- --check || {
+          echo "❌ Code formatting issues found!"
+          echo "Run 'npm run format' to fix formatting issues"
+          exit 1
+        }
+        echo "✅ Code formatting looks good!"
+        
+    - name: TypeScript compilation check
+      run: |
+        echo "Checking TypeScript compilation..."
+        npx tsc --noEmit
+        echo "✅ TypeScript compilation successful!"
+        
+    - name: Check for TODO/FIXME comments
+      run: |
+        echo "Scanning for TODO and FIXME comments..."
+        
+        TODO_COUNT=$(grep -r "TODO\|FIXME" --include="*.ts" --include="*.js" . | wc -l || echo "0")
+        
+        if [ "$TODO_COUNT" -gt 0 ]; then
+          echo "Found $TODO_COUNT TODO/FIXME comments:"
+          grep -rn "TODO\|FIXME" --include="*.ts" --include="*.js" . || true
+          echo ""
+          echo "⚠️  Consider addressing these before release"
+        else
+          echo "✅ No TODO/FIXME comments found"
+        fi
+        
+    - name: Check file sizes
+      run: |
+        echo "Checking for large files..."
+        
+        # Find files larger than 100KB
+        find . -name "*.ts" -o -name "*.js" | xargs ls -la | awk '$5 > 102400 {print $5, $9}' > large_files.txt
+        
+        if [ -s large_files.txt ]; then
+          echo "⚠️  Large files found (>100KB):"
+          cat large_files.txt
+          echo "Consider splitting large files into smaller modules"
+        else
+          echo "✅ No unusually large files found"
+        fi
+        
+    - name: Dependency analysis
+      run: |
+        echo "Analyzing dependencies..."
+        
+        # Check for duplicate dependencies
+        npm ls --depth=0 > deps.txt 2>&1 || true
+        
+        if grep -q "UNMET\|ERROR" deps.txt; then
+          echo "⚠️  Dependency issues found:"
+          grep "UNMET\|ERROR" deps.txt || true
+        else
+          echo "✅ Dependency tree looks healthy"
+        fi
+        
+        # Check for unused dependencies
+        echo ""
+        echo "Checking for potentially unused dependencies..."
+        
+        # List all production dependencies
+        DEPS=$(node -p "Object.keys(require('./package.json').dependencies || {}).join(' ')")
+        
+        for dep in $DEPS; do
+          if ! grep -r "require.*$dep\|import.*$dep\|from.*$dep" --include="*.ts" --include="*.js" src/ > /dev/null 2>&1; then
+            echo "⚠️  Potentially unused dependency: $dep"
+          fi
+        done
+        
+    - name: License compliance
+      run: |
+        echo "Checking license compliance..."
+        
+        # Check if LICENSE file exists
+        if [ ! -f LICENSE ]; then
+          echo "❌ LICENSE file not found!"
+          exit 1
+        fi
+        
+        # Check if package.json has license field
+        LICENSE_FIELD=$(node -p "require('./package.json').license || 'MISSING'")
+        if [ "$LICENSE_FIELD" = "MISSING" ]; then
+          echo "❌ License field missing in package.json!"
+          exit 1
+        fi
+        
+        echo "✅ License compliance check passed (License: $LICENSE_FIELD)"
+        
+    - name: Documentation check
+      run: |
+        echo "Checking documentation completeness..."
+        
+        # Check if README exists and has minimum content
+        if [ ! -f README.md ]; then
+          echo "❌ README.md not found!"
+          exit 1
+        fi
+        
+        README_SIZE=$(wc -l < README.md)
+        if [ "$README_SIZE" -lt 20 ]; then
+          echo "⚠️  README.md seems quite short ($README_SIZE lines)"
+          echo "Consider adding more documentation"
+        else
+          echo "✅ README.md exists and has substantial content"
+        fi
+        
+        # Check if examples directory has documentation
+        if [ -d examples ] && [ ! -f examples/README.md ]; then
+          echo "⚠️  examples/README.md not found"
+          echo "Consider documenting the example workflows"
+        fi
+        
+    - name: Performance metrics
+      run: |
+        echo "Gathering performance metrics..."
+        
+        # Build and measure time
+        echo "Measuring build time..."
+        START_TIME=$(date +%s)
+        npm run build > /dev/null 2>&1
+        END_TIME=$(date +%s)
+        BUILD_TIME=$((END_TIME - START_TIME))
+        
+        echo "Build completed in ${BUILD_TIME} seconds"
+        
+        if [ "$BUILD_TIME" -gt 60 ]; then
+          echo "⚠️  Build time is quite long (${BUILD_TIME}s)"
+          echo "Consider optimizing build process"
+        else
+          echo "✅ Build time is reasonable (${BUILD_TIME}s)"
+        fi
+        
+        # Check output bundle size
+        if [ -f dist/index.js ]; then
+          BUNDLE_SIZE=$(stat -c%s "dist/index.js" 2>/dev/null || stat -f%z "dist/index.js")
+          BUNDLE_SIZE_KB=$((BUNDLE_SIZE / 1024))
+          echo "Bundle size: ${BUNDLE_SIZE_KB}KB"
+          
+          if [ "$BUNDLE_SIZE_KB" -gt 5000 ]; then
+            echo "⚠️  Bundle size is quite large (${BUNDLE_SIZE_KB}KB)"
+          else
+            echo "✅ Bundle size is reasonable (${BUNDLE_SIZE_KB}KB)"
+          fi
+        fi

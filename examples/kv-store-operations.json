@@ -11,9 +11,10 @@
     },
     {
       "parameters": {
-        "operation": "createBucket",
+        "resource": "bucket",
+        "operation": "create",
         "bucket": "config-store",
-        "options": {
+        "config": {
           "description": "Application configuration storage",
           "history": 10,
           "ttl": 3600
@@ -33,13 +34,11 @@
     },
     {
       "parameters": {
+        "resource": "key",
         "operation": "put",
         "bucket": "config-store",
         "key": "app.settings.theme",
-        "value": "{{JSON.stringify({\"mode\": \"dark\", \"primaryColor\": \"#1976d2\", \"fontSize\": 14})}}",
-        "options": {
-          "valueType": "json"
-        }
+        "value": "={{JSON.stringify({\"mode\": \"dark\", \"primaryColor\": \"#1976d2\", \"fontSize\": 14})}}"
       },
       "id": "put-value",
       "name": "Store Config",
@@ -55,6 +54,7 @@
     },
     {
       "parameters": {
+        "resource": "key",
         "operation": "get",
         "bucket": "config-store",
         "key": "app.settings.theme",
@@ -74,9 +74,10 @@
     },
     {
       "parameters": {
+        "resource": "key",
         "operation": "list",
         "bucket": "config-store",
-        "options": {}
+        "key": ">"
       },
       "id": "list-keys",
       "name": "List All Keys",
@@ -93,14 +94,15 @@
     {
       "parameters": {
         "bucket": "config-store",
-        "watchType": "all",
+        "key": ">",
         "options": {
-          "includeHistory": false
+          "includes": "",
+          "ignoreDeletes": false
         }
       },
       "id": "watch-changes",
       "name": "Watch for Changes",
-      "type": "n8n-nodes-synadia.natsKvWatcher",
+      "type": "n8n-nodes-synadia.natsKvTrigger",
       "typeVersion": 1,
       "position": [460, 600],
       "credentials": {

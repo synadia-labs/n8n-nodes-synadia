@@ -11,17 +11,17 @@
     },
     {
       "parameters": {
+        "resource": "messages",
+        "operation": "publish",
         "subject": "orders.new",
-        "message": "{{JSON.stringify({\"orderId\": \"ORD-\" + Math.random().toString(36).substr(2, 9).toUpperCase(), \"customerName\": \"Alice Smith\", \"items\": [{\"product\": \"Widget\", \"quantity\": 2, \"price\": 29.99}], \"total\": 59.98, \"status\": \"pending\", \"timestamp\": $now.toISO()})}}",
-        "publishType": "jetstream",
-        "streamName": "ORDERS",
+        "data": "={{JSON.stringify({\"orderId\": \"ORD-\" + Math.random().toString(36).substr(2, 9).toUpperCase(), \"customerName\": \"Alice Smith\", \"items\": [{\"product\": \"Widget\", \"quantity\": 2, \"price\": 29.99}], \"total\": 59.98, \"status\": \"pending\", \"timestamp\": $now.toISO()})}}",
         "options": {
-          "messageId": "{{\"order-\" + Date.now()}}"
+          "messageId": "={{\"order-\" + Date.now()}}"
         }
       },
       "id": "publish-js",
       "name": "Publish to JetStream",
-      "type": "n8n-nodes-synadia.natsPublisher",
+      "type": "n8n-nodes-synadia.natsJetstream",
       "typeVersion": 1,
       "position": [460, 300],
       "credentials": {
@@ -33,16 +33,13 @@
     },
     {
       "parameters": {
-        "subject": "orders.>",
-        "subscriptionType": "jetstream",
         "streamName": "ORDERS",
-        "consumerType": "durable",
         "consumerName": "order-processor",
         "options": {}
       },
       "id": "consume-js",
       "name": "Consume from JetStream",
-      "type": "n8n-nodes-synadia.natsSubscriber",
+      "type": "n8n-nodes-synadia.natsJetstreamTrigger",
       "typeVersion": 1,
       "position": [240, 500],
       "credentials": {
@@ -57,7 +54,7 @@
         "conditions": {
           "string": [
             {
-              "value1": "{{$json.subject}}",
+              "value1": "={{$json.subject}}",
               "value2": "orders.new"
             }
           ]
@@ -75,7 +72,7 @@
           "string": [
             {
               "name": "processedAt",
-              "value": "{{$now.toISO()}}"
+              "value": "={{$now.toISO()}}"
             },
             {
               "name": "processorId",
@@ -85,11 +82,11 @@
           "number": [
             {
               "name": "sequence",
-              "value": "{{$json.seq}}"
+              "value": "={{$json.seq}}"
             }
           ]
         },
-        "options": {}
+        "config": {}
       },
       "id": "process-order",
       "name": "Process Order",
@@ -99,15 +96,15 @@
     },
     {
       "parameters": {
+        "resource": "messages",
+        "operation": "publish",
         "subject": "orders.processed",
-        "message": "{{JSON.stringify(Object.assign({}, $json.data, {processedAt: $json.processedAt, processorId: $json.processorId, originalSeq: $json.sequence}))}}"
-        "publishType": "jetstream",
-        "streamName": "ORDERS",
+        "data": "={{JSON.stringify(Object.assign({}, $json.data, {processedAt: $json.processedAt, processorId: $json.processorId, originalSeq: $json.sequence}))}}",
         "options": {}
       },
       "id": "publish-processed",
       "name": "Publish Processed",
-      "type": "n8n-nodes-synadia.natsPublisher",
+      "type": "n8n-nodes-synadia.natsJetstream",
       "typeVersion": 1,
       "position": [900, 480],
       "credentials": {

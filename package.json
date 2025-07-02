@@ -12,16 +12,15 @@
   },
   "homepage": "https://github.com/synadia-labs/n8n-nodes-synadia#readme",
   "scripts": {
-    "build": "npm run build:nats && tsc && npm run copy:icons && npm run copy:bundled",
-    "build:nats": "node esbuild.config.mjs",
-    "copy:icons": "cp -r src/icons dist/",
-    "copy:bundled": "mkdir -p dist/bundled && cp src/bundled/nats-bundled.js dist/bundled/",
-    "dev": "tsc --watch",
-    "lint": "eslint src --ext .ts",
-    "lint:n8n": "eslint 'src/**/*.ts' --ignore-pattern '**/*.test.ts' --ignore-pattern '**/*.spec.ts'",
+    "lint": "eslint .",
+    "lintfix": "eslint . --fix",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "build": "node esbuild.config.mjs && npx rimraf dist && tsc && gulp build:icons build:bundle",
+    "dev": "tsc --watch",
+    "format": "prettier 'credentials/**/*.ts' 'nodes/**/*.ts' 'utils/**/*.ts' --write",
+    "prepublishOnly": "npm run build && npm run lint -c .eslintrc.prepublish.js"
   },
   "keywords": [
     "n8n",
@@ -40,29 +39,32 @@
   "n8n": {
     "n8nNodesApiVersion": 1,
     "credentials": [
-      "dist/credentials/NatsApi.credentials.js"
+      "dist/credentials/NatsApi/NatsApi.credentials.js"
     ],
     "nodes": [
-      "dist/nodes/NatsSubscriber.node.js",
-      "dist/nodes/NatsStreamConsumer.node.js",
-      "dist/nodes/NatsPublisher.node.js",
-      "dist/nodes/NatsStreamPublisher.node.js",
-      "dist/nodes/NatsKv.node.js",
-      "dist/nodes/NatsKvManager.node.js",
-      "dist/nodes/NatsKvWatcher.node.js",
-      "dist/nodes/NatsObjectStore.node.js",
-      "dist/nodes/NatsObjectStoreManager.node.js",
-      "dist/nodes/NatsObjectStoreWatcher.node.js",
-      "dist/nodes/NatsStreamManager.node.js",
-      "dist/nodes/NatsConsumerManager.node.js"
+      "dist/nodes/Nats/NatsTrigger.node.js",
+      "dist/nodes/NatsJetstream/NatsJetstreamTrigger.node.js",
+      "dist/nodes/Nats/Nats.node.js",
+      "dist/nodes/NatsJetstream/NatsJetstream.node.js",
+      "dist/nodes/NatsKv/NatsKv.node.js",
+      "dist/nodes/NatsKv/NatsKvTrigger.node.js",
+      "dist/nodes/NatsObjectStore/NatsObjectStore.node.js",
+      "dist/nodes/NatsObjectStore/NatsObjectStoreTrigger.node.js"
     ]
   },
   "dependencies": {
     "n8n-core": "^1.82.0",
-    "n8n-workflow": "^1.82.0"
+    "n8n-workflow": "*"
   },
   "devDependencies": {
-    "@eslint/js": "^9.28.0",
+    "@types/jest": "^29.5.14",
+    "@typescript-eslint/parser": "~8.32.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-n8n-nodes-base": "^1.16.3",
+    "gulp": "^5.0.1",
+    "jest": "^30.0.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2",
     "@nats-io/jetstream": "^3.0.2",
     "@nats-io/kv": "^3.0.2",
     "@nats-io/nats-core": "^3.0.2",
@@ -73,18 +75,10 @@
     "@rollup/plugin-replace": "^6.0.2",
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^12.1.2",
-    "@types/jest": "^29.5.14",
-    "@types/node": "^24.0.1",
-    "@typescript-eslint/eslint-plugin": "^8.34.0",
-    "@typescript-eslint/parser": "^8.34.0",
     "esbuild": "^0.25.5",
-    "eslint": "^9.28.0",
-    "eslint-plugin-n8n-nodes-base": "^1.16.3",
-    "jest": "^30.0.0",
-    "n8n-node-dev": "^0.100.0",
-    "nats": "^2.29.3",
-    "rollup": "^4.43.0",
-    "ts-jest": "^29.4.0",
-    "typescript": "^5.8.3"
+    "ts-jest": "^29.4.0"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
   }
 }
