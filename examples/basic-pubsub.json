@@ -12,7 +12,7 @@
     {
       "parameters": {
         "subject": "test.messages",
-        "data": "{{JSON.stringify({\"timestamp\": $now.toISO(), \"message\": \"Hello from n8n!\", \"workflow\": \"Basic Pub/Sub\"})}}",
+        "data": "={{JSON.stringify({\"timestamp\": $now.toISO(), \"message\": \"Hello from n8n!\", \"workflow\": \"Basic Pub/Sub\"})}}",
         "config": {}
       },
       "id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
@@ -50,11 +50,11 @@
           "string": [
             {
               "name": "receivedAt",
-              "value": "{{$now.toISO()}}"
+              "value": "={{$now.toISO()}}"
             },
             {
               "name": "subject",
-              "value": "{{$json.subject}}"
+              "value": "={{$json.subject}}"
             }
           ]
         },

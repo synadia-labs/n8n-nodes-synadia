@@ -35,7 +35,7 @@
     {
       "parameters": {
         "subject": "api.users.service",
-        "data": "{{JSON.stringify({\"userId\": \"123\", \"includeDetails\": true})}}",
+        "data": "={{JSON.stringify({\"userId\": \"123\", \"includeDetails\": true})}}",
         "config": {
           "publishType": "request",
           "timeout": 5000,
@@ -71,7 +71,7 @@
         "queueGroup": "echo-services",
         "replyMode": "automatic",
         "automaticReply": {
-          "responseTemplate": "{\n  \"echo\": \"{{$json.data}}\",\n  \"timestamp\": \"{{new Date().toISOString()}}\",\n  \"serviceId\": \"echo-service-1\"\n}",
+          "responseTemplate": "{\n  \"echo\": \"={{$json.data}}\",\n  \"timestamp\": \"={{new Date().toISOString()}}\",\n  \"serviceId\": \"echo-service-1\"\n}",
           "includeRequestInOutput": true
         }
       },
