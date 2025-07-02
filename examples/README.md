@@ -19,9 +19,9 @@ Shows how to use NATS JetStream Key-Value store.
 
 ### 3. Request/Reply Pattern (`request-reply-service.json`)
 Implements request/reply patterns using NATS Subscriber with reply modes.
-- Setting up a service endpoint with NatsSubscriber in manual reply mode
-- Making requests with NatsPublisher
-- Simple echo service with NatsSubscriber in automatic reply mode
+- Setting up a service endpoint with NatsTrigger in manual reply mode
+- Making requests with Nats
+- Simple echo service with NatsTrigger in automatic reply mode
 - Processing requests and sending responses
 
 ### 4. JetStream Workflow (`jetstream-workflow.json`)

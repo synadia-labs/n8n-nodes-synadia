@@ -22,7 +22,7 @@
       },
       "id": "service-subscriber",
       "name": "User Service Endpoint",
-      "type": "n8n-nodes-synadia.natsSubscriber",
+      "type": "n8n-nodes-synadia.natsTrigger",
       "typeVersion": 1,
       "position": [240, 500],
       "credentials": {
@@ -35,7 +35,7 @@
     {
       "parameters": {
         "subject": "api.users.service",
-        "message": "{{JSON.stringify({\"userId\": \"123\", \"includeDetails\": true})}}",
+        "data": "{{JSON.stringify({\"userId\": \"123\", \"includeDetails\": true})}}",
         "config": {
           "publishType": "request",
           "timeout": 5000,
@@ -44,7 +44,7 @@
       },
       "id": "request-publisher",
       "name": "Send User Request",
-      "type": "n8n-nodes-synadia.natsPublisher",
+      "type": "n8n-nodes-synadia.nats",
       "typeVersion": 1,
       "position": [460, 300],
       "credentials": {
@@ -77,7 +77,7 @@
       },
       "id": "echo-service",
       "name": "Echo Service",
-      "type": "n8n-nodes-synadia.natsSubscriber",
+      "type": "n8n-nodes-synadia.natsTrigger",
       "typeVersion": 1,
       "position": [680, 500],
       "credentials": {

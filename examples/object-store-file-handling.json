@@ -11,9 +11,10 @@
     },
     {
       "parameters": {
+        "resource": "bucket",
         "operation": "create",
-        "bucket": "documents",
-        "config": {
+        "bucketName": "documents",
+        "bucketConfig": {
           "description": "Document storage bucket",
           "storage": "file",
           "replicas": 1
@@ -21,7 +22,7 @@
       },
       "id": "create-bucket",
       "name": "Create Document Bucket",
-      "type": "n8n-nodes-synadia.natsObjectStoreManager",
+      "type": "n8n-nodes-synadia.natsObjectStore",
       "typeVersion": 1,
       "position": [460, 200],
       "credentials": {
@@ -51,6 +52,7 @@
     },
     {
       "parameters": {
+        "resource": "object",
         "operation": "put",
         "bucket": "documents",
         "name": "reports/2024/{{$now.format('yyyy-MM-dd')}}-daily-report.md",
@@ -74,6 +76,7 @@
     },
     {
       "parameters": {
+        "resource": "object",
         "operation": "list",
         "bucket": "documents",
         "config": {}
@@ -92,6 +95,7 @@
     },
     {
       "parameters": {
+        "resource": "object",
         "operation": "info",
         "bucket": "documents",
         "name": "{{$json.name}}",
@@ -120,7 +124,7 @@
       },
       "id": "watch-files",
       "name": "Watch for File Changes",
-      "type": "n8n-nodes-synadia.natsObjectStoreWatcher",
+      "type": "n8n-nodes-synadia.natsObjectStoreTrigger",
       "typeVersion": 1,
       "position": [460, 600],
       "credentials": {
@@ -132,6 +136,7 @@
     },
     {
       "parameters": {
+        "resource": "object",
         "operation": "link",
         "bucket": "documents",
         "name": "reports/latest.md",

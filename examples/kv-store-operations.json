@@ -11,9 +11,10 @@
     },
     {
       "parameters": {
+        "resource": "bucket",
         "operation": "create",
-        "bucket": "config-store",
-        "config": {
+        "bucketName": "config-store",
+        "bucketConfig": {
           "description": "Application configuration storage",
           "history": 10,
           "ttl": 3600
@@ -21,7 +22,7 @@
       },
       "id": "create-bucket",
       "name": "Create KV Bucket",
-      "type": "n8n-nodes-synadia.natsKvManager",
+      "type": "n8n-nodes-synadia.natsKv",
       "typeVersion": 1,
       "position": [460, 200],
       "credentials": {
@@ -33,6 +34,7 @@
     },
     {
       "parameters": {
+        "resource": "key",
         "operation": "put",
         "bucket": "config-store",
         "key": "app.settings.theme",
@@ -52,6 +54,7 @@
     },
     {
       "parameters": {
+        "resource": "key",
         "operation": "get",
         "bucket": "config-store",
         "key": "app.settings.theme",
@@ -71,6 +74,7 @@
     },
     {
       "parameters": {
+        "resource": "key",
         "operation": "list",
         "bucket": "config-store",
         "options": {}
@@ -97,7 +101,7 @@
       },
       "id": "watch-changes",
       "name": "Watch for Changes",
-      "type": "n8n-nodes-synadia.natsKvWatcher",
+      "type": "n8n-nodes-synadia.natsKvTrigger",
       "typeVersion": 1,
       "position": [460, 600],
       "credentials": {

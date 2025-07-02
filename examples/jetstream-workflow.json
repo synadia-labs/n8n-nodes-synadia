@@ -21,7 +21,7 @@
       },
       "id": "publish-js",
       "name": "Publish to JetStream",
-      "type": "n8n-nodes-synadia.natsPublisher",
+      "type": "n8n-nodes-synadia.natsJetstream",
       "typeVersion": 1,
       "position": [460, 300],
       "credentials": {
@@ -107,7 +107,7 @@
       },
       "id": "publish-processed",
       "name": "Publish Processed",
-      "type": "n8n-nodes-synadia.natsPublisher",
+      "type": "n8n-nodes-synadia.natsJetstream",
       "typeVersion": 1,
       "position": [900, 480],
       "credentials": {
