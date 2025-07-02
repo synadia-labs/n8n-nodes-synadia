@@ -75,6 +75,7 @@ export class NatsObjectStoreTrigger implements INodeType {
 
 		let nc: NatsConnection;
 		let watcher: any;
+		let normallyClosed = false;
 
 		// Create NodeLogger once for the entire trigger lifecycle
 		const nodeLogger = new NodeLogger(this.logger, this.getNode());
@@ -119,13 +120,21 @@ export class NatsObjectStoreTrigger implements INodeType {
 					let result: IDataObject = { ...update };
 					this.emit([this.helpers.returnJsonArray([result])]);
 				}
-			})();
+
+				if (!normallyClosed) {
+					nodeLogger.warn("KV watcher loop stopped");
+				}
+			})().catch(e => {
+				nodeLogger.error(e);
+			});
 		};
 
 		await startWatcher();
 
 		async function closeFunction() {
 			try {
+				normallyClosed = true;
+
 				// Stop the watcher if it exists
 				if (watcher && typeof watcher.stop === 'function') {
 					try {

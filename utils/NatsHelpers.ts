@@ -35,11 +35,7 @@ export function parseNatsMessage(msg: Msg): INodeExecutionData {
 
 	// Add headers if present
 	if (msg.headers) {
-		const headersObj: Record<string, string> = {};
-		for (const [key, value] of msg.headers) {
-			headersObj[key] = Array.isArray(value) ? value.join(',') : value;
-		}
-		result.json.headers = headersObj;
+		result.json.headers = (msg.headers as MsgHdrsImpl).toRecord();
 	}
 
 	return result;

@@ -82,13 +82,6 @@ export class NatsJetstreamTrigger implements INodeType {
 						default: 30,
 						description: 'Timeout for pull requests in seconds',
 					},
-					{
-						displayName: 'No Wait',
-						name: 'noWait',
-						type: 'boolean',
-						default: false,
-						description: 'Whether to return immediately when no messages are available',
-					},
 				],
 			},
 		],
@@ -232,10 +225,6 @@ export class NatsJetstreamTrigger implements INodeType {
 			} else {
 				// Default to max_messages
 				pullOptions.max_messages = options.maxMessages || 100;
-			}
-
-			if (options.noWait) {
-				pullOptions.no_wait = true;
 			}
 
 			// Start consuming messages

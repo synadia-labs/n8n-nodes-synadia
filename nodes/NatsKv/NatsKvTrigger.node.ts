@@ -103,6 +103,7 @@ export class NatsKvTrigger implements INodeType {
 
 		let nc: NatsConnection;
 		let watcher: any;
+		let normallyClosed = false;
 
 		// Create NodeLogger once for the entire trigger lifecycle
 		const nodeLogger = new NodeLogger(this.logger, this.getNode());
@@ -159,13 +160,21 @@ export class NatsKvTrigger implements INodeType {
 					let result: IDataObject = { ...entry };
 					this.emit([this.helpers.returnJsonArray([result])]);
 				}
-			})();
+
+				if (!normallyClosed) {
+					nodeLogger.warn("KV watcher loop stopped");
+				}
+			})().catch(e => {
+				nodeLogger.error(e);
+			});
 		};
 
 		await startWatcher();
 
 		async function closeFunction() {
 			try {
+				normallyClosed = true;
+
 				if (watcher) {
 					// KV watcher is an async iterator, no stop method needed
 					// It will be cleaned up when the connection closes
