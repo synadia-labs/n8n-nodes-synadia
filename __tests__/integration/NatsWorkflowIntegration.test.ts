@@ -216,6 +216,8 @@ describe('NATS Nodes Integration Tests', () => {
 			request: jest.fn().mockResolvedValue({
 				data: sc.encode('{"response": "test"}'),
 				headers: createHeaders(),
+				json: jest.fn().mockReturnValue({ response: 'test' }),
+				string: jest.fn().mockReturnValue('{"response": "test"}'),
 			}),
 			flush: jest.fn().mockResolvedValue(undefined),
 			jetstream: jest.fn().mockReturnValue(mockJs),
@@ -306,6 +308,8 @@ describe('NATS Nodes Integration Tests', () => {
 				data: sc.encode('{"test": "message"}'),
 				reply: undefined,
 				headers: undefined,
+				json: jest.fn().mockReturnValue({ test: 'message' }),
+				string: jest.fn().mockReturnValue('{"test": "message"}'),
 			};
 
 			mockSubscription[Symbol.asyncIterator] = jest.fn().mockReturnValue({
@@ -425,6 +429,8 @@ describe('NATS Nodes Integration Tests', () => {
 			const messages = Array.from({ length: 1000 }, (_, i) => ({
 				subject: `high.throughput.${i}`,
 				data: sc.encode(`{"id": ${i}}`),
+				json: jest.fn().mockReturnValue({ id: i }),
+				string: jest.fn().mockReturnValue(`{"id": ${i}}`),
 			}));
 
 			let messageIndex = 0;

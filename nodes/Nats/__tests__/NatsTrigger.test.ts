@@ -114,6 +114,8 @@ describe('NatsTrigger', () => {
 					reply: '',
 					headers: undefined,
 					sid: 1,
+					json: () => ({ test: 1 }),
+					string: () => '{"test": 1}',
 				},
 				{
 					subject: 'test.subject',
@@ -121,6 +123,8 @@ describe('NatsTrigger', () => {
 					reply: '',
 					headers: undefined,
 					sid: 2,
+					json: () => ({ test: 2 }),
+					string: () => '{"test": 2}',
 				},
 			];
 

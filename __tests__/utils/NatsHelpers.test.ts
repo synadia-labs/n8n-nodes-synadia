@@ -15,6 +15,8 @@ describe('NatsHelpers', () => {
 				headers: undefined,
 				sid: 1,
 				seq: undefined,
+				json: () => ({ hello: 'world' }),
+				string: () => '{"hello": "world"}',
 			} as any;
 
 			const result = parseNatsMessage(mockMsg);
@@ -33,11 +35,13 @@ describe('NatsHelpers', () => {
 				reply: undefined,
 				headers: undefined,
 				sid: 1,
+				json: () => { throw new Error('Not JSON'); },
+				string: () => 'plain text message',
 			} as any;
 
 			const result = parseNatsMessage(mockMsg);
 
-			expect(result.json.data).toBe(mockData); // Raw Uint8Array, not decoded string
+			expect(result.json.data).toBe('plain text message'); // Decoded string when JSON parsing fails
 		});
 
 		it('should handle empty message', () => {
@@ -47,11 +51,13 @@ describe('NatsHelpers', () => {
 				reply: undefined,
 				headers: undefined,
 				sid: 1,
+				json: () => { throw new Error('Empty data'); },
+				string: () => '',
 			} as any;
 
 			const result = parseNatsMessage(mockMsg);
 
-			expect(result.json.data).toEqual(new Uint8Array(0)); // Raw empty Uint8Array
+			expect(result.json.data).toBe(''); // Empty string when both JSON and string parsing work
 		});
 
 		it('should include headers when present', () => {
@@ -66,6 +72,8 @@ describe('NatsHelpers', () => {
 				reply: undefined,
 				headers: mockHeaders,
 				sid: 1,
+				json: () => ({}),
+				string: () => '{}',
 			} as any;
 
 			const result = parseNatsMessage(mockMsg);
@@ -84,6 +92,8 @@ describe('NatsHelpers', () => {
 				headers: undefined,
 				sid: 1,
 				seq: 123,
+				json: () => ({}),
+				string: () => '{}',
 			} as any;
 
 			const result = parseNatsMessage(mockMsg);
