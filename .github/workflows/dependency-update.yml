@@ -1,0 +1,217 @@
+name: Dependency Update
+
+on:
+  schedule:
+    # Run every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  update-dependencies:
+    name: Update Dependencies
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Check for dependency updates
+      id: check_updates
+      run: |
+        echo "Checking for outdated dependencies..."
+        npm outdated --json > outdated.json || true
+        
+        if [ -s outdated.json ]; then
+          echo "updates_available=true" >> $GITHUB_OUTPUT
+          echo "Found outdated dependencies:"
+          cat outdated.json | jq -r 'to_entries[] | "\(.key): \(.value.current) -> \(.value.wanted)"'
+        else
+          echo "updates_available=false" >> $GITHUB_OUTPUT
+          echo "All dependencies are up to date!"
+        fi
+        
+    - name: Update dependencies
+      if: steps.check_updates.outputs.updates_available == 'true'
+      run: |
+        echo "Updating dependencies..."
+        
+        # Update non-breaking changes only
+        npm update
+        
+        # Check if package-lock.json changed
+        if git diff --quiet package-lock.json; then
+          echo "No dependency updates needed"
+          exit 0
+        fi
+        
+        echo "Dependencies updated successfully"
+        
+    - name: Run tests after update
+      if: steps.check_updates.outputs.updates_available == 'true'
+      run: |
+        echo "Installing updated dependencies..."
+        npm ci
+        
+        echo "Running tests to verify updates don't break anything..."
+        npm run test
+        
+        echo "Running build to verify compatibility..."
+        npm run build
+        
+    - name: Create Pull Request
+      if: steps.check_updates.outputs.updates_available == 'true'
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: 'chore: update dependencies'
+        title: '🤖 Automated dependency updates'
+        body: |
+          ## Automated Dependency Updates
+          
+          This PR contains automated updates to project dependencies.
+          
+          ### Changes
+          - Updated dependencies to their latest compatible versions
+          - All tests pass with the updated dependencies
+          - Build process verified successfully
+          
+          ### Safety Checks
+          ✅ Tests passing
+          ✅ Build successful
+          ✅ Only non-breaking updates included
+          
+          ### Review Notes
+          Please review the changes and verify that:
+          - [ ] All functionality works as expected
+          - [ ] No breaking changes introduced
+          - [ ] Performance is not negatively impacted
+          
+          ---
+          🤖 This PR was created automatically by GitHub Actions
+        branch: chore/dependency-updates
+        delete-branch: true
+        labels: |
+          dependencies
+          automated
+          
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run security audit
+      id: audit
+      run: |
+        echo "Running npm security audit..."
+        npm audit --audit-level=moderate --json > audit-results.json || true
+        
+        # Check if vulnerabilities found
+        VULNERABILITIES=$(cat audit-results.json | jq '.metadata.vulnerabilities.total // 0')
+        echo "Total vulnerabilities found: $VULNERABILITIES"
+        
+        if [ "$VULNERABILITIES" -gt 0 ]; then
+          echo "vulnerabilities_found=true" >> $GITHUB_OUTPUT
+          echo "vulnerability_count=$VULNERABILITIES" >> $GITHUB_OUTPUT
+          
+          echo "Vulnerability details:"
+          cat audit-results.json | jq -r '.vulnerabilities | to_entries[] | "\(.key): \(.value.severity) - \(.value.title)"'
+        else
+          echo "vulnerabilities_found=false" >> $GITHUB_OUTPUT
+          echo "No security vulnerabilities found!"
+        fi
+        
+    - name: Create security issue
+      if: steps.audit.outputs.vulnerabilities_found == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const auditResults = JSON.parse(fs.readFileSync('audit-results.json', 'utf8'));
+          
+          const vulnerabilities = auditResults.vulnerabilities || {};
+          const vulnCount = Object.keys(vulnerabilities).length;
+          
+          let vulnDetails = '';
+          for (const [name, vuln] of Object.entries(vulnerabilities)) {
+            vulnDetails += `
+          ## ${name}
+          - **Severity**: ${vuln.severity}
+          - **Title**: ${vuln.title}
+          - **Range**: ${vuln.range}
+          - **Via**: ${Array.isArray(vuln.via) ? vuln.via.join(', ') : vuln.via}
+          `;
+          }
+          
+          const issueBody = `# 🚨 Security Vulnerabilities Detected
+          
+          Our automated security audit found **${vulnCount}** vulnerabilities in project dependencies.
+          
+          ${vulnDetails}
+          
+          ## Recommended Actions
+          1. Review each vulnerability for impact on our project
+          2. Update affected dependencies to secure versions
+          3. Test thoroughly after updates
+          4. Consider alternative packages if updates aren't available
+          
+          ## Fix Commands
+          Try running these commands to fix vulnerabilities:
+          \`\`\`bash
+          npm audit fix
+          npm audit fix --force  # Use with caution
+          \`\`\`
+          
+          ---
+          🤖 This issue was created automatically by our security audit workflow.
+          Generated on: ${new Date().toISOString()}`;
+          
+          // Check if a security issue already exists
+          const issues = await github.rest.issues.listForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            state: 'open',
+            labels: 'security,vulnerability'
+          });
+          
+          const existingIssue = issues.data.find(issue => 
+            issue.title.includes('Security Vulnerabilities Detected')
+          );
+          
+          if (existingIssue) {
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: existingIssue.number,
+              body: issueBody
+            });
+            console.log(`Updated existing security issue #${existingIssue.number}`);
+          } else {
+            const newIssue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Security Vulnerabilities Detected',
+              body: issueBody,
+              labels: ['security', 'vulnerability', 'automated']
+            });
+            console.log(`Created new security issue #${newIssue.data.number}`);
+          }
