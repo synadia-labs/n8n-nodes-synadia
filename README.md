@@ -116,10 +116,9 @@ To connect to Synadia Cloud:
 **Tested versions:**
 - n8n 1.82.0+
 - Node.js 18.19+, 20.10+
-- NATS Server 2.2.0+ (for JetStream features)
+- NATS Server 2.10.x (for JetStream features)
 
 **Known limitations:**
-- JetStream features require NATS Server 2.2.0 or higher
 - Some TypeScript types require explicit casting due to n8n API constraints
 - Icons may appear as boxes until n8n restart after installation
 
