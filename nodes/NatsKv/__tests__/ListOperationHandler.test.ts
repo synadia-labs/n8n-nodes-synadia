@@ -22,9 +22,9 @@ describe('ListOperationHandler', () => {
 	});
 
 	describe('execute', () => {
-		it('should list keys with wildcard pattern successfully', async () => {
-			const testPattern = 'config.*';
-			const expectedKeys = ['config.app', 'config.db', 'config.auth'];
+		it('should list all keys with wildcard pattern', async () => {
+			const testPattern = '>';
+			const expectedKeys = ['config.app', 'config.db', 'config.auth', 'user.123', 'data.cache'];
 
 			// Mock the async iterator
 			const mockIterator = {
@@ -46,7 +46,7 @@ describe('ListOperationHandler', () => {
 			});
 		});
 
-		it('should handle empty key list', async () => {
+		it('should handle empty key list with pattern', async () => {
 			const testPattern = 'nonexistent.*';
 
 			const mockIterator = {
@@ -136,83 +136,12 @@ describe('ListOperationHandler', () => {
 			});
 		});
 
-		it('should throw error when key parameter is not provided', async () => {
-			await expect(handler.execute(mockKV, { key: '' })).rejects.toThrow('key is not provided');
-			expect(mockKV.keys).not.toHaveBeenCalled();
-		});
-
-		it('should throw error when key parameter is undefined', async () => {
-			await expect(handler.execute(mockKV, { key: undefined as any })).rejects.toThrow(
-				'key is not provided',
-			);
-			expect(mockKV.keys).not.toHaveBeenCalled();
-		});
-
-		it('should throw error when key parameter is null', async () => {
-			await expect(handler.execute(mockKV, { key: null as any })).rejects.toThrow(
-				'key is not provided',
-			);
-			expect(mockKV.keys).not.toHaveBeenCalled();
-		});
-
-		it('should propagate bucket not found errors', async () => {
-			const testPattern = 'test.*';
-			const natsError = createNotFoundError('Bucket not found');
-
-			mockKV.keys.mockRejectedValue(natsError);
-
-			await expect(handler.execute(mockKV, { key: testPattern })).rejects.toThrow(
-				'Bucket not found',
-			);
-			expect(mockKV.keys).toHaveBeenCalledWith(testPattern);
-		});
-
-		it('should propagate permission errors', async () => {
-			const testPattern = 'restricted.*';
-			const permissionError = createPermissionError('Permission denied for list operation');
-
-			mockKV.keys.mockRejectedValue(permissionError);
-
-			await expect(handler.execute(mockKV, { key: testPattern })).rejects.toThrow(
-				'Permission denied for list operation',
-			);
-			expect(mockKV.keys).toHaveBeenCalledWith(testPattern);
-		});
-
-		it('should handle network timeout errors', async () => {
-			const testPattern = 'test.*';
-			const timeoutError = new Error('List operation timeout');
-			(timeoutError as any).code = 'TIMEOUT';
-
-			mockKV.keys.mockRejectedValue(timeoutError);
-
-			await expect(handler.execute(mockKV, { key: testPattern })).rejects.toThrow(
-				'List operation timeout',
-			);
-		});
-
-		it('should handle iterator errors during iteration', async () => {
-			const testPattern = 'error.*';
-
-			const mockIterator = {
-				[Symbol.asyncIterator]: jest.fn().mockImplementation(async function* () {
-					yield 'error.key1';
-					throw new Error('Iterator error during iteration');
-				}),
-			};
-
-			mockKV.keys.mockResolvedValue(mockIterator as any);
-
-			await expect(handler.execute(mockKV, { key: testPattern })).rejects.toThrow(
-				'Iterator error during iteration',
-			);
-		});
-
 		it('should handle different wildcard patterns', async () => {
 			const testCases = [
-				{ pattern: '*', expectedKeys: ['key1', 'key2', 'key3'] },
+				{ pattern: '>', expectedKeys: ['key1', 'key2', 'key3'] },
 				{ pattern: '*.config', expectedKeys: ['app.config', 'db.config'] },
 				{ pattern: 'user.*.settings', expectedKeys: ['user.123.settings', 'user.456.settings'] },
+				{ pattern: 'config.*', expectedKeys: ['config.app', 'config.db', 'config.auth'] },
 			];
 
 			for (const testCase of testCases) {
@@ -235,6 +164,67 @@ describe('ListOperationHandler', () => {
 
 				jest.clearAllMocks();
 			}
+		});
+
+		it('should throw error when key pattern is not provided', async () => {
+			await expect(handler.execute(mockKV, { key: '' })).rejects.toThrow('key pattern is not provided');
+			expect(mockKV.keys).not.toHaveBeenCalled();
+		});
+
+		it('should throw error when key parameter is undefined', async () => {
+			await expect(handler.execute(mockKV, { key: undefined as any })).rejects.toThrow(
+				'key pattern is not provided',
+			);
+			expect(mockKV.keys).not.toHaveBeenCalled();
+		});
+
+		it('should propagate bucket not found errors', async () => {
+			const testPattern = '>';
+			const natsError = createNotFoundError('Bucket not found');
+
+			mockKV.keys.mockRejectedValue(natsError);
+
+			await expect(handler.execute(mockKV, { key: testPattern })).rejects.toThrow('Bucket not found');
+			expect(mockKV.keys).toHaveBeenCalledWith(testPattern);
+		});
+
+		it('should propagate permission errors', async () => {
+			const testPattern = 'restricted.*';
+			const permissionError = createPermissionError('Permission denied for list operation');
+
+			mockKV.keys.mockRejectedValue(permissionError);
+
+			await expect(handler.execute(mockKV, { key: testPattern })).rejects.toThrow(
+				'Permission denied for list operation',
+			);
+			expect(mockKV.keys).toHaveBeenCalledWith(testPattern);
+		});
+
+		it('should handle network timeout errors', async () => {
+			const testPattern = '>';
+			const timeoutError = new Error('List operation timeout');
+			(timeoutError as any).code = 'TIMEOUT';
+
+			mockKV.keys.mockRejectedValue(timeoutError);
+
+			await expect(handler.execute(mockKV, { key: testPattern })).rejects.toThrow('List operation timeout');
+		});
+
+		it('should handle iterator errors during iteration', async () => {
+			const testPattern = 'error.*';
+
+			const mockIterator = {
+				[Symbol.asyncIterator]: jest.fn().mockImplementation(async function* () {
+					yield 'error.key1';
+					throw new Error('Iterator error during iteration');
+				}),
+			};
+
+			mockKV.keys.mockResolvedValue(mockIterator as any);
+
+			await expect(handler.execute(mockKV, { key: testPattern })).rejects.toThrow(
+				'Iterator error during iteration',
+			);
 		});
 	});
 });

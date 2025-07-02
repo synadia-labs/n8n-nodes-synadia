@@ -21,7 +21,7 @@ export class NatsKvTrigger implements INodeType {
 		group: ['trigger'],
 		version: 1,
 		description: 'Watch for changes in NATS KV buckets and trigger workflows',
-		subtitle: '{{$parameter["bucket"]}} - {{$parameter["operation"]}}',
+		subtitle: '={{$parameter["bucket"] + " - " + $parameter["key"]}}',
 		defaults: {
 			name: 'NATS KV Trigger',
 		},
@@ -45,21 +45,23 @@ export class NatsKvTrigger implements INodeType {
 					'The name of the KV bucket to watch. Must contain only letters, numbers, underscores, and hyphens (no spaces or dots).',
 			},
 			{
+				displayName: 'Key Pattern',
+				name: 'key',
+				type: 'string',
+				default: '>',
+				required: true,
+				placeholder: 'my_key.>',
+				description:
+					'Key pattern to watch. Use ">" to watch all keys, or patterns like "config.*" to watch specific keys.',
+				hint: 'Examples: ">" (all keys), "config.*" (keys starting with config.), "user.*.settings" (specific patterns)',
+			},
+			{
 				displayName: 'Options',
 				name: 'options',
 				type: 'collection',
 				placeholder: 'Add Option',
 				default: {},
 				options: [
-					{
-						displayName: 'Key',
-						name: 'filter',
-						type: 'string',
-						default: '',
-						placeholder: 'my_key.>',
-						description:
-							'A key or wildcarded key following keys as if they were NATS subject names',
-					},
 					{
 						displayName: 'Includes',
 						name: 'includes',
@@ -96,6 +98,7 @@ export class NatsKvTrigger implements INodeType {
 	async trigger(this: ITriggerFunctions): Promise<ITriggerResponse> {
 		const credentials = await this.getCredentials('natsApi');
 		const bucket = this.getNodeParameter('bucket') as string;
+		const key = this.getNodeParameter('key') as string;
 		const options = this.getNodeParameter('options', {}) as any;
 
 		let nc: NatsConnection;
@@ -143,7 +146,7 @@ export class NatsKvTrigger implements INodeType {
 
 			// Configure watch options
 			const watchOpts: KvWatchOptions = {};
-			if (options.filter) watchOpts.key = options.filter;
+			if (key) watchOpts.key = key;
 			if (options.includes) watchOpts.include = options.includes;
 			if (options.ignoreDeletes) watchOpts.ignoreDeletes = options.ignoreDeletes;
 
@@ -182,20 +185,35 @@ export class NatsKvTrigger implements INodeType {
 
 		// Manual trigger function for testing
 		const manualTriggerFunction = async () => {
-			// Provide sample data based on watch type
+			// Provide comprehensive sample data based on KV watch operations
+			const sampleUserPreferences = {
+				theme: 'dark',
+				language: 'en',
+				timezone: 'America/New_York',
+				notifications: {
+					email: true,
+					push: false,
+					sms: false
+				},
+				dashboard: {
+					layout: 'grid',
+					widgets: ['weather', 'calendar', 'tasks'],
+					refreshRate: 30
+				}
+			};
+
 			const sampleData = {
 				bucket,
-				key: 'user.preferences.theme',
-				value: new TextEncoder().encode(
-					JSON.stringify({
-						field: 'value',
-					}),
-				),
-				revision: 5,
+				key: 'user.12345.preferences',
+				value: new TextEncoder().encode(JSON.stringify(sampleUserPreferences)),
+				revision: Math.floor(Math.random() * 10) + 1,
 				created: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
 				operation: 'PUT',
-				delta: 2,
+				delta: Math.floor(Math.random() * 5) + 1,
 				timestamp: new Date().toISOString(),
+				// Additional KV metadata that might be useful
+				size: JSON.stringify(sampleUserPreferences).length,
+				history: Math.floor(Math.random() * 3) + 1,
 			};
 
 			this.emit([this.helpers.returnJsonArray([sampleData])]);

@@ -88,7 +88,6 @@ export class NatsApi implements ICredentialType {
 			name: 'credsFile',
 			type: 'string',
 			typeOptions: {
-				password: true,
 				rows: 10,
 			},
 			displayOptions: {

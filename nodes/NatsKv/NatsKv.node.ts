@@ -27,7 +27,7 @@ export class NatsKv implements INodeType {
 		group: ['transform'],
 		version: 1,
 		description: 'Interact with NATS JetStream Key-Value Store - manage buckets and keys',
-		subtitle: '={{$parameter["resource"]}} - {{$parameter["operation"]}} - {{$parameter["bucket"]}}',
+		subtitle: '={{$parameter["resource"] + " - " + $parameter["operation"] + " - " + $parameter["bucket"]}}',
 		defaults: {
 			name: 'NATS KV',
 		},

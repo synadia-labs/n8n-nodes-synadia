@@ -8,13 +8,12 @@ export class ListOperationHandler extends KvOperationHandler {
 	async execute(kv: KV, params: KvOperationParams): Promise<IDataObject> {
 		const { key } = params;
 
-		// -- make sure key and value are set
-		if (!key) throw new Error('key is not provided');
+		if (!key) throw new Error('key pattern is not provided');
 
 		const keys: string[] = [];
 		const iter = await kv.keys(key);
-		for await (const key of iter) {
-			keys.push(key);
+		for await (const k of iter) {
+			keys.push(k);
 		}
 
 		return {

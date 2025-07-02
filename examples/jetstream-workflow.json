@@ -33,16 +33,13 @@
     },
     {
       "parameters": {
-        "subject": "orders.>",
-        "subscriptionType": "jetstream",
         "streamName": "ORDERS",
-        "consumerType": "durable",
         "consumerName": "order-processor",
-        "config": {}
+        "options": {}
       },
       "id": "consume-js",
       "name": "Consume from JetStream",
-      "type": "n8n-nodes-synadia.natsSubscriber",
+      "type": "n8n-nodes-synadia.natsJetstreamTrigger",
       "typeVersion": 1,
       "position": [240, 500],
       "credentials": {

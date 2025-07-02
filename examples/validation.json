@@ -98,8 +98,8 @@
       "parameters": {
         "operation": "put",
         "bucket": "documents",
-        "name": "=report-{{ $json.timestamp.toDateTime().format('yyyy-LL-dd') }}.pdf",
-        "data": "={{ $json.toJsonString() }}",
+        "name": "={{\"report-\" + $json.timestamp.toDateTime().format('yyyy-LL-dd') + \".pdf\"}}",
+        "data": "={{$json.toJsonString()}}",
         "config": {}
       },
       "type": "n8n-nodes-synadia.natsObjectStore",

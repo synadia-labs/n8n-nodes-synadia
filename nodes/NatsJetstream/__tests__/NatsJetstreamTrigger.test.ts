@@ -122,7 +122,7 @@ describe('NatsJetstreamTrigger', () => {
 			expect(mockJetStream.consumers.get).toHaveBeenCalledWith('TEST_STREAM', 'test-consumer');
 		});
 
-		it('should setup consumer with pull options', async () => {
+		it('should setup consumer with pull options (maxBytes takes priority)', async () => {
 			mockGetNodeParameter.mockImplementation((paramName: string) => {
 				switch (paramName) {
 					case 'streamName': return 'TEST_STREAM';
@@ -140,10 +140,31 @@ describe('NatsJetstreamTrigger', () => {
 			await node.trigger.call(mockTriggerFunctions);
 
 			expect(mockConsumer.consume).toHaveBeenCalledWith({
-				max_messages: 50,
-				max_bytes: 512 * 1024,
+				max_bytes: 512 * 1024, // maxBytes takes priority
 				expires: 60000, // Converted to milliseconds
 				no_wait: true,
+			});
+		});
+
+		it('should use maxMessages when maxBytes is not set', async () => {
+			mockGetNodeParameter.mockImplementation((paramName: string) => {
+				switch (paramName) {
+					case 'streamName': return 'TEST_STREAM';
+					case 'consumerName': return 'test-consumer';
+					case 'options': return {
+						maxMessages: 50,
+						expires: 60,
+						noWait: false,
+					};
+					default: return undefined;
+				}
+			});
+
+			await node.trigger.call(mockTriggerFunctions);
+
+			expect(mockConsumer.consume).toHaveBeenCalledWith({
+				max_messages: 50,
+				expires: 60000, // Converted to milliseconds
 			});
 		});
 	});
@@ -193,11 +214,22 @@ describe('NatsJetstreamTrigger', () => {
 						json: expect.objectContaining({
 							subject: 'events.orders.new',
 							data: expect.objectContaining({
-								orderId: 'order-12345',
+								orderId: expect.stringMatching(/^order-/),
 								customerId: 'customer-67890',
+								amount: expect.any(Number),
+								currency: 'USD',
+								items: expect.any(Array),
+								status: 'confirmed',
+							}),
+							headers: expect.objectContaining({
+								'Content-Type': 'application/json',
+								'X-Order-Source': 'web-app',
 							}),
 							stream: 'TEST_STREAM',
 							consumer: 'test-consumer',
+							seq: expect.any(Number),
+							redelivered: false,
+							redeliveryCount: 0,
 						}),
 					}),
 				]),

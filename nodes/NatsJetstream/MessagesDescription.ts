@@ -50,9 +50,8 @@ export const messagesDescription: INodeProperties[] = [
 				operation: ['publish'],
 			},
 		},
-		default: '{{ $json }}',
+		default: '={{ $json }}',
 		description: 'Message content to publish',
-		hint: 'Supports expressions like {{ $json }} to use input data',
 	},
 	{
 		displayName: 'Headers',

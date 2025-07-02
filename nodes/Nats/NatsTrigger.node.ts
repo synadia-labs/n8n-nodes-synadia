@@ -19,7 +19,7 @@ export class NatsTrigger implements INodeType {
 		group: ['trigger'],
 		version: 1,
 		description: 'Subscribe to NATS subjects and trigger workflows on messages',
-		subtitle: '{{$parameter["subject"]}}',
+		subtitle: '={{$parameter["subject"]}}',
 		defaults: {
 			name: 'NATS Trigger',
 		},
@@ -47,11 +47,6 @@ export class NatsTrigger implements INodeType {
 				name: 'queueGroup',
 				type: 'string',
 				default: '',
-				displayOptions: {
-					show: {
-						subscriptionType: ['core'],
-					},
-				},
 				description: 'Group name for load balancing multiple subscribers',
 				placeholder: 'order-processors',
 				hint: 'Only one subscriber in the group receives each message',
@@ -97,18 +92,35 @@ export class NatsTrigger implements INodeType {
 		};
 
 		const manualTriggerFunction = async () => {
+			// Provide comprehensive sample data showing all available fields
 			let sampleData: any = {
 				subject,
 				data: {
-					message: 'Sample NATS message',
+					id: 'msg-' + Math.random().toString(36).substr(2, 9),
+					message: 'Hello from NATS! This is sample data to help you build your workflow.',
+					type: 'user.signup',
+					user: {
+						id: 'user-12345',
+						email: 'user@example.com',
+						name: 'John Doe'
+					},
+					metadata: {
+						source: 'web-app',
+						version: '1.0.0',
+						environment: 'production'
+					},
 					timestamp: Date.now(),
-					source: 'manual-trigger',
 				},
 				headers: {
-					'X-Sample-Header': 'sample-value',
+					'Content-Type': 'application/json',
+					'X-Request-ID': 'req-' + Math.random().toString(36).substr(2, 9),
+					'X-Source': 'manual-trigger',
+					'X-Version': '1.0'
 				},
+				replyTo: `_INBOX.${Math.random().toString(36).substr(2, 12)}`,
 				timestamp: new Date().toISOString(),
 			};
+
 
 			this.emit([this.helpers.returnJsonArray([sampleData])]);
 		};

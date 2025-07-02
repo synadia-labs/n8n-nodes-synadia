@@ -18,7 +18,7 @@ export class NatsObjectStoreTrigger implements INodeType {
 		group: ['trigger'],
 		version: 1,
 		description: 'Watch for object changes in NATS Object Store buckets and trigger workflows',
-		subtitle: '{{$parameter["bucket"]}}',
+		subtitle: '={{$parameter["bucket"]}}',
 		defaults: {
 			name: 'NATS Object Store Trigger',
 		},
@@ -149,14 +149,29 @@ export class NatsObjectStoreTrigger implements INodeType {
 
 		// Manual trigger function for testing
 		const manualTriggerFunction = async () => {
-			// Provide sample data matching ObjectWatchInfo format
+			// Provide comprehensive sample data for Object Store operations
+			const fileTypes = ['pdf', 'jpg', 'txt', 'json', 'csv'];
+			const randomType = fileTypes[Math.floor(Math.random() * fileTypes.length)];
+			const randomSize = Math.floor(Math.random() * 5000000) + 100000; // 100KB to 5MB
+			
 			const sampleData = {
-				name: 'reports/2024/sales-report.pdf',
-				size: 2457600, // ~2.4MB
-				chunks: 20,
-				digest: 'SHA-256=47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=',
+				name: `documents/2024/${Math.random().toString(36).substr(2, 8)}-report.${randomType}`,
+				size: randomSize,
+				chunks: Math.ceil(randomSize / 128000), // Assuming ~128KB chunks
+				digest: `SHA-256=${Math.random().toString(36).substr(2, 40)}ABCD=`,
 				mtime: new Date().toISOString(),
+				bucket: bucket,
 				deleted: false,
+				// Additional metadata that might be useful
+				metadata: {
+					uploadedBy: 'user-12345',
+					contentType: `application/${randomType === 'jpg' ? 'jpeg' : randomType}`,
+					category: 'reports',
+					tags: ['monthly', 'sales', '2024'],
+					version: '1.0'
+				},
+				revision: Math.floor(Math.random() * 5) + 1,
+				created: new Date(Date.now() - Math.random() * 7200000).toISOString(), // Random time in last 2 hours
 			};
 
 			this.emit([this.helpers.returnJsonArray([sampleData])]);

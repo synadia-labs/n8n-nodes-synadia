@@ -65,14 +65,15 @@ export class NatsJetstreamTrigger implements INodeType {
 						type: 'number',
 						default: 100,
 						description: 'Maximum number of messages to fetch in each pull',
-						hint: 'Higher values can improve performance but use more memory',
+						hint: 'Used when Max Bytes is not set. Higher values can improve performance but use more memory',
 					},
 					{
 						displayName: 'Max Bytes',
 						name: 'maxBytes',
 						type: 'number',
-						default: 1048576,
-						description: 'Maximum bytes to fetch in each pull',
+						default: 0,
+						description: 'Maximum bytes to fetch in each pull. If set, takes priority over Max Messages.',
+						hint: 'Set to 0 to use Max Messages instead. These options are mutually exclusive',
 					},
 					{
 						displayName: 'Expires (Seconds)',
@@ -128,26 +129,51 @@ export class NatsJetstreamTrigger implements INodeType {
 		};
 
 		const manualTriggerFunction = async () => {
-			// Provide sample data matching JetStream message format
+			// Provide comprehensive sample data matching JetStream message format
 			const sampleData = {
 				subject: 'events.orders.new',
 				data: {
-					orderId: 'order-12345',
+					orderId: 'order-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
 					customerId: 'customer-67890',
 					amount: 99.99,
 					currency: 'USD',
+					items: [
+						{
+							sku: 'WIDGET-001',
+							name: 'Premium Widget',
+							quantity: 2,
+							price: 49.99
+						}
+					],
+					shipping: {
+						address: '123 Main St, Anytown, NY 12345',
+						method: 'standard',
+						cost: 9.99
+					},
+					payment: {
+						method: 'credit_card',
+						last4: '4242',
+						status: 'authorized'
+					},
+					status: 'confirmed',
 					timestamp: Date.now(),
 				},
 				headers: {
 					'Content-Type': 'application/json',
 					'X-Order-Source': 'web-app',
+					'X-User-Agent': 'Mozilla/5.0 (example)',
+					'X-Request-ID': 'req-' + Math.random().toString(36).substr(2, 12),
+					'X-Correlation-ID': 'corr-' + Math.random().toString(36).substr(2, 12)
 				},
-				seq: 1234,
+				// JetStream specific metadata
+				seq: Math.floor(Math.random() * 10000) + 1000,
 				stream: streamName,
 				consumer: consumerName,
+				pending: Math.floor(Math.random() * 5),
 				timestamp: new Date().toISOString(),
 				redelivered: false,
 				redeliveryCount: 0,
+				ackWait: 30000, // 30 seconds in milliseconds
 			};
 
 			this.emit([this.helpers.returnJsonArray([sampleData])]);
@@ -194,12 +220,19 @@ export class NatsJetstreamTrigger implements INodeType {
 				throw error;
 			}
 
-			// Configure pull options
+			// Configure pull options - max_messages and max_bytes are mutually exclusive
 			const pullOptions: any = {
-				max_messages: options.maxMessages || 100,
-				max_bytes: options.maxBytes || 1024 * 1024,
 				expires: (options.expires || 30) * 1000, // Convert to milliseconds
 			};
+
+			// Set either max_messages or max_bytes, but not both (they are mutually exclusive)
+			if (options.maxBytes && options.maxBytes > 0) {
+				// If maxBytes is explicitly set, use it
+				pullOptions.max_bytes = options.maxBytes;
+			} else {
+				// Default to max_messages
+				pullOptions.max_messages = options.maxMessages || 100;
+			}
 
 			if (options.noWait) {
 				pullOptions.no_wait = true;

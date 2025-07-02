@@ -1,6 +1,5 @@
 import {
 	parseNatsMessage,
-	encodeData,
 	createNatsHeaders,
 	validateSubject,
 } from '../../utils/NatsHelpers';
@@ -90,32 +89,6 @@ describe('NatsHelpers', () => {
 			const result = parseNatsMessage(mockMsg);
 
 			expect(result.json.seq).toBe(123);
-		});
-	});
-
-	describe('encodeData', () => {
-		it('should always encode as JSON', () => {
-			const data = { test: 'value' };
-			const encoded = encodeData(data);
-			const decoded = JSON.parse(new TextDecoder().decode(encoded));
-
-			expect(decoded).toEqual(data);
-		});
-
-		it('should encode strings as JSON', () => {
-			const data = 'test string';
-			const encoded = encodeData(data);
-			const decoded = JSON.parse(new TextDecoder().decode(encoded));
-
-			expect(decoded).toBe(data);
-		});
-
-		it('should encode arrays as JSON', () => {
-			const data = [1, 2, 3, 4];
-			const encoded = encodeData(data);
-			const decoded = JSON.parse(new TextDecoder().decode(encoded));
-
-			expect(decoded).toEqual(data);
 		});
 	});
 

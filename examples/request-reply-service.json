@@ -12,13 +12,7 @@
     {
       "parameters": {
         "subject": "api.users.service",
-        "queueGroup": "user-service",
-        "replyMode": "manual",
-        "replyOptions": {
-          "replyField": "userData",
-          "includeRequest": true,
-          "defaultReply": "{\"error\": \"User not found\"}"
-        }
+        "queueGroup": "user-service"
       },
       "id": "service-subscriber",
       "name": "User Service Endpoint",
@@ -68,18 +62,33 @@
     {
       "parameters": {
         "subject": "api.echo",
-        "queueGroup": "echo-services",
-        "replyMode": "automatic",
-        "automaticReply": {
-          "responseTemplate": "{\n  \"echo\": \"={{$json.data}}\",\n  \"timestamp\": \"={{new Date().toISOString()}}\",\n  \"serviceId\": \"echo-service-1\"\n}",
-          "includeRequestInOutput": true
-        }
+        "queueGroup": "echo-services"
       },
       "id": "echo-service",
       "name": "Echo Service",
       "type": "n8n-nodes-synadia.natsTrigger",
       "typeVersion": 1,
-      "position": [680, 500],
+      "position": [900, 500],
+      "credentials": {
+        "natsApi": {
+          "id": "1",
+          "name": "NATS Connection"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "subject": "={{$json.request.replyTo}}",
+        "data": "={{JSON.stringify({\"echo\": $json.data, \"timestamp\": $now.toISO(), \"serviceId\": \"echo-service-1\"})}}",
+        "config": {
+          "publishType": "publish"
+        }
+      },
+      "id": "echo-reply",
+      "name": "Echo Reply",
+      "type": "n8n-nodes-synadia.nats",
+      "typeVersion": 1,
+      "position": [1120, 500],
       "credentials": {
         "natsApi": {
           "id": "1",
@@ -104,6 +113,26 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 2,
       "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "subject": "={{$json.request.replyTo}}",
+        "data": "={{JSON.stringify($json.userData)}}",
+        "config": {
+          "publishType": "publish"
+        }
+      },
+      "id": "send-reply",
+      "name": "Send Reply",
+      "type": "n8n-nodes-synadia.nats",
+      "typeVersion": 1,
+      "position": [680, 500],
+      "credentials": {
+        "natsApi": {
+          "id": "1",
+          "name": "NATS Connection"
+        }
+      }
     }
   ],
   "connections": {
@@ -123,6 +152,28 @@
         [
           {
             "node": "Process User Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process User Request": {
+      "main": [
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Echo Service": {
+      "main": [
+        [
+          {
+            "node": "Echo Reply",
             "type": "main",
             "index": 0
           }

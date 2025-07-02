@@ -83,6 +83,23 @@ export const keyFields: INodeProperties[] = [
 		hint: 'Example: config.database.host, user.profile.avatar, session.abc123',
 	},
 	{
+		displayName: 'Key Pattern',
+		name: 'key',
+		type: 'string',
+		default: '>',
+		required: true,
+		placeholder: '>',
+		displayOptions: {
+			show: {
+				resource: ['key'],
+				operation: ['list'],
+			},
+		},
+		description:
+			'Pattern to filter keys. Use ">" to list all keys, or patterns like "config.*" to filter.',
+		hint: 'Examples: ">" (all keys), "config.*" (keys starting with config.), "*.settings" (keys ending with .settings)',
+	},
+	{
 		displayName: 'Value',
 		name: 'value',
 		type: 'string',

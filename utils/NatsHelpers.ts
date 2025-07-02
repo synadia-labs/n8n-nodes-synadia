@@ -1,4 +1,4 @@
-import { INodeExecutionData, ApplicationError, IDataObject } from 'n8n-workflow';
+import {INodeExecutionData, ApplicationError, IDataObject, GenericValue} from 'n8n-workflow';
 import { Msg, MsgHdrs, MsgHdrsImpl } from '../bundled/nats-bundled';
 
 export interface NatsMessage {
@@ -10,15 +10,13 @@ export interface NatsMessage {
 
 export function parseNatsMessage(msg: Msg): INodeExecutionData {
 	// Try to decode and parse the data
-	let parsedData = msg.data;
+	let parsedData;
 	try {
-		// First decode from Uint8Array to string
-		const dataString = new TextDecoder().decode(msg.data);
 		// Then try to parse as JSON
-		parsedData = JSON.parse(dataString);
+		parsedData = msg.json() as IDataObject
 	} catch {
 		// If parsing fails, keep the raw data
-		parsedData = msg.data;
+		parsedData = msg.string() as GenericValue;
 	}
 
 	const result: INodeExecutionData = {
@@ -45,11 +43,6 @@ export function parseNatsMessage(msg: Msg): INodeExecutionData {
 	}
 
 	return result;
-}
-
-export function encodeData(data: any): Uint8Array {
-	// Always encode as JSON - keep it simple
-	return new TextEncoder().encode(JSON.stringify(data));
 }
 
 export function createNatsHeaders(headers: IDataObject): MsgHdrs {

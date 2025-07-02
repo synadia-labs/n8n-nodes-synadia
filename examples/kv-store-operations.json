@@ -13,8 +13,8 @@
       "parameters": {
         "resource": "bucket",
         "operation": "create",
-        "bucketName": "config-store",
-        "bucketConfig": {
+        "bucket": "config-store",
+        "config": {
           "description": "Application configuration storage",
           "history": 10,
           "ttl": 3600
@@ -77,7 +77,7 @@
         "resource": "key",
         "operation": "list",
         "bucket": "config-store",
-        "options": {}
+        "key": ">"
       },
       "id": "list-keys",
       "name": "List All Keys",
@@ -94,9 +94,10 @@
     {
       "parameters": {
         "bucket": "config-store",
-        "watchType": "all",
+        "key": ">",
         "options": {
-          "includeHistory": false
+          "includes": "",
+          "ignoreDeletes": false
         }
       },
       "id": "watch-changes",

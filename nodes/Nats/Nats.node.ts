@@ -20,7 +20,7 @@ export class Nats implements INodeType {
 		group: ['output'],
 		version: 1,
 		description: 'Send messages to NATS subjects',
-		subtitle: '{{$parameter["subject"]}}',
+		subtitle: '={{$parameter["subject"]}}',
 		defaults: {
 			name: 'NATS',
 		},
@@ -50,9 +50,8 @@ export class Nats implements INodeType {
 				typeOptions: {
 					rows: 4,
 				},
-				default: '{{ $json }}',
+				default: '={{ $json }}',
 				description: 'Message content to publish',
-				hint: 'Supports expressions like {{ $json }} to use input data',
 			},
 			{
 				displayName: 'Headers',
