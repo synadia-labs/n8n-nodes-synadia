@@ -131,7 +131,6 @@ describe('NatsJetstreamTrigger', () => {
 						maxMessages: 50,
 						maxBytes: 512 * 1024,
 						expires: 60,
-						noWait: true,
 					};
 					default: return undefined;
 				}
@@ -142,7 +141,6 @@ describe('NatsJetstreamTrigger', () => {
 			expect(mockConsumer.consume).toHaveBeenCalledWith({
 				max_bytes: 512 * 1024, // maxBytes takes priority
 				expires: 60000, // Converted to milliseconds
-				no_wait: true,
 			});
 		});
 
@@ -154,7 +152,6 @@ describe('NatsJetstreamTrigger', () => {
 					case 'options': return {
 						maxMessages: 50,
 						expires: 60,
-						noWait: false,
 					};
 					default: return undefined;
 				}

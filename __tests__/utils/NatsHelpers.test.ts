@@ -61,10 +61,12 @@ describe('NatsHelpers', () => {
 		});
 
 		it('should include headers when present', () => {
-			const mockHeaders = new Map<string, string | string[]>([
-				['X-Custom-Header', 'value1'],
-				['X-Another-Header', ['value2', 'value3']],
-			]);
+			const mockHeaders = {
+				toRecord: () => ({
+					'X-Custom-Header': 'value1',
+					'X-Another-Header': 'value2,value3',
+				}),
+			};
 
 			const mockMsg = {
 				subject: 'test.subject',
