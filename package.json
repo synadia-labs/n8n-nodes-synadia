@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-synadia",
-  "version": "0.3.0-rc.2",
+  "version": "0.3.0-rc.4",
   "description": "Synadia NATS nodes for n8n workflow automation",
   "main": "dist/index.js",
   "repository": {
@@ -10,7 +10,7 @@
   "bugs": {
     "url": "https://github.com/synadia-labs/n8n-nodes-synadia/issues"
   },
-  "homepage": "https://github.com/synadia-labs/n8n-nodes-synadia#readme",
+  "homepage": "https://github.com/synadia-labs/n8n-nodes-synadia",
   "scripts": {
     "lint": "eslint .",
     "lintfix": "eslint . --fix",
@@ -52,11 +52,8 @@
       "dist/nodes/NatsObjectStore/NatsObjectStoreTrigger.node.js"
     ]
   },
-  "dependencies": {
-    "n8n-core": "^1.82.0",
-    "n8n-workflow": "*"
-  },
   "devDependencies": {
+    "n8n-core": "^1.82.0",
     "@types/jest": "^29.5.14",
     "@typescript-eslint/parser": "~8.32.0",
     "eslint": "^8.57.0",
