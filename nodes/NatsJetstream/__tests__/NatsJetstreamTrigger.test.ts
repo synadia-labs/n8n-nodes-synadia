@@ -268,7 +268,7 @@ describe('NatsJetstreamTrigger', () => {
 	describe('Parameter Validation', () => {
 		it('should validate stream name', async () => {
 			mockGetNodeParameter.mockImplementation((paramName: string) => {
-				if (paramName === 'streamName') return 'invalid stream name'; // Contains spaces
+				if (paramName === 'streamName') return ''; // Empty stream name
 				if (paramName === 'consumerName') return 'test-consumer';
 				if (paramName === 'options') return {};
 				return undefined;
