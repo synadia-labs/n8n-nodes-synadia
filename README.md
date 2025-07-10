@@ -202,7 +202,20 @@ Service responds via NATS Trigger workflow
 
 ## Version history
 
-### 0.3.0-rc.1 (Current)
+### 0.3.0-rc.4 (Current)
+- **FIXED**: Username/password authentication for local NATS servers
+- **FIXED**: Removed overly restrictive stream name validation (no longer requires uppercase)
+- **IMPROVED**: Uses proper TCP transport instead of WebSocket for local connections
+- **IMPROVED**: Simplified stream name validation to allow any non-empty name
+
+### 0.3.0-rc.3
+- **IMPROVED**: Enhanced n8n Cloud compatibility
+- **IMPROVED**: Better package dependency management
+
+### 0.3.0-rc.2
+- **IMPROVED**: Release compatibility updates
+
+### 0.3.0-rc.1
 - **BREAKING**: Consolidated nodes into unified resource-based architecture
 - **NEW**: Enhanced sample data for all trigger nodes with realistic examples
 - **NEW**: Comprehensive GitHub Actions CI/CD workflows
