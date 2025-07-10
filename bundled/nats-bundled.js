@@ -1,4 +1,4 @@
-/* Bundled NATS.js client with WebSocket support for n8n-nodes-synadia */
+/* Bundled NATS.js client with Node.js TCP transport for n8n-nodes-synadia */
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
