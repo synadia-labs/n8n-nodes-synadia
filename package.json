@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-synadia",
-  "version": "0.3.0-rc.2",
+  "version": "0.3.0-rc.4",
   "description": "Synadia NATS nodes for n8n workflow automation",
   "main": "dist/index.js",
   "repository": {
@@ -10,7 +10,7 @@
   "bugs": {
     "url": "https://github.com/synadia-labs/n8n-nodes-synadia/issues"
   },
-  "homepage": "https://github.com/synadia-labs/n8n-nodes-synadia#readme",
+  "homepage": "https://github.com/synadia-labs/n8n-nodes-synadia",
   "scripts": {
     "lint": "eslint .",
     "lintfix": "eslint . --fix",
@@ -52,31 +52,29 @@
       "dist/nodes/NatsObjectStore/NatsObjectStoreTrigger.node.js"
     ]
   },
-  "dependencies": {
-    "n8n-core": "^1.82.0",
-    "n8n-workflow": "*"
-  },
   "devDependencies": {
-    "@types/jest": "^29.5.14",
-    "@typescript-eslint/parser": "~8.32.0",
-    "eslint": "^8.57.0",
-    "eslint-plugin-n8n-nodes-base": "^1.16.3",
-    "gulp": "^5.0.1",
-    "jest": "^30.0.0",
-    "prettier": "^3.5.3",
-    "typescript": "^5.8.2",
     "@nats-io/jetstream": "^3.0.2",
     "@nats-io/kv": "^3.0.2",
     "@nats-io/nats-core": "^3.0.2",
     "@nats-io/obj": "^3.0.2",
+    "@nats-io/transport-node": "^3.1.0",
     "@rollup/plugin-commonjs": "^28.0.5",
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-replace": "^6.0.2",
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^12.1.2",
+    "@types/jest": "^29.5.14",
+    "@typescript-eslint/parser": "~8.32.0",
     "esbuild": "^0.25.5",
-    "ts-jest": "^29.4.0"
+    "eslint": "^8.57.0",
+    "eslint-plugin-n8n-nodes-base": "^1.16.3",
+    "gulp": "^5.0.1",
+    "jest": "^30.0.0",
+    "n8n-core": "^1.82.0",
+    "prettier": "^3.5.3",
+    "ts-jest": "^29.4.0",
+    "typescript": "^5.8.2"
   },
   "peerDependencies": {
     "n8n-workflow": "*"

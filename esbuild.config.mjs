@@ -11,7 +11,7 @@ await esbuild.build({
   minify: false,
   keepNames: true,
   banner: {
-    js: '/* Bundled NATS.js client with WebSocket support for n8n-nodes-synadia */',
+    js: '/* Bundled NATS.js client with Node.js TCP transport for n8n-nodes-synadia */',
   },
   external: [
     'n8n-workflow',
@@ -21,6 +21,6 @@ await esbuild.build({
     'process.env.NODE_ENV': '"production"',
   },
   alias: {
-    // Ensure we use the WebSocket-enabled version
+    // Bundle with TCP transport for Node.js
   },
 });
