@@ -1,7 +1,8 @@
-// Wrapper for NATS.js with WebSocket support
+// Wrapper for NATS.js with Node.js TCP transport
 // This module provides a unified interface for the modular @nats-io packages
 
 // We'll dynamically import the modules to avoid bundling issues
+let natsTransport: any;
 let natsCore: any;
 let natsJetstream: any;
 let natsKv: any;
@@ -9,7 +10,8 @@ let natsObj: any;
 
 // Initialize function to load modules
 async function ensureModulesLoaded() {
-	if (!natsCore) {
+	if (!natsTransport) {
+		natsTransport = await import('@nats-io/transport-node');
 		natsCore = await import('@nats-io/nats-core');
 		natsJetstream = await import('@nats-io/jetstream');
 		natsKv = await import('@nats-io/kv');
@@ -93,8 +95,8 @@ export function consumerOpts() {
 // Export async functions that load modules on demand
 export async function connect(opts?: any): Promise<any> {
 	await ensureModulesLoaded();
-	// Use wsconnect for WebSocket connections
-	return natsCore.wsconnect(opts);
+	// Use TCP transport for standard NATS connections
+	return natsTransport.connect(opts);
 }
 
 export async function Empty(): Promise<Uint8Array> {
@@ -120,6 +122,21 @@ export async function jwtAuthenticator(jwt: string, seed: string): Promise<any> 
 export async function nkeyAuthenticator(seed: string): Promise<any> {
 	await ensureModulesLoaded();
 	return natsCore.nkeyAuthenticator(seed);
+}
+
+export async function credsAuthenticator(creds: Buffer): Promise<any> {
+	await ensureModulesLoaded();
+	return natsCore.credsAuthenticator(creds);
+}
+
+export async function usernamePasswordAuthenticator(username: string, password: string): Promise<any> {
+	await ensureModulesLoaded();
+	return natsCore.usernamePasswordAuthenticator(username, password);
+}
+
+export async function tokenAuthenticator(token: string): Promise<any> {
+	await ensureModulesLoaded();
+	return natsCore.tokenAuthenticator(token);
 }
 
 export async function jetstream(nc: any): Promise<any> {
@@ -154,6 +171,8 @@ export type {
 	SubscriptionOptions,
 	Subscription,
 } from '@nats-io/nats-core';
+
+export type { NodeConnectionOptions } from '@nats-io/transport-node';
 
 export type {
 	JetStreamClient,

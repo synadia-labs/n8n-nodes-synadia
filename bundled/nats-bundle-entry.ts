@@ -1,6 +1,6 @@
-// Entry point for bundling NATS.js with WebSocket support
+// Entry point for bundling NATS.js with Node.js TCP transport
+import { connect } from '@nats-io/transport-node';
 import {
-	wsconnect,
 	Empty,
 	createInbox,
 	headers,
@@ -94,7 +94,7 @@ export function consumerOpts() {
 
 // Re-export everything with proper names
 export {
-	wsconnect as connect,
+	connect,
 	Empty,
 	createInbox,
 	headers,
@@ -113,6 +113,7 @@ export const jetstreamManager = jsmFunc;
 export { Kvm, Objm };
 
 // Re-export all types
+export * from '@nats-io/transport-node';
 export * from '@nats-io/nats-core';
 export * from '@nats-io/jetstream';
 export * from '@nats-io/kv';
