@@ -126,25 +126,7 @@ export function validateStreamName(streamName: string): void {
 		});
 	}
 
-	// Check for invalid characters
-	if (streamName.includes(' ')) {
-		throw new ApplicationError('Stream name cannot contain spaces', {
-			level: 'warning',
-			tags: { nodeType: 'n8n-nodes-synadia.nats' },
-		});
-	}
-
-	// Stream names should be uppercase and contain only letters, numbers, underscores, and hyphens
-	const validPattern = /^[A-Z0-9_-]+$/;
-	if (!validPattern.test(streamName)) {
-		throw new ApplicationError(
-			'Stream name should be uppercase and contain only letters, numbers, underscores, and hyphens',
-			{
-				level: 'warning',
-				tags: { nodeType: 'n8n-nodes-synadia.nats' },
-			},
-		);
-	}
+	// Let NATS handle stream name validation - any non-empty name is valid for our purposes
 }
 
 export function validateConsumerName(consumerName: string): void {
