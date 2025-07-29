@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-synadia",
-  "version": "0.3.0-rc.4",
+  "version": "0.3.0",
   "description": "Synadia NATS nodes for n8n workflow automation",
   "main": "dist/index.js",
   "repository": {
