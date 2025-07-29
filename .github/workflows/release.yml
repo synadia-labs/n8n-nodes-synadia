@@ -135,6 +135,12 @@ jobs:
         echo "For pre-release:"
         echo "  npm publish --tag beta"
         
+    - name: Package dist folder
+      run: |
+        VERSION="${{ steps.extract_version.outputs.version || steps.manual_version.outputs.version }}"
+        tar -czf n8n-nodes-synadia-v${VERSION}-dist.tar.gz dist/
+        echo "Created release archive: n8n-nodes-synadia-v${VERSION}-dist.tar.gz"
+        
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
@@ -144,7 +150,10 @@ jobs:
         draft: false
         prerelease: ${{ github.event.inputs.pre-release == 'true' }}
         files: |
-          dist/**/*
+          n8n-nodes-synadia-v*.tar.gz
+          package.json
+          README.md
+          LICENSE
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
