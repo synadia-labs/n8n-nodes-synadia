@@ -1,4 +1,4 @@
-name: Release
+name: Release Verification
 
 on:
   push:
@@ -121,17 +121,19 @@ jobs:
         
         echo "release_notes_file=release_notes.md" >> $GITHUB_OUTPUT
         
-    - name: Publish to npm
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    - name: Verify release readiness
       run: |
-        if [[ "${{ github.event.inputs.pre-release }}" == "true" ]]; then
-          npm publish --tag beta
-          echo "Published as pre-release (beta tag)"
-        else
-          npm publish
-          echo "Published to npm"
-        fi
+        echo "✅ All checks passed! The package is ready for manual release."
+        echo ""
+        echo "📦 Package details:"
+        echo "  Name: $(node -p "require('./package.json').name")"
+        echo "  Version: $(node -p "require('./package.json').version")"
+        echo ""
+        echo "🚀 To publish this release to npm, run locally:"
+        echo "  npm publish"
+        echo ""
+        echo "For pre-release:"
+        echo "  npm publish --tag beta"
         
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
