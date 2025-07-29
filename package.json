@@ -28,7 +28,8 @@
     "jetstream",
     "messaging",
     "workflow",
-    "automation"
+    "automation",
+    "n8n-community-node-package"
   ],
   "author": "Synadia",
   "license": "MIT",
