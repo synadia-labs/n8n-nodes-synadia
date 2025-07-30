@@ -64,8 +64,8 @@ export const streamDescription: INodeProperties[] = [
 		},
 		default: '',
 		placeholder: 'EVENTS',
-		description: 'Name of the JetStream stream (uppercase recommended)',
-		hint: 'Stream names are typically uppercase and descriptive',
+		description: 'Name of the JetStream stream',
+		hint: 'Stream names should be descriptive',
 	},
 	{
 		displayName: 'Subject Filter',
