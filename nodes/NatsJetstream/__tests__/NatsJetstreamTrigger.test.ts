@@ -277,15 +277,7 @@ describe('NatsJetstreamTrigger', () => {
 			await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow();
 		});
 
-		it('should validate consumer name', async () => {
-			mockGetNodeParameter.mockImplementation((paramName: string) => {
-				if (paramName === 'streamName') return 'TEST_STREAM';
-				if (paramName === 'consumerName') return 'invalid consumer name'; // Contains spaces
-				if (paramName === 'options') return {};
-				return undefined;
-			});
-
-			await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow();
-		});
+		// Consumer name validation is now handled by NATS library itself
+		// We only validate that the consumer name is not empty
 	});
 });

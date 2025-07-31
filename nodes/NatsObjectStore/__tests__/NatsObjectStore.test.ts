@@ -112,17 +112,8 @@ describe('NatsObjectStore (Combined)', () => {
 			expect(result[0]).toHaveLength(1);
 		});
 
-		it('should validate bucket names for bucket operations', async () => {
-			(mockExecuteFunctions.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('bucket') // resource
-				.mockReturnValueOnce('create') // operation
-				.mockReturnValueOnce('invalid bucket') // bucket with space
-				.mockReturnValueOnce({}); // config
-
-			await expect(node.execute.call(mockExecuteFunctions)).rejects.toThrow(
-				'Bucket name cannot contain spaces'
-			);
-		});
+		// Bucket name validation is now handled by NATS library itself
+		// We only validate that the bucket name is not empty
 
 		it('should handle unknown bucket operations gracefully', async () => {
 			(mockExecuteFunctions.getNodeParameter as jest.Mock)

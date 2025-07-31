@@ -90,32 +90,7 @@ export function validateBucketName(bucketName: string): void {
 		});
 	}
 
-	// Check for invalid characters
-	if (bucketName.includes(' ')) {
-		throw new ApplicationError('Bucket name cannot contain spaces', {
-			level: 'warning',
-			tags: { nodeType: 'n8n-nodes-synadia.nats' },
-		});
-	}
-
-	if (bucketName.includes('.')) {
-		throw new ApplicationError('Bucket name cannot contain dots', {
-			level: 'warning',
-			tags: { nodeType: 'n8n-nodes-synadia.nats' },
-		});
-	}
-
-	// KV bucket names should contain only letters, numbers, underscores, and hyphens
-	const validPattern = /^[a-zA-Z0-9_-]+$/;
-	if (!validPattern.test(bucketName)) {
-		throw new ApplicationError(
-			'Bucket name contains invalid characters. Valid characters are: a-z, A-Z, 0-9, _, -',
-			{
-				level: 'warning',
-				tags: { nodeType: 'n8n-nodes-synadia.nats' },
-			},
-		);
-	}
+	// Let NATS handle bucket name validation - any non-empty name is valid for our purposes
 }
 
 export function validateStreamName(streamName: string): void {
@@ -137,32 +112,7 @@ export function validateConsumerName(consumerName: string): void {
 		});
 	}
 
-	// Check for invalid characters
-	if (consumerName.includes(' ')) {
-		throw new ApplicationError('Consumer name cannot contain spaces', {
-			level: 'warning',
-			tags: { nodeType: 'n8n-nodes-synadia.nats' },
-		});
-	}
-
-	if (consumerName.includes('.')) {
-		throw new ApplicationError('Consumer name cannot contain dots', {
-			level: 'warning',
-			tags: { nodeType: 'n8n-nodes-synadia.nats' },
-		});
-	}
-
-	// Consumer names should contain only letters, numbers, underscores, and hyphens
-	const validPattern = /^[a-zA-Z0-9_-]+$/;
-	if (!validPattern.test(consumerName)) {
-		throw new ApplicationError(
-			'Consumer name contains invalid characters. Valid characters are: a-z, A-Z, 0-9, _, -',
-			{
-				level: 'warning',
-				tags: { nodeType: 'n8n-nodes-synadia.nats' },
-			},
-		);
-	}
+	// Let NATS handle consumer name validation - any non-empty name is valid for our purposes
 }
 
 export function validateQueueGroup(queueGroup: string): void {
@@ -171,23 +121,5 @@ export function validateQueueGroup(queueGroup: string): void {
 		return;
 	}
 
-	// Check for invalid characters
-	if (queueGroup.includes(' ')) {
-		throw new ApplicationError('Queue group cannot contain spaces', {
-			level: 'warning',
-			tags: { nodeType: 'n8n-nodes-synadia.nats' },
-		});
-	}
-
-	// Queue groups should contain only letters, numbers, underscores, and hyphens
-	const validPattern = /^[a-zA-Z0-9_-]+$/;
-	if (!validPattern.test(queueGroup)) {
-		throw new ApplicationError(
-			'Queue group contains invalid characters. Valid characters are: a-z, A-Z, 0-9, _, -',
-			{
-				level: 'warning',
-				tags: { nodeType: 'n8n-nodes-synadia.nats' },
-			},
-		);
-	}
+	// Let NATS handle queue group validation - any non-empty name is valid for our purposes
 }
