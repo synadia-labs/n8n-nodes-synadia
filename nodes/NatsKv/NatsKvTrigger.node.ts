@@ -194,7 +194,89 @@ export class NatsKvTrigger implements INodeType {
 
 		// Manual trigger function for testing
 		const manualTriggerFunction = async () => {
-			// Provide comprehensive sample data based on KV watch operations
+			// Try to fetch real data from KV first
+			let connection: NatsConnection | undefined;
+			
+			try {
+				connection = await createNatsConnection(credentials, nodeLogger);
+				const js = jetstream(connection);
+				const kvManager = new Kvm(js);
+				
+				// Open the KV bucket
+				const kv = await kvManager.open(bucket);
+				
+				// Try to fetch some entries based on the key pattern
+				let realDataFound = false;
+				
+				if (key === '>') {
+					// List all keys (limit to 3 for sample)
+					const keys = await kv.keys();
+					let count = 0;
+					
+					for await (const k of keys) {
+						if (count >= 3) break;
+						
+						const entry = await kv.get(k);
+						if (entry && entry.value) {
+							const result: IDataObject = {
+								bucket,
+								key: k,
+								value: entry.value,
+								revision: entry.revision,
+								created: entry.created.toISOString(),
+								operation: 'GET',
+								delta: entry.delta || 0,
+								timestamp: new Date().toISOString(),
+								size: entry.value.length,
+								_sampleDataNote: 'This is real data from your KV bucket'
+							};
+							
+							this.emit([this.helpers.returnJsonArray([result])]);
+							realDataFound = true;
+							count++;
+						}
+					}
+				} else {
+					// Try to get specific key(s) based on pattern
+					const entry = await kv.get(key);
+					if (entry && entry.value) {
+						const result: IDataObject = {
+							bucket,
+							key: key,
+							value: entry.value,
+							revision: entry.revision,
+							created: entry.created.toISOString(),
+							operation: 'GET',
+							delta: entry.delta || 0,
+							timestamp: new Date().toISOString(),
+							size: entry.value.length,
+							_sampleDataNote: 'This is real data from your KV bucket'
+						};
+						
+						this.emit([this.helpers.returnJsonArray([result])]);
+						realDataFound = true;
+					}
+				}
+				
+				if (realDataFound) {
+					if (connection) {
+						await closeNatsConnection(connection, nodeLogger);
+					}
+					return;
+				}
+				
+				// No data found
+				nodeLogger.info(`No entries found in KV bucket '${bucket}' with key pattern '${key}', providing sample data`);
+				
+			} catch (error: any) {
+				nodeLogger.warn(`Could not fetch real data: ${error.message}. Providing sample data instead.`);
+			} finally {
+				if (connection) {
+					await closeNatsConnection(connection, nodeLogger);
+				}
+			}
+			
+			// Fallback: Provide comprehensive sample data based on KV watch operations
 			const sampleUserPreferences = {
 				theme: 'dark',
 				language: 'en',
@@ -223,6 +305,7 @@ export class NatsKvTrigger implements INodeType {
 				// Additional KV metadata that might be useful
 				size: JSON.stringify(sampleUserPreferences).length,
 				history: Math.floor(Math.random() * 3) + 1,
+				_sampleDataNote: 'This is sample data. No entries were found in your KV bucket.'
 			};
 
 			this.emit([this.helpers.returnJsonArray([sampleData])]);

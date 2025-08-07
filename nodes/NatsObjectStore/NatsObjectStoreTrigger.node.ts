@@ -158,7 +158,60 @@ export class NatsObjectStoreTrigger implements INodeType {
 
 		// Manual trigger function for testing
 		const manualTriggerFunction = async () => {
-			// Provide comprehensive sample data for Object Store operations
+			// Try to fetch real data from Object Store first
+			let connection: NatsConnection | undefined;
+			
+			try {
+				connection = await createNatsConnection(credentials, nodeLogger);
+				const js = jetstream(connection);
+				const objManager = new Objm(js);
+				const objectStore = await objManager.open(bucket);
+				
+				// Try to list some objects (limit to 3 for sample)
+				const objects = await objectStore.list();
+				let count = 0;
+				let realDataFound = false;
+				
+				for await (const obj of objects) {
+					if (count >= 3) break;
+					
+					const result: IDataObject = {
+						name: obj.name,
+						size: obj.size,
+						chunks: obj.chunks,
+						digest: obj.digest,
+						mtime: obj.mtime || new Date().toISOString(),
+						bucket: bucket,
+						deleted: obj.deleted || false,
+						metadata: obj.metadata || {},
+						revision: obj.revision,
+						_sampleDataNote: 'This is real data from your Object Store bucket'
+					};
+					
+					this.emit([this.helpers.returnJsonArray([result])]);
+					realDataFound = true;
+					count++;
+				}
+				
+				if (realDataFound) {
+					if (connection) {
+						await closeNatsConnection(connection, nodeLogger);
+					}
+					return;
+				}
+				
+				// No objects found
+				nodeLogger.info(`No objects found in Object Store bucket '${bucket}', providing sample data`);
+				
+			} catch (error: any) {
+				nodeLogger.warn(`Could not fetch real data: ${error.message}. Providing sample data instead.`);
+			} finally {
+				if (connection) {
+					await closeNatsConnection(connection, nodeLogger);
+				}
+			}
+			
+			// Fallback: Provide comprehensive sample data for Object Store operations
 			const fileTypes = ['pdf', 'jpg', 'txt', 'json', 'csv'];
 			const randomType = fileTypes[Math.floor(Math.random() * fileTypes.length)];
 			const randomSize = Math.floor(Math.random() * 5000000) + 100000; // 100KB to 5MB
@@ -181,6 +234,7 @@ export class NatsObjectStoreTrigger implements INodeType {
 				},
 				revision: Math.floor(Math.random() * 5) + 1,
 				created: new Date(Date.now() - Math.random() * 7200000).toISOString(), // Random time in last 2 hours
+				_sampleDataNote: 'This is sample data. No objects were found in your Object Store bucket.'
 			};
 
 			this.emit([this.helpers.returnJsonArray([sampleData])]);
