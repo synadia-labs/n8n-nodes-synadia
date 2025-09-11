@@ -99,7 +99,7 @@ describe('NatsJetstream', () => {
 		// Setup mocks
 		(NatsConnection.createNatsConnection as jest.Mock).mockResolvedValue(mockNatsConnection);
 		(NatsConnection.closeNatsConnection as jest.Mock).mockResolvedValue(undefined);
-		
+
 		const { jetstream, jetstreamManager } = require('../../../bundled/nats-bundled');
 		jetstream.mockReturnValue(mockJetStream);
 		jetstreamManager.mockResolvedValue(mockJetStreamManager);
@@ -116,10 +116,11 @@ describe('NatsJetstream', () => {
 				.mockReturnValueOnce('create') // operation
 				.mockReturnValueOnce('TEST_STREAM') // streamName
 				.mockReturnValueOnce('') // subject (not used for create)
-				.mockReturnValueOnce({ // streamConfig
+				.mockReturnValueOnce({
+					// streamConfig
 					subjects: ['test.>'],
 					storage: 'file',
-					retention: 'limits'
+					retention: 'limits',
 				});
 		});
 
@@ -129,13 +130,13 @@ describe('NatsJetstream', () => {
 			expect(result).toHaveLength(1);
 			expect(result[0]).toHaveLength(1);
 			expect(result[0][0].json).toEqual({
-				config: { name: 'TEST_STREAM' }
+				config: { name: 'TEST_STREAM' },
 			});
 			expect(mockJetStreamManager.streams.add).toHaveBeenCalledWith({
 				name: 'TEST_STREAM',
 				subjects: ['test.>'],
 				storage: 'file',
-				retention: 'limits'
+				retention: 'limits',
 			});
 		});
 
@@ -183,10 +184,11 @@ describe('NatsJetstream', () => {
 				.mockReturnValueOnce('create') // operation
 				.mockReturnValueOnce('TEST_STREAM') // streamName
 				.mockReturnValueOnce('') // consumerName (not used for create)
-				.mockReturnValueOnce({ // consumerConfig
+				.mockReturnValueOnce({
+					// consumerConfig
 					name: 'test-consumer',
 					durable_name: 'test-consumer',
-					ack_policy: 'explicit'
+					ack_policy: 'explicit',
 				});
 		});
 
@@ -197,12 +199,12 @@ describe('NatsJetstream', () => {
 			expect(result[0]).toHaveLength(1);
 			expect(result[0][0].json).toEqual({
 				stream_name: 'TEST_STREAM',
-				name: 'test-consumer'
+				name: 'test-consumer',
 			});
 			expect(mockJetStreamManager.consumers.add).toHaveBeenCalledWith('TEST_STREAM', {
 				name: 'test-consumer',
 				durable_name: 'test-consumer',
-				ack_policy: 'explicit'
+				ack_policy: 'explicit',
 			});
 		});
 	});
@@ -227,7 +229,7 @@ describe('NatsJetstream', () => {
 
 		it('should handle continue on fail', async () => {
 			mockExecuteFunctions.continueOnFail = jest.fn(() => true);
-			
+
 			// Mock parameters that will be called multiple times
 			mockGetNodeParameter.mockImplementation((paramName, index) => {
 				if (paramName === 'resource') return 'stream';
@@ -245,7 +247,7 @@ describe('NatsJetstream', () => {
 			expect(result[0][0].json).toEqual({
 				error: 'Unknown stream operation: unknown',
 				resource: 'stream',
-				operation: 'unknown'
+				operation: 'unknown',
 			});
 		});
 	});
@@ -264,11 +266,11 @@ describe('NatsJetstream', () => {
 
 			expect(NatsConnection.createNatsConnection).toHaveBeenCalledWith(
 				{ serverUrls: 'nats://localhost:4222' },
-				expect.any(Object)
+				expect.any(Object),
 			);
 			expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(
 				mockNatsConnection,
-				expect.any(Object)
+				expect.any(Object),
 			);
 		});
 

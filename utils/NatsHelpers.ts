@@ -1,4 +1,4 @@
-import {INodeExecutionData, ApplicationError, IDataObject, GenericValue} from 'n8n-workflow';
+import { INodeExecutionData, ApplicationError, IDataObject, GenericValue } from 'n8n-workflow';
 import { Msg, MsgHdrs, MsgHdrsImpl } from '../bundled/nats-bundled';
 
 export interface NatsMessage {
@@ -13,7 +13,7 @@ export function parseNatsMessage(msg: Msg): INodeExecutionData {
 	let parsedData;
 	try {
 		// Then try to parse as JSON
-		parsedData = msg.json() as IDataObject
+		parsedData = msg.json() as IDataObject;
 	} catch {
 		// If parsing fails, keep the raw data
 		parsedData = msg.string() as GenericValue;

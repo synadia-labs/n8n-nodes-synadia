@@ -102,12 +102,12 @@ export class NatsTrigger implements INodeType {
 					user: {
 						id: 'user-12345',
 						email: 'user@example.com',
-						name: 'John Doe'
+						name: 'John Doe',
 					},
 					metadata: {
 						source: 'web-app',
 						version: '1.0.0',
-						environment: 'production'
+						environment: 'production',
 					},
 					timestamp: Date.now(),
 				},
@@ -115,12 +115,11 @@ export class NatsTrigger implements INodeType {
 					'Content-Type': 'application/json',
 					'X-Request-ID': 'req-' + Math.random().toString(36).substr(2, 9),
 					'X-Source': 'manual-trigger',
-					'X-Version': '1.0'
+					'X-Version': '1.0',
 				},
 				replyTo: `_INBOX.${Math.random().toString(36).substr(2, 12)}`,
 				timestamp: new Date().toISOString(),
 			};
-
 
 			this.emit([this.helpers.returnJsonArray([sampleData])]);
 		};

@@ -162,9 +162,9 @@ export class NatsKvTrigger implements INodeType {
 				}
 
 				if (!normallyClosed) {
-					nodeLogger.warn("KV watcher loop stopped");
+					nodeLogger.warn('KV watcher loop stopped');
 				}
-			})().catch(e => {
+			})().catch((e) => {
 				nodeLogger.error(e);
 			});
 		};
@@ -196,26 +196,26 @@ export class NatsKvTrigger implements INodeType {
 		const manualTriggerFunction = async () => {
 			// Try to fetch real data from KV first
 			let connection: NatsConnection | undefined;
-			
+
 			try {
 				connection = await createNatsConnection(credentials, nodeLogger);
 				const js = jetstream(connection);
 				const kvManager = new Kvm(js);
-				
+
 				// Open the KV bucket
 				const kv = await kvManager.open(bucket);
-				
+
 				// Try to fetch some entries based on the key pattern
 				let realDataFound = false;
-				
+
 				if (key === '>') {
 					// List all keys (limit to 3 for sample)
 					const keys = await kv.keys();
 					let count = 0;
-					
+
 					for await (const k of keys) {
 						if (count >= 3) break;
-						
+
 						const entry = await kv.get(k);
 						if (entry && entry.value) {
 							const result: IDataObject = {
@@ -228,9 +228,9 @@ export class NatsKvTrigger implements INodeType {
 								delta: entry.delta || 0,
 								timestamp: new Date().toISOString(),
 								size: entry.value.length,
-								_sampleDataNote: 'This is real data from your KV bucket'
+								_sampleDataNote: 'This is real data from your KV bucket',
 							};
-							
+
 							this.emit([this.helpers.returnJsonArray([result])]);
 							realDataFound = true;
 							count++;
@@ -250,32 +250,35 @@ export class NatsKvTrigger implements INodeType {
 							delta: entry.delta || 0,
 							timestamp: new Date().toISOString(),
 							size: entry.value.length,
-							_sampleDataNote: 'This is real data from your KV bucket'
+							_sampleDataNote: 'This is real data from your KV bucket',
 						};
-						
+
 						this.emit([this.helpers.returnJsonArray([result])]);
 						realDataFound = true;
 					}
 				}
-				
+
 				if (realDataFound) {
 					if (connection) {
 						await closeNatsConnection(connection, nodeLogger);
 					}
 					return;
 				}
-				
+
 				// No data found
-				nodeLogger.info(`No entries found in KV bucket '${bucket}' with key pattern '${key}', providing sample data`);
-				
+				nodeLogger.info(
+					`No entries found in KV bucket '${bucket}' with key pattern '${key}', providing sample data`,
+				);
 			} catch (error: any) {
-				nodeLogger.warn(`Could not fetch real data: ${error.message}. Providing sample data instead.`);
+				nodeLogger.warn(
+					`Could not fetch real data: ${error.message}. Providing sample data instead.`,
+				);
 			} finally {
 				if (connection) {
 					await closeNatsConnection(connection, nodeLogger);
 				}
 			}
-			
+
 			// Fallback: Provide comprehensive sample data based on KV watch operations
 			const sampleUserPreferences = {
 				theme: 'dark',
@@ -284,13 +287,13 @@ export class NatsKvTrigger implements INodeType {
 				notifications: {
 					email: true,
 					push: false,
-					sms: false
+					sms: false,
 				},
 				dashboard: {
 					layout: 'grid',
 					widgets: ['weather', 'calendar', 'tasks'],
-					refreshRate: 30
-				}
+					refreshRate: 30,
+				},
 			};
 
 			const sampleData = {
@@ -305,7 +308,7 @@ export class NatsKvTrigger implements INodeType {
 				// Additional KV metadata that might be useful
 				size: JSON.stringify(sampleUserPreferences).length,
 				history: Math.floor(Math.random() * 3) + 1,
-				_sampleDataNote: 'This is sample data. No entries were found in your KV bucket.'
+				_sampleDataNote: 'This is sample data. No entries were found in your KV bucket.',
 			};
 
 			this.emit([this.helpers.returnJsonArray([sampleData])]);

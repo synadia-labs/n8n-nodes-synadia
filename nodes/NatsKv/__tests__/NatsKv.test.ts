@@ -67,7 +67,9 @@ describe('NatsKv (Combined)', () => {
 		it('should have correct node description', () => {
 			expect(node.description.displayName).toBe('NATS KV');
 			expect(node.description.name).toBe('natsKv');
-			expect(node.description.description).toBe('Interact with NATS JetStream Key-Value Store - manage buckets and keys');
+			expect(node.description.description).toBe(
+				'Interact with NATS JetStream Key-Value Store - manage buckets and keys',
+			);
 		});
 
 		it('should have resource selection with bucket and key options', () => {
@@ -78,16 +80,26 @@ describe('NatsKv (Combined)', () => {
 
 		it('should have bucket operations when resource is bucket', () => {
 			const operationParam = node.description.properties?.find(
-				(p) => p.name === 'operation' && p.displayOptions?.show?.resource?.includes('bucket')
+				(p) => p.name === 'operation' && p.displayOptions?.show?.resource?.includes('bucket'),
 			) as any;
-			expect(operationParam?.options?.map((op: any) => op.value)).toEqual(['create', 'delete', 'get']);
+			expect(operationParam?.options?.map((op: any) => op.value)).toEqual([
+				'create',
+				'delete',
+				'get',
+			]);
 		});
 
 		it('should have key operations when resource is key', () => {
 			const operationParam = node.description.properties?.find(
-				(p) => p.name === 'operation' && p.displayOptions?.show?.resource?.includes('key')
+				(p) => p.name === 'operation' && p.displayOptions?.show?.resource?.includes('key'),
 			) as any;
-			expect(operationParam?.options?.map((op: any) => op.value)).toEqual(['get', 'put', 'delete', 'list', 'history']);
+			expect(operationParam?.options?.map((op: any) => op.value)).toEqual([
+				'get',
+				'put',
+				'delete',
+				'list',
+				'history',
+			]);
 		});
 	});
 
