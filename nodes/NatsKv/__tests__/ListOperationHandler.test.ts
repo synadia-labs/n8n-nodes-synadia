@@ -167,7 +167,9 @@ describe('ListOperationHandler', () => {
 		});
 
 		it('should throw error when key pattern is not provided', async () => {
-			await expect(handler.execute(mockKV, { key: '' })).rejects.toThrow('key pattern is not provided');
+			await expect(handler.execute(mockKV, { key: '' })).rejects.toThrow(
+				'key pattern is not provided',
+			);
 			expect(mockKV.keys).not.toHaveBeenCalled();
 		});
 
@@ -184,7 +186,9 @@ describe('ListOperationHandler', () => {
 
 			mockKV.keys.mockRejectedValue(natsError);
 
-			await expect(handler.execute(mockKV, { key: testPattern })).rejects.toThrow('Bucket not found');
+			await expect(handler.execute(mockKV, { key: testPattern })).rejects.toThrow(
+				'Bucket not found',
+			);
 			expect(mockKV.keys).toHaveBeenCalledWith(testPattern);
 		});
 
@@ -207,7 +211,9 @@ describe('ListOperationHandler', () => {
 
 			mockKV.keys.mockRejectedValue(timeoutError);
 
-			await expect(handler.execute(mockKV, { key: testPattern })).rejects.toThrow('List operation timeout');
+			await expect(handler.execute(mockKV, { key: testPattern })).rejects.toThrow(
+				'List operation timeout',
+			);
 		});
 
 		it('should handle iterator errors during iteration', async () => {

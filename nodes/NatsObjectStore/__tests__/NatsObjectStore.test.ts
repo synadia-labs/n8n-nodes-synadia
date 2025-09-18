@@ -70,7 +70,9 @@ describe('NatsObjectStore (Combined)', () => {
 		it('should have correct node description', () => {
 			expect(node.description.displayName).toBe('NATS Object Store');
 			expect(node.description.name).toBe('natsObjectStore');
-			expect(node.description.description).toBe('Store and retrieve objects (files, data) in NATS JetStream Object Store - manage buckets and objects');
+			expect(node.description.description).toBe(
+				'Store and retrieve objects (files, data) in NATS JetStream Object Store - manage buckets and objects',
+			);
 		});
 
 		it('should have resource selection with bucket and object options', () => {
@@ -81,16 +83,26 @@ describe('NatsObjectStore (Combined)', () => {
 
 		it('should have bucket operations when resource is bucket', () => {
 			const operationParam = node.description.properties?.find(
-				(p) => p.name === 'operation' && p.displayOptions?.show?.resource?.includes('bucket')
+				(p) => p.name === 'operation' && p.displayOptions?.show?.resource?.includes('bucket'),
 			) as any;
-			expect(operationParam?.options?.map((op: any) => op.value)).toEqual(['create', 'delete', 'get']);
+			expect(operationParam?.options?.map((op: any) => op.value)).toEqual([
+				'create',
+				'delete',
+				'get',
+			]);
 		});
 
 		it('should have object operations when resource is object', () => {
 			const operationParam = node.description.properties?.find(
-				(p) => p.name === 'operation' && p.displayOptions?.show?.resource?.includes('object')
+				(p) => p.name === 'operation' && p.displayOptions?.show?.resource?.includes('object'),
 			) as any;
-			expect(operationParam?.options?.map((op: any) => op.value)).toEqual(['get', 'put', 'delete', 'info', 'list']);
+			expect(operationParam?.options?.map((op: any) => op.value)).toEqual([
+				'get',
+				'put',
+				'delete',
+				'info',
+				'list',
+			]);
 		});
 	});
 

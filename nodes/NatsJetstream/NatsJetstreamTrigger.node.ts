@@ -8,7 +8,11 @@ import {
 } from 'n8n-workflow';
 import { NatsConnection, jetstream, jetstreamManager } from '../../bundled/nats-bundled';
 import { createNatsConnection, closeNatsConnection } from '../../utils/NatsConnection';
-import { parseNatsMessage, validateStreamName, validateConsumerName } from '../../utils/NatsHelpers';
+import {
+	parseNatsMessage,
+	validateStreamName,
+	validateConsumerName,
+} from '../../utils/NatsHelpers';
 import { NodeLogger } from '../../utils/NodeLogger';
 
 export class NatsJetstreamTrigger implements INodeType {
@@ -72,7 +76,8 @@ export class NatsJetstreamTrigger implements INodeType {
 						name: 'maxBytes',
 						type: 'number',
 						default: 0,
-						description: 'Maximum bytes to fetch in each pull. If set, takes priority over Max Messages.',
+						description:
+							'Maximum bytes to fetch in each pull. If set, takes priority over Max Messages.',
 						hint: 'Set to 0 to use Max Messages instead. These options are mutually exclusive',
 					},
 					{
@@ -135,18 +140,18 @@ export class NatsJetstreamTrigger implements INodeType {
 							sku: 'WIDGET-001',
 							name: 'Premium Widget',
 							quantity: 2,
-							price: 49.99
-						}
+							price: 49.99,
+						},
 					],
 					shipping: {
 						address: '123 Main St, Anytown, NY 12345',
 						method: 'standard',
-						cost: 9.99
+						cost: 9.99,
 					},
 					payment: {
 						method: 'credit_card',
 						last4: '4242',
-						status: 'authorized'
+						status: 'authorized',
 					},
 					status: 'confirmed',
 					timestamp: Date.now(),
@@ -156,7 +161,7 @@ export class NatsJetstreamTrigger implements INodeType {
 					'X-Order-Source': 'web-app',
 					'X-User-Agent': 'Mozilla/5.0 (example)',
 					'X-Request-ID': 'req-' + Math.random().toString(36).substr(2, 12),
-					'X-Correlation-ID': 'corr-' + Math.random().toString(36).substr(2, 12)
+					'X-Correlation-ID': 'corr-' + Math.random().toString(36).substr(2, 12),
 				},
 				// JetStream specific metadata
 				seq: Math.floor(Math.random() * 10000) + 1000,
@@ -198,7 +203,9 @@ export class NatsJetstreamTrigger implements INodeType {
 				await jsm.streams.info(streamName);
 			} catch (error: any) {
 				if (error.code === 'STREAM_NOT_FOUND') {
-					throw new ApplicationError(`JetStream stream '${streamName}' not found. Please create the stream first.`);
+					throw new ApplicationError(
+						`JetStream stream '${streamName}' not found. Please create the stream first.`,
+					);
 				}
 				throw error;
 			}
@@ -208,7 +215,9 @@ export class NatsJetstreamTrigger implements INodeType {
 				consumer = await js.consumers.get(streamName, consumerName);
 			} catch (error: any) {
 				if (error.code === 'CONSUMER_NOT_FOUND') {
-					throw new ApplicationError(`JetStream consumer '${consumerName}' not found in stream '${streamName}'. Please create the consumer first.`);
+					throw new ApplicationError(
+						`JetStream consumer '${consumerName}' not found in stream '${streamName}'. Please create the consumer first.`,
+					);
 				}
 				throw error;
 			}
@@ -236,7 +245,7 @@ export class NatsJetstreamTrigger implements INodeType {
 					for await (const msg of messageIterator) {
 						try {
 							const parsedMessage = parseNatsMessage(msg);
-							
+
 							// Add JetStream-specific metadata
 							const jetstreamMessage = {
 								...parsedMessage,
@@ -252,9 +261,9 @@ export class NatsJetstreamTrigger implements INodeType {
 							// Acknowledge the message
 							msg.ack();
 						} catch (messageError: any) {
-							nodeLogger.error('Error processing JetStream message:', { 
+							nodeLogger.error('Error processing JetStream message:', {
 								error: messageError,
-								seq: msg.seq 
+								seq: msg.seq,
 							});
 							// NAK the message for redelivery
 							msg.nak();

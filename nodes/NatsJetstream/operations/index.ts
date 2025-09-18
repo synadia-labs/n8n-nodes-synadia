@@ -7,7 +7,7 @@ import { GetInfoOperationHandler as GetStreamInfoOperationHandler } from './GetS
 import { ListStreamsOperationHandler } from './ListStreamsOperationHandler';
 import { PurgeStreamOperationHandler } from './PurgeStreamOperationHandler';
 
-// Consumer operation handlers  
+// Consumer operation handlers
 import { ConsumerOperationHandler } from '../ConsumerOperationHandler';
 import { CreateConsumerOperationHandler } from './CreateConsumerOperationHandler';
 import { DeleteConsumerOperationHandler } from './DeleteConsumerOperationHandler';
@@ -15,7 +15,10 @@ import { GetInfoOperationHandler as GetConsumerInfoOperationHandler } from './Ge
 import { ListConsumersOperationHandler } from './ListConsumersOperationHandler';
 
 // Message operation handlers
-import { MessageOperationHandler, PublishMessageOperationHandler } from '../MessageOperationHandler';
+import {
+	MessageOperationHandler,
+	PublishMessageOperationHandler,
+} from '../MessageOperationHandler';
 
 export const streamOperationHandlers: Record<string, StreamOperationHandler> = {
 	create: new CreateStreamOperationHandler(),

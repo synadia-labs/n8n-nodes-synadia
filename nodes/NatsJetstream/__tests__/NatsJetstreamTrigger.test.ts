@@ -80,7 +80,7 @@ describe('NatsJetstreamTrigger', () => {
 		// Setup mocks
 		(NatsConnection.createNatsConnection as jest.Mock).mockResolvedValue(mockNatsConnection);
 		(NatsConnection.closeNatsConnection as jest.Mock).mockResolvedValue(undefined);
-		
+
 		const { jetstream, jetstreamManager } = require('../../../bundled/nats-bundled');
 		jetstream.mockReturnValue(mockJetStream);
 		jetstreamManager.mockResolvedValue(mockJetStreamManager);
@@ -88,10 +88,14 @@ describe('NatsJetstreamTrigger', () => {
 		// Default parameter values
 		mockGetNodeParameter.mockImplementation((paramName: string) => {
 			switch (paramName) {
-				case 'streamName': return 'TEST_STREAM';
-				case 'consumerName': return 'test-consumer';
-				case 'options': return {};
-				default: return undefined;
+				case 'streamName':
+					return 'TEST_STREAM';
+				case 'consumerName':
+					return 'test-consumer';
+				case 'options':
+					return {};
+				default:
+					return undefined;
 			}
 		});
 	});
@@ -125,14 +129,18 @@ describe('NatsJetstreamTrigger', () => {
 		it('should setup consumer with pull options (maxBytes takes priority)', async () => {
 			mockGetNodeParameter.mockImplementation((paramName: string) => {
 				switch (paramName) {
-					case 'streamName': return 'TEST_STREAM';
-					case 'consumerName': return 'test-consumer';
-					case 'options': return {
-						maxMessages: 50,
-						maxBytes: 512 * 1024,
-						expires: 60,
-					};
-					default: return undefined;
+					case 'streamName':
+						return 'TEST_STREAM';
+					case 'consumerName':
+						return 'test-consumer';
+					case 'options':
+						return {
+							maxMessages: 50,
+							maxBytes: 512 * 1024,
+							expires: 60,
+						};
+					default:
+						return undefined;
 				}
 			});
 
@@ -147,13 +155,17 @@ describe('NatsJetstreamTrigger', () => {
 		it('should use maxMessages when maxBytes is not set', async () => {
 			mockGetNodeParameter.mockImplementation((paramName: string) => {
 				switch (paramName) {
-					case 'streamName': return 'TEST_STREAM';
-					case 'consumerName': return 'test-consumer';
-					case 'options': return {
-						maxMessages: 50,
-						expires: 60,
-					};
-					default: return undefined;
+					case 'streamName':
+						return 'TEST_STREAM';
+					case 'consumerName':
+						return 'test-consumer';
+					case 'options':
+						return {
+							maxMessages: 50,
+							expires: 60,
+						};
+					default:
+						return undefined;
 				}
 			});
 
@@ -174,7 +186,7 @@ describe('NatsJetstreamTrigger', () => {
 
 			await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow(ApplicationError);
 			await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow(
-				"JetStream stream 'TEST_STREAM' not found"
+				"JetStream stream 'TEST_STREAM' not found",
 			);
 		});
 
@@ -185,13 +197,13 @@ describe('NatsJetstreamTrigger', () => {
 
 			await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow(ApplicationError);
 			await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow(
-				"JetStream consumer 'test-consumer' not found"
+				"JetStream consumer 'test-consumer' not found",
 			);
 		});
 
 		it('should handle connection errors', async () => {
 			(NatsConnection.createNatsConnection as jest.Mock).mockRejectedValue(
-				new Error('Connection failed')
+				new Error('Connection failed'),
 			);
 
 			await expect(node.trigger.call(mockTriggerFunctions)).rejects.toThrow(ApplicationError);
@@ -201,7 +213,7 @@ describe('NatsJetstreamTrigger', () => {
 	describe('Manual Trigger Function', () => {
 		it('should provide sample data', async () => {
 			const result = await node.trigger.call(mockTriggerFunctions);
-			
+
 			// Execute manual trigger
 			await result.manualTriggerFunction!();
 
@@ -247,7 +259,7 @@ describe('NatsJetstreamTrigger', () => {
 					onReconnect: expect.any(Function),
 					onDisconnect: expect.any(Function),
 					onAsyncError: expect.any(Function),
-				})
+				}),
 			);
 		});
 
@@ -260,7 +272,7 @@ describe('NatsJetstreamTrigger', () => {
 			expect(mockMessageIterator.stop).toHaveBeenCalled();
 			expect(NatsConnection.closeNatsConnection).toHaveBeenCalledWith(
 				mockNatsConnection,
-				expect.any(Object)
+				expect.any(Object),
 			);
 		});
 	});

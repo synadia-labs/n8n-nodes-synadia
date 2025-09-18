@@ -10,11 +10,11 @@ import { Kvm, KvOptions } from '../../bundled/nats-bundled';
 import { closeNatsConnection, createNatsConnection } from '../../utils/NatsConnection';
 import { NodeLogger } from '../../utils/NodeLogger';
 import { validateBucketName } from '../../utils/NatsHelpers';
-import { 
-	keyOperationHandlers, 
-	bucketOperationHandlers, 
-	KvOperationParams, 
-	KvmOperationParams 
+import {
+	keyOperationHandlers,
+	bucketOperationHandlers,
+	KvOperationParams,
+	KvmOperationParams,
 } from './operations';
 import { bucketOperations, bucketFields } from './BucketDescription';
 import { keyOperations, keyFields } from './KeyDescription';
@@ -27,7 +27,8 @@ export class NatsKv implements INodeType {
 		group: ['transform'],
 		version: 1,
 		description: 'Interact with NATS JetStream Key-Value Store - manage buckets and keys',
-		subtitle: '={{$parameter["resource"] + " - " + $parameter["operation"] + " - " + $parameter["bucket"]}}',
+		subtitle:
+			'={{$parameter["resource"] + " - " + $parameter["operation"] + " - " + $parameter["bucket"]}}',
 		defaults: {
 			name: 'NATS KV',
 		},
@@ -95,7 +96,8 @@ export class NatsKv implements INodeType {
 						const handler = bucketOperationHandlers[operation];
 						if (!handler) {
 							const error = `Unknown bucket operation: ${operation}`;
-							if (!this.continueOnFail()) throw new NodeOperationError(this.getNode(), error, { itemIndex: i });
+							if (!this.continueOnFail())
+								throw new NodeOperationError(this.getNode(), error, { itemIndex: i });
 
 							returnData.push({
 								error: new NodeOperationError(this.getNode(), error, { itemIndex: i }),
@@ -111,7 +113,6 @@ export class NatsKv implements INodeType {
 						};
 
 						result = await handler.execute(kvm, params);
-
 					} else if (resource === 'key') {
 						// Key operations
 						const kv = await kvm.open(bucket);
@@ -119,7 +120,8 @@ export class NatsKv implements INodeType {
 						const handler = keyOperationHandlers[operation];
 						if (!handler) {
 							const error = `Unknown key operation: ${operation}`;
-							if (!this.continueOnFail()) throw new NodeOperationError(this.getNode(), error, { itemIndex: i });
+							if (!this.continueOnFail())
+								throw new NodeOperationError(this.getNode(), error, { itemIndex: i });
 
 							returnData.push({
 								error: new NodeOperationError(this.getNode(), error, { itemIndex: i }),
@@ -135,10 +137,10 @@ export class NatsKv implements INodeType {
 						};
 
 						result = await handler.execute(kv, params);
-
 					} else {
 						const error = `Unknown resource: ${resource}`;
-						if (!this.continueOnFail()) throw new NodeOperationError(this.getNode(), error, { itemIndex: i });
+						if (!this.continueOnFail())
+							throw new NodeOperationError(this.getNode(), error, { itemIndex: i });
 
 						returnData.push({
 							error: new NodeOperationError(this.getNode(), error, { itemIndex: i }),
@@ -152,7 +154,6 @@ export class NatsKv implements INodeType {
 						json: result,
 						pairedItem: i,
 					});
-
 				} catch (error: any) {
 					if (!this.continueOnFail()) throw error;
 

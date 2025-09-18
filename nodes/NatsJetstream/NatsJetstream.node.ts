@@ -184,7 +184,10 @@ export class NatsJetstream implements INodeType {
 			// Flush any pending messages for message operations
 			await nc.flush();
 		} catch (error: any) {
-			throw new NodeOperationError(this.getNode(), `NATS JetStream operation failed: ${error.message}`);
+			throw new NodeOperationError(
+				this.getNode(),
+				`NATS JetStream operation failed: ${error.message}`,
+			);
 		} finally {
 			if (nc!) {
 				await closeNatsConnection(nc, nodeLogger);

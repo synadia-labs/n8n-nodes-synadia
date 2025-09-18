@@ -10,11 +10,11 @@ import { Objm, jetstream, ObjectStoreOptions } from '../../bundled/nats-bundled'
 import { closeNatsConnection, createNatsConnection } from '../../utils/NatsConnection';
 import { NodeLogger } from '../../utils/NodeLogger';
 import { validateBucketName } from '../../utils/NatsHelpers';
-import { 
-	objectOperationHandlers, 
-	bucketOperationHandlers, 
-	OsOperationParams, 
-	OsmOperationParams 
+import {
+	objectOperationHandlers,
+	bucketOperationHandlers,
+	OsOperationParams,
+	OsmOperationParams,
 } from './operations';
 import { bucketOperations, bucketFields } from './BucketDescription';
 import { objectOperations, objectFields } from './ObjectDescription';
@@ -26,8 +26,10 @@ export class NatsObjectStore implements INodeType {
 		icon: 'file:../../icons/nats.svg',
 		group: ['transform'],
 		version: 1,
-		description: 'Store and retrieve objects (files, data) in NATS JetStream Object Store - manage buckets and objects',
-		subtitle: '={{$parameter["resource"] + " - " + $parameter["operation"] + " - " + $parameter["bucket"]}}',
+		description:
+			'Store and retrieve objects (files, data) in NATS JetStream Object Store - manage buckets and objects',
+		subtitle:
+			'={{$parameter["resource"] + " - " + $parameter["operation"] + " - " + $parameter["bucket"]}}',
 		defaults: {
 			name: 'NATS Object Store',
 		},
@@ -96,7 +98,8 @@ export class NatsObjectStore implements INodeType {
 						const handler = bucketOperationHandlers[operation];
 						if (!handler) {
 							const error = `Unknown bucket operation: ${operation}`;
-							if (!this.continueOnFail()) throw new NodeOperationError(this.getNode(), error, { itemIndex: i });
+							if (!this.continueOnFail())
+								throw new NodeOperationError(this.getNode(), error, { itemIndex: i });
 
 							returnData.push({
 								error: new NodeOperationError(this.getNode(), error, { itemIndex: i }),
@@ -112,7 +115,6 @@ export class NatsObjectStore implements INodeType {
 						};
 
 						result = await handler.execute(osm, params);
-
 					} else if (resource === 'object') {
 						// Object operations
 						const os = await osm.open(bucket);
@@ -120,7 +122,8 @@ export class NatsObjectStore implements INodeType {
 						const handler = objectOperationHandlers[operation];
 						if (!handler) {
 							const error = `Unknown object operation: ${operation}`;
-							if (!this.continueOnFail()) throw new NodeOperationError(this.getNode(), error, { itemIndex: i });
+							if (!this.continueOnFail())
+								throw new NodeOperationError(this.getNode(), error, { itemIndex: i });
 
 							returnData.push({
 								error: new NodeOperationError(this.getNode(), error, { itemIndex: i }),
@@ -140,10 +143,10 @@ export class NatsObjectStore implements INodeType {
 						}
 
 						result = await handler.execute(os, params);
-
 					} else {
 						const error = `Unknown resource: ${resource}`;
-						if (!this.continueOnFail()) throw new NodeOperationError(this.getNode(), error, { itemIndex: i });
+						if (!this.continueOnFail())
+							throw new NodeOperationError(this.getNode(), error, { itemIndex: i });
 
 						returnData.push({
 							error: new NodeOperationError(this.getNode(), error, { itemIndex: i }),
@@ -157,7 +160,6 @@ export class NatsObjectStore implements INodeType {
 						json: result,
 						pairedItem: i,
 					});
-
 				} catch (error: any) {
 					if (!this.continueOnFail()) throw error;
 

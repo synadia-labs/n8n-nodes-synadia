@@ -111,73 +111,64 @@ SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY
 			required: true,
 		},
 		{
-			displayName: 'Options',
-			name: 'options',
-			type: 'collection',
-			placeholder: 'Add Option',
-			default: {},
-			options: [
-				{
-					displayName: 'Client Name',
-					name: 'name',
-					type: 'string',
-					default: '',
-					description: 'Client name for connection identification',
+			displayName: 'Client Name',
+			name: 'name',
+			type: 'string',
+			default: '',
+			description: 'Client name for connection identification',
+		},
+		{
+			displayName: 'Enable TLS',
+			name: 'tlsEnabled',
+			type: 'boolean',
+			default: false,
+			description: 'Whether to enable TLS encryption',
+		},
+		{
+			displayName: 'TLS CA Certificate',
+			name: 'ca',
+			type: 'string',
+			typeOptions: {
+				rows: 4,
+			},
+			displayOptions: {
+				show: {
+					tlsEnabled: [true],
 				},
-				{
-					displayName: 'Enable TLS',
-					name: 'tlsEnabled',
-					type: 'boolean',
-					default: false,
-					description: 'Whether to enable TLS encryption',
+			},
+			default: '',
+			description: 'CA certificate for TLS verification',
+		},
+		{
+			displayName: 'TLS Client Certificate',
+			name: 'cert',
+			type: 'string',
+			typeOptions: {
+				rows: 4,
+			},
+			displayOptions: {
+				show: {
+					tlsEnabled: [true],
 				},
-				{
-					displayName: 'TLS CA Certificate',
-					name: 'ca',
-					type: 'string',
-					typeOptions: {
-						rows: 4,
-					},
-					displayOptions: {
-						show: {
-							tlsEnabled: [true],
-						},
-					},
-					default: '',
-					description: 'CA certificate for TLS verification',
+			},
+			default: '',
+			description: 'Client certificate for TLS authentication',
+		},
+		{
+			displayName: 'TLS Client Key',
+			name: 'key',
+			type: 'string',
+			typeOptions: {
+				rows: 4,
+				password: true,
+			},
+			displayOptions: {
+				show: {
+					tlsEnabled: [true],
 				},
-				{
-					displayName: 'TLS Client Certificate',
-					name: 'cert',
-					type: 'string',
-					typeOptions: {
-						rows: 4,
-					},
-					displayOptions: {
-						show: {
-							tlsEnabled: [true],
-						},
-					},
-					default: '',
-					description: 'Client certificate for TLS authentication',
-				},
-				{
-					displayName: 'TLS Client Key',
-					name: 'key',
-					type: 'string',
-					typeOptions: {
-						rows: 4,
-						password: true,
-					},
-					displayOptions: {
-						show: {
-							tlsEnabled: [true],
-						},
-					},
-					default: '',
-					description: 'Client key for TLS authentication',
-				},
-			],
+			},
+			default: '',
+			description: 'Client key for TLS authentication',
 		},
 	];
 
